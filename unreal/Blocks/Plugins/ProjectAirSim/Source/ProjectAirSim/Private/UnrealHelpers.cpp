@@ -5,28 +5,10 @@
 
 #include "UnrealHelpers.h"
 
-#include "AssetRegistry/IAssetRegistry.h"
 #include "Engine/Engine.h"
 #include "Engine/SkeletalMesh.h"
-#include "HAL/PlatformMisc.h"
 #include "LandscapeComponent.h"
 #include "ProceduralMeshComponent.h"
-
-namespace {
-
-bool IsProjectAirSimCi() {
-  return !FPlatformMisc::GetEnvironmentVariable(TEXT("PROJECTAIRSIM_CI"))
-              .IsEmpty();
-}
-
-void ForceAssetRegistryScanIfCi(IAssetRegistry& registry) {
-  if (IsProjectAirSimCi()) {
-    registry.SearchAllAssets(true);
-    registry.WaitForCompletion();
-  }
-}
-
-}  // namespace
 
 namespace projectairsim = microsoft::projectairsim;
 
@@ -74,12 +56,7 @@ bool UnrealHelpers::GenerateAssetRegistryMap(
         FAssetRegistryModule& AssetRegistryModule =
             FModuleManager::LoadModuleChecked<FAssetRegistryModule>(
                 "AssetRegistry");
-        IAssetRegistry& registry = AssetRegistryModule.Get();
-        // When PROJECTAIRSIM_CI is set (e.g. headless CI), force a full asset
-        // scan before querying; otherwise discovery may not be complete and
-        // plugin assets can be intermittently missing.
-        ForceAssetRegistryScanIfCi(registry);
-        registry.GetAssets(Filter, AssetData);
+        AssetRegistryModule.Get().GetAssets(Filter, AssetData);
 
         for (const auto& asset : AssetData) {
           FString asset_name = asset.AssetName.ToString();
@@ -116,12 +93,7 @@ bool UnrealHelpers::GenerateBlueprintRegistryMap(
         FAssetRegistryModule& AssetRegistryModule =
             FModuleManager::LoadModuleChecked<FAssetRegistryModule>(
                 "AssetRegistry");
-        IAssetRegistry& registry = AssetRegistryModule.Get();
-        // When PROJECTAIRSIM_CI is set (e.g. headless CI), force a full asset
-        // scan before querying; otherwise discovery may not be complete and
-        // plugin assets can be intermittently missing.
-        ForceAssetRegistryScanIfCi(registry);
-        registry.GetAssets(Filter, AssetData);
+        AssetRegistryModule.Get().GetAssets(Filter, AssetData);
 
         for (const auto& asset : AssetData) {
           FString asset_name = asset.AssetName.ToString();
@@ -158,12 +130,7 @@ bool UnrealHelpers::GenerateSkeletalMeshRegistryMap(
         FAssetRegistryModule& AssetRegistryModule =
             FModuleManager::LoadModuleChecked<FAssetRegistryModule>(
                 "AssetRegistry");
-        IAssetRegistry& registry = AssetRegistryModule.Get();
-        // When PROJECTAIRSIM_CI is set (e.g. headless CI), force a full asset
-        // scan before querying; otherwise discovery may not be complete and
-        // plugin assets can be intermittently missing.
-        ForceAssetRegistryScanIfCi(registry);
-        registry.GetAssets(Filter, AssetData);
+        AssetRegistryModule.Get().GetAssets(Filter, AssetData);
 
         for (const auto& asset : AssetData) {
           FString asset_name = asset.AssetName.ToString();
@@ -415,13 +382,13 @@ void UnrealHelpers::SetActorName(AActor* actor, const std::string& new_name) {
                     TEXT("[UnrealHelpers] SetActorName() to '%s'."), *NewName);
 }
 
-FString UnrealHelpers::GetSegmentationName(UProceduralMeshComponent* mesh,
+FString UnrealHelpers::GetSegmentationName(UMeshComponent* mesh,
                                            bool /*use_owner_name*/) {
   if (mesh == nullptr) return "";
   if (mesh->GetOwner() == nullptr) return "";
 
-  // UProceduralMeshComponent names are not set directly since their data is
-  // managed at runtime by their owner AProcMeshActor, so always use the
+  // Mesh component names are not set directly since their data is
+  // managed at runtime by their owner, so always use the
   // owner's name for segmentation name matching.
   return mesh->GetOwner()->GetName();
 }

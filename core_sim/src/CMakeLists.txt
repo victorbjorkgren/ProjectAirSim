@@ -110,17 +110,19 @@ set_target_properties(${TARGET_NAME} PROPERTIES
 if(WIN32)
     add_dependencies(${TARGET_NAME} nng-external)
 else()
-    add_dependencies(${TARGET_NAME} nng-external openssl-external zlib-external)
+    add_dependencies(${TARGET_NAME} nng-external openssl-external)
 endif()
 
 # Set up nng and openssl for linking
 target_link_directories(${TARGET_NAME} PRIVATE ${NNG_LIB_DIR})
 target_compile_definitions(${TARGET_NAME} PRIVATE NNG_STATIC_LIB=ON)
-target_compile_definitions(${TARGET_NAME} PRIVATE PROJECTAIRSIM_BUILD_COMMIT_HASH="${PROJECTAIRSIM_BUILD_COMMIT_HASH}")
 
-target_include_directories(${TARGET_NAME} PRIVATE "${ONNXRUNTIME_ROOTDIR}/include")
-target_link_directories(${TARGET_NAME} PRIVATE "${ONNXRUNTIME_ROOTDIR}/lib")
-target_link_libraries(${TARGET_NAME} PRIVATE onnxruntime)
+# Only link against ONNX Runtime if it's not disabled
+if(NOT APPLE AND DEFINED ONNX_INCLUDE_DIR AND DEFINED ONNX_LIB_DIR)
+    target_include_directories(${TARGET_NAME} PRIVATE "${ONNX_INCLUDE_DIR}")
+    target_link_directories(${TARGET_NAME} PRIVATE "${ONNX_LIB_DIR}")
+    target_link_libraries(${TARGET_NAME} PRIVATE onnxruntime)
+endif()
 
 
 target_include_directories(
@@ -155,7 +157,7 @@ else()
         ${TARGET_NAME}
         PRIVATE
             nng
-            ${OPENSSL_CRYPTO_LIBRARY} # Client authorization
+            crypto # Client authorization
     )
 endif()
 
@@ -164,7 +166,6 @@ add_custom_command(TARGET ${TARGET_NAME}
     COMMAND ${CMAKE_COMMAND} -E echo "Packaging [${TARGET_NAME}] build outputs to ${UE_PLUGIN_SIMLIBS_DIR}/${TARGET_NAME}/$<IF:$<CONFIG:Release>,Release,Debug>"
     COMMAND ${CMAKE_COMMAND} -E copy_directory $<TARGET_FILE_DIR:${TARGET_NAME}> ${UE_PLUGIN_SIMLIBS_DIR}/${TARGET_NAME}/$<IF:$<CONFIG:Release>,Release,Debug>
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/../include ${UE_PLUGIN_SIMLIBS_DIR}/${TARGET_NAME}/include
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_BINARY_DIR}/commit_hash.txt ${UE_PLUGIN_SIMLIBS_DIR}/commit_hash.txt
     COMMAND ${CMAKE_COMMAND} -E remove_directory ${UE_PLUGIN_SIMLIBS_DIR}/${TARGET_NAME}/$<IF:$<CONFIG:Release>,Release,Debug>/CMakeFiles
     COMMAND ${CMAKE_COMMAND} -E remove -f ${UE_PLUGIN_SIMLIBS_DIR}/${TARGET_NAME}/$<IF:$<CONFIG:Release>,Release,Debug>/cmake_install.cmake
     COMMAND ${CMAKE_COMMAND} -E remove -f ${UE_PLUGIN_SIMLIBS_DIR}/${TARGET_NAME}/$<IF:$<CONFIG:Release>,Release,Debug>/CTestTestfile.cmake

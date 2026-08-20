@@ -71,9 +71,11 @@ class World(object):
             self.envactor_config_paths = config_paths[2]
             self.load_scene(config_dict, delay_after_load_sec=delay_after_load_sec)
         random.seed()
-        self.import_ned_trajectory(
-            "null_trajectory", [0, 1], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]
-        )
+        # Only import null_trajectory if a scene has been loaded
+        if self.sim_config is not None:
+            self.import_ned_trajectory(
+                "null_trajectory", [0, 1], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]
+            )
 
     def get_configuration(self) -> Dict:
         """Get the current configuration that has been loaded to the sim server
@@ -87,7 +89,7 @@ class World(object):
         """Get sim clock type
 
         Returns:
-            string: the sim clock type ("steppable", "real-time", "engine-driven", or "external-clock")
+            string: the sim clock type ("steppable" or "real-time")
         """
         sim_clock_type_req: Dict = {
             "method": f"{self.parent_topic}/GetSimClockType",
@@ -422,6 +424,33 @@ class World(object):
             assert "rotation" in obj_pose.keys(), "Invalid Pose result"
             object_poses[i] = Pose(obj_pose)
         return object_poses
+
+    def get_spawn_points(self) -> List[Dict]:
+        """Get all spawn points placed in the world
+
+        Returns a list of all SpawnPoint actors placed in the Unreal editor.
+        Each spawn point includes its name, display name, description, and pose.
+
+        Returns:
+            List[Dict]: A list of dictionaries, each containing:
+                - name (str): The actor name
+                - display_name (str): The display name set in the editor
+                - description (str): Optional description
+                - translation (Dict): Position as {"x": float, "y": float, "z": float}
+                - rotation (Dict): Orientation as {"w": float, "x": float, "y": float, "z": float}
+
+        Example:
+            >>> spawn_points = world.get_spawn_points()
+            >>> for sp in spawn_points:
+            ...     print(f"Spawn point: {sp['name']} at {sp['translation']}")
+        """
+        get_spawn_points_req: Dict = {
+            "method": f"{self.parent_topic}/GetSpawnPoints",
+            "params": {},
+            "version": 1.0,
+        }
+        spawn_points = self.client.request(get_spawn_points_req)
+        return spawn_points
 
     def set_object_pose(
         self, object_name: str, object_pose: Pose, teleport: bool
@@ -1031,7 +1060,7 @@ class World(object):
                 )
             else:
                 projectairsim_log().warn(
-                    "For non-steppable clock types, assets cannot be spawned before starting the sim clock."
+                    "For real-time clock types, assets cannot be spawned before starting the sim clock."
                 )
 
         sim_config_data = commentjson.dumps(scene_config_dict)
@@ -1067,6 +1096,10 @@ class World(object):
         projectairsim_log().info(
             f"World object updated for the loaded scene '{self.parent_topic}'. "
             "Note: Any previous Drone object instances may no longer be valid."
+        )
+        # Import null_trajectory after scene is loaded
+        self.import_ned_trajectory(
+            "null_trajectory", [0, 1], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]
         )
         return scene_id
 

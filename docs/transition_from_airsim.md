@@ -63,7 +63,7 @@ The following is a rough guide on how to handle each element from the AirSim OSS
 
 **"SimMode":** 
 
-Project Airsim assumes that any autonomous vehicle is in use (Ground or Aerial for now). For ComputerVision, take a look at computer_vision.py.
+Project Airsim assumes that a Multirotor vehicle is in use. There is no Car support. For ComputerVision, follow the [computer vision guide](tbd).
 
 **"ViewMode", "CameraDirector":** 
 
@@ -124,6 +124,8 @@ For multirotor vehicles, set up the `"controller"` in the vehicle config e.g.:
 }
 ```
 Set an appropriate name for the id, then specify `"simple-flight-api"`, `"px4-api"`, or `"manual-controller-api"` as the `"type"` and fill in the `"simple-flight-api-settings"`, `"px4-settings"`, or `"manual-controller-api-setttings"` as appropriate.
+PhysXCar and ArduRover have no equivalents, as cars are unimplemented in Project AirSim.
+For ComputerVision, follow the [computer vision guide](tbd).
 
 **"PawnPath":**
 

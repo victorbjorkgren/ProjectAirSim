@@ -5,17 +5,23 @@
 
 #include "WorldSimApi.h"
 
+#include "SpawnPoint.h"
+#include "Kismet/GameplayStatics.h"
 #include "ImageUtils.h"
 #include "Misc/FileHelper.h"
 #include "Misc/OutputDeviceNull.h"
+#ifndef __APPLE__
 #include "Renderers/AssimpToProcMesh.h"
+#endif
 #include "Renderers/ProcMeshActor.h"
 #include "Runtime/Core/Public/Async/ParallelFor.h"
 #include "WeatherLib.h"
+#ifndef __APPLE__
 #include "assimp/postprocess.h"
 #include "assimp/scene.h"
-#include "core_sim/actor/env_actor.hpp"
 #include "assimp/Importer.hpp"
+#endif
+#include "core_sim/actor/env_actor.hpp"
 #include "core_sim/geodetic_converter.hpp"
 
 namespace projectairsim = microsoft::projectairsim;
@@ -251,6 +257,11 @@ void WorldSimApi::RegisterServiceMethods() {
   auto get_seg_map_handler = get_seg_map.CreateMethodHandler(
       &WorldSimApi::GetSegmentationIDMap, *this);
   sim_scene_->RegisterServiceMethod(get_seg_map, get_seg_map_handler);
+
+  auto get_spawn_points = projectairsim::ServiceMethod("GetSpawnPoints", {});
+  auto get_spawn_points_handler = get_spawn_points.CreateMethodHandler(
+      &WorldSimApi::GetSpawnPoints, *this);
+  sim_scene_->RegisterServiceMethod(get_spawn_points, get_spawn_points_handler);
 
   auto create_voxel_grid = projectairsim::ServiceMethod(
       "createVoxelGrid",
@@ -575,6 +586,11 @@ std::string WorldSimApi::spawnObjectFromFile(
     const std::string& object_name, const std::string& file_format,
     const std::vector<uint8_t>& byte_array, bool is_binary, const Pose& pose,
     const std::vector<float>& scale, bool enable_physics) {
+#ifdef __APPLE__
+  // Assimp is disabled on macOS due to zlib compatibility issues
+  UE_LOG(LogTemp, Warning, TEXT("spawnObjectFromFile is not supported on macOS (assimp disabled)"));
+  return "";
+#else
   FTransform actor_transform = UnrealTransform::FromGlobalNed(pose);
   bool spawned_object = false;
   std::string status;
@@ -636,6 +652,7 @@ std::string WorldSimApi::spawnObjectFromFile(
       true);
 
   return object_name_temp;
+#endif // __APPLE__
 }
 
 std::string WorldSimApi::spawnObjectFromFileServiceMethod(
@@ -1390,6 +1407,50 @@ nlohmann::json WorldSimApi::GetSegmentationIDMap() {
       },
       true);
   return seg_json;
+}
+
+nlohmann::json WorldSimApi::GetSpawnPoints() {
+  nlohmann::json spawn_points_json = nlohmann::json::array();
+  UnrealHelpers::RunCommandOnGameThread(
+      [this, &spawn_points_json]() {
+        TArray<AActor*> FoundActors;
+        UGameplayStatics::GetAllActorsOfClass(
+            unreal_world_, ASpawnPoint::StaticClass(), FoundActors);
+
+        for (AActor* Actor : FoundActors) {
+          ASpawnPoint* SpawnPoint = Cast<ASpawnPoint>(Actor);
+          if (SpawnPoint) {
+            FTransform ActorTransform = SpawnPoint->GetActorTransform();
+            WorldSimApi::Pose SpawnPose =
+                UnrealTransform::ToGlobalNed(ActorTransform);
+
+            nlohmann::json spawn_point;
+            spawn_point["name"] = TCHAR_TO_UTF8(*SpawnPoint->GetName());
+            spawn_point["display_name"] =
+                TCHAR_TO_UTF8(*SpawnPoint->DisplayName);
+            spawn_point["description"] =
+                TCHAR_TO_UTF8(*SpawnPoint->Description);
+
+            // Add pose information
+            nlohmann::json translation;
+            translation["x"] = SpawnPose.translation_.x();
+            translation["y"] = SpawnPose.translation_.y();
+            translation["z"] = SpawnPose.translation_.z();
+            spawn_point["translation"] = translation;
+
+            nlohmann::json rotation;
+            rotation["w"] = SpawnPose.rotation_.w();
+            rotation["x"] = SpawnPose.rotation_.x();
+            rotation["y"] = SpawnPose.rotation_.y();
+            rotation["z"] = SpawnPose.rotation_.z();
+            spawn_point["rotation"] = rotation;
+
+            spawn_points_json.push_back(spawn_point);
+          }
+        }
+      },
+      true);
+  return spawn_points_json;
 }
 
 AActor* WorldSimApi::FindActor(const std::string& object_name) {

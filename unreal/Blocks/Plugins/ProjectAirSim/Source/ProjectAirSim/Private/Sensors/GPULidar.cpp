@@ -7,7 +7,6 @@
 #include "GPULidar.h"
 
 #include "ProjectAirSim.h"
-#include "UnrealCompatibility.h"
 #include "Components/LineBatchComponent.h"
 #include "DrawDebugHelpers.h"
 #include "Engine/CollisionProfile.h"
@@ -21,28 +20,14 @@
 #include "Misc/FileHelper.h"
 #include "Runtime/Core/Public/Async/ParallelFor.h"
 #include "Runtime/Engine/Classes/Kismet/KismetMathLibrary.h"
+#include "SceneView.h"
 #include "Serialization/BufferArchive.h"
 #include "UObject/ConstructorHelpers.h"
 #include "UnrealCameraRenderRequest.h"
 #include "UnrealLogger.h"
 #include "UnrealTransforms.h"
 
-#include <cmath>
-
 namespace projectairsim = microsoft::projectairsim;
-
-namespace {
-
-float NormalizeGPULidarAngleDeg(float AngleDeg) {
-  return std::fmod(360.0f + std::fmod(AngleDeg, 360.0f), 360.0f);
-}
-
-float GetHorizontalFovSpanDeg(float StartAngleDeg, float EndAngleDeg) {
-  const float SpanDeg = NormalizeGPULidarAngleDeg(EndAngleDeg - StartAngleDeg);
-  return FMath::IsNearlyZero(SpanDeg) ? 360.0f : SpanDeg;
-}
-
-}  // namespace
 
 UGPULidar::UGPULidar(const FObjectInitializer& ObjectInitializer)
     : UUnrealSensor(ObjectInitializer), IntensityExtension(nullptr) {
@@ -75,6 +60,14 @@ void UGPULidar::Initialize(const projectairsim::Lidar& SimLidar) {
   FCoreDelegates::OnEndFrameRT.AddUObject(this, &UGPULidar::EndFrameCallbackRT);
 }
 
+void ExecuteOnRenderThread1(const TFunctionRef<void()>& Function) {
+  check(IsInGameThread());
+
+  ENQUEUE_RENDER_COMMAND(ExecuteOnRenderThread1)
+  ([Function](FRHICommandListImmediate& /*RHICmdList*/) { Function(); });
+  FlushRenderingCommands();
+}
+
 void UGPULidar::TickComponent(float DeltaTime, ELevelTick TickType,
                               FActorComponentTickFunction* ThisTickFunction) {
   Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
@@ -83,28 +76,44 @@ void UGPULidar::TickComponent(float DeltaTime, ELevelTick TickType,
   const TimeSec SimTimeDeltaSec =
       projectairsim::SimClock::Get()->NanosToSec(CurSimTime - LastSimTime);
 
-  const bool bHasNewLidarData = Simulate(SimTimeDeltaSec, CurSimTime);
+  Simulate(SimTimeDeltaSec);
 
-  if (bHasNewLidarData) {
-    projectairsim::LidarMessage LidarMsg(
-        PointCloudTime, PointCloud, AzimuthElevationRangeCloud,
-        SegmentationCloud, IntensityCloud, LaserIndexCloud, PointCloudPose);
-    Lidar.PublishLidarMsg(LidarMsg);
-  }
+  const auto LidarTransformStamped = UnrealTransform::GetPoseNed(this);
+  projectairsim::Pose LidarPose(LidarTransformStamped.translation_,
+                              LidarTransformStamped.rotation_);
 
+  projectairsim::LidarMessage LidarMsg(CurSimTime, PointCloud, AzimuthElevationRangeCloud, SegmentationCloud,
+                                     IntensityCloud, LaserIndexCloud, LidarPose);
+  Lidar.PublishLidarMsg(LidarMsg);
   LastSimTime = CurSimTime;
 }
 
 void UGPULidar::SetupLidarFromSettings(
     const projectairsim::LidarSettings& LidarSettings) {
   Settings = projectairsim::LidarSettings(LidarSettings);
-  Settings.horizontal_fov_start_deg =
-      NormalizeGPULidarAngleDeg(Settings.horizontal_fov_start_deg);
-  Settings.horizontal_fov_end_deg =
-      NormalizeGPULidarAngleDeg(Settings.horizontal_fov_end_deg);
 
   InitializePose();
   SetUpCams();
+}
+
+FMatrix GetProjectionMat(USceneCaptureComponent2D* CaptureComp,
+                         float aspectRatio) {
+  FMinimalViewInfo ViewInfo;
+  ViewInfo.Location = CaptureComp->GetComponentTransform().GetLocation();
+  ViewInfo.Rotation =
+      CaptureComp->GetComponentTransform().GetRotation().Rotator();
+  ViewInfo.FOV = CaptureComp->FOVAngle;
+  ViewInfo.ProjectionMode = CaptureComp->ProjectionType;
+  ViewInfo.AspectRatio = aspectRatio;
+  ViewInfo.OrthoNearClipPlane = GNearClippingPlane;  // need for prespective?
+  ViewInfo.OrthoFarClipPlane = 10000;                // TODO
+  ViewInfo.bConstrainAspectRatio = true;
+
+  if (CaptureComp->bUseCustomProjectionMatrix == true) {
+    return CaptureComp->CustomProjectionMatrix;
+  } else {
+    return ViewInfo.CalculateProjectionMatrix();
+  }
 }
 
 void UGPULidar::SetupSceneCapture(
@@ -123,21 +132,12 @@ void UGPULidar::SetupSceneCapture(
   }
 
   // Hide debug points in case "draw-debug-points" is set to true
-  #if UE_IS_5_7 
-    OutSceneCaptureComp->HideComponent(Cast<UPrimitiveComponent>(
-        UnrealWorld->GetLineBatcher(UWorld::ELineBatcherType::World)));
-    OutSceneCaptureComp->HideComponent(Cast<UPrimitiveComponent>(
-        UnrealWorld->GetLineBatcher(UWorld::ELineBatcherType::WorldPersistent)));
-    OutSceneCaptureComp->HideComponent(Cast<UPrimitiveComponent>(
-        UnrealWorld->GetLineBatcher(UWorld::ELineBatcherType::Foreground)));
-  #elif UE_IS_5_2
-  OutSceneCaptureComp->HideComponent(
-      Cast<UPrimitiveComponent>(UnrealWorld->LineBatcher));
-  OutSceneCaptureComp->HideComponent(
-      Cast<UPrimitiveComponent>(UnrealWorld->PersistentLineBatcher));
-  OutSceneCaptureComp->HideComponent(
-      Cast<UPrimitiveComponent>(UnrealWorld->ForegroundLineBatcher));
-  #endif
+  OutSceneCaptureComp->HideComponent(Cast<UPrimitiveComponent>(
+      UnrealWorld->GetLineBatcher(UWorld::ELineBatcherType::World)));
+  OutSceneCaptureComp->HideComponent(Cast<UPrimitiveComponent>(
+      UnrealWorld->GetLineBatcher(UWorld::ELineBatcherType::WorldPersistent)));
+  OutSceneCaptureComp->HideComponent(Cast<UPrimitiveComponent>(
+      UnrealWorld->GetLineBatcher(UWorld::ELineBatcherType::Foreground)));
 
   OutSceneCaptureComp->RegisterComponent();
   auto RenderTarget = NewObject<UTextureRenderTarget2D>();
@@ -176,8 +176,7 @@ void UGPULidar::SetUpCams() {
   CamFrustrumHeight = HeightEachCam;
   CamFrustrumWidth = WidthEachCam;
 
-  // Keep all cameras enabled so the GPU path can distribute the sweep across
-  // four 90-degree captures instead of collapsing back to a single forward view.
+  NumCams = 1;  // TODO: add support for larger FOVs with more cams.
   for (int i = 0; i < NumCams; i++) {
     std::string dcamstr = "DepthCam_" + std::to_string(i);
     std::string capturestr = "SceneCapture_" + std::to_string(i);
@@ -197,6 +196,33 @@ void UGPULidar::SetUpCams() {
     CameraComponent->ProjectionMode = ECameraProjectionMode::Perspective;
     CameraComponent->FieldOfView = HorizontalAngle;
     CameraComponent->AspectRatio = aspectRatio;
+
+    // Projection matrix for all cams should be same
+    FMatrix proj = GetProjectionMat(SceneCapture, aspectRatio);
+    ProjectionMat = proj;
+
+    if (i == 0) {
+      FIntRect ScreenRect(0, 0, CamFrustrumWidth, CamFrustrumHeight);
+      FSceneViewProjectionData ProjectionData;
+      ProjectionData.ViewOrigin =
+          SceneCapture->GetComponentTransform().GetLocation();
+      // Apply rotation matrix of camera's pose plus the rotation matrix for
+      // converting Unreal's world axes to the camera's view axes (z forward,
+      // etc).
+      ProjectionData.ViewRotationMatrix =
+          FInverseRotationMatrix(
+              SceneCapture->GetComponentTransform().GetRotation().Rotator()) *
+          FMatrix(FPlane(0, 0, 1, 0), FPlane(1, 0, 0, 0), FPlane(0, 1, 0, 0),
+                  FPlane(0, 0, 0, 1));
+      ProjectionData.ProjectionMatrix = ProjectionMat;
+      ProjectionData.SetConstrainedViewRectangle(ScreenRect);
+      Cam1ProjData = ProjectionData;
+    }
+
+    if (i == 0) {
+      cam1loc = SceneCapture->GetComponentTransform().GetLocation();
+      cam1Rot = SceneCapture->GetComponentTransform().GetRotation();
+    }
 
     // Render intensity to target texture
     std::string IntensityCaptureStr = "IntensityCapture_" + std::to_string(i);
@@ -242,8 +268,7 @@ void UGPULidar::InitializePose() {
       InitializedRPY.x(), InitializedRPY.y(), InitializedRPY.z());
 }
 
-bool UGPULidar::Simulate(const float SimTimeDeltaSec,
-                         const TimeNano CurSimTime) {
+void UGPULidar::Simulate(const float SimTimeDeltaSec) {
   PointCloud.clear();
   AzimuthElevationRangeCloud.clear();
   SegmentationCloud.clear();
@@ -271,77 +296,56 @@ bool UGPULidar::Simulate(const float SimTimeDeltaSec,
     UnrealLogger::Log(projectairsim::LogLevel::kWarning,
                       TEXT("[UnrealLidar] No points requested this frame, "
                            "try increasing the number of points per second."));
-    return false;
+    return;
   }
 
-  const float HorizontalFOVDeg =
-      GetHorizontalFovSpanDeg(Settings.horizontal_fov_start_deg,
-                              Settings.horizontal_fov_end_deg);
+  bool useCPUVersion = false;
+
+  const float AngleDistanceOfTickDeg =
+      Settings.horizontal_rotation_frequency * 360.0f * SimTimeDeltaSec;
   // Create parameters & pass data
   FLidarPointCloudCSParameters PointCloudParams;
+  PointCloudParams.ProjectionMat = ProjectionMat;
+  PointCloudParams.ViewProjectionMatInv =
+      FMatrix44f(Cam1ProjData.ComputeViewProjectionMatrix().Inverse());
   PointCloudParams.HorizontalResolution = HorizontalResolution;
   PointCloudParams.LaserNums = Settings.number_of_channels;
   PointCloudParams.LaserRange =
       projectairsim::TransformUtils::ToCentimeters(Settings.range);
-  PointCloudParams.HorizontalFOV = HorizontalFOVDeg;
-  // For this test path, do not rotate a simulated sweep over time. Sample the
-  // configured horizontal FOV from its configured start angle every frame.
-  PointCloudParams.HorizontalFOVStartDeg = Settings.horizontal_fov_start_deg;
-  PointCloudParams.HorizontalFOVEndDeg = Settings.horizontal_fov_end_deg;
-  PointCloudParams.CurrentHorizontalAngleDeg =
-      Settings.horizontal_fov_start_deg;
-  const auto LidarTransformStamped = UnrealTransform::GetPoseNed(this);
-  PointCloudParams.CaptureTime = CurSimTime;
-  PointCloudParams.LidarPose =
-      projectairsim::Pose(LidarTransformStamped.translation_,
-                          LidarTransformStamped.rotation_);
-  PointCloudParams.VerticalFOVUpperDeg = Settings.vertical_fov_upper_deg;
-  PointCloudParams.VerticalFOVLowerDeg = Settings.vertical_fov_lower_deg;
-  PointCloudParams.NumCams = DepthSceneCaptures.size();
-  PointCloudParams.CameraHorizontalFOVDeg =
-      360.0f / static_cast<float>(PointCloudParams.NumCams);
+  PointCloudParams.HorizontalFOV = AngleDistanceOfTickDeg;
+  PointCloudParams.CurrentHorizontalAngleDeg = CurrentHorizontalAngleDeg;
+  PointCloudParams.VerticalFOV = Settings.vertical_fov_upper_deg *
+                                 2.f;  // assuming symmetrical < 30 for now
   PointCloudParams.CamFrustrumHeight = CamFrustrumHeight;
   PointCloudParams.CamFrustrumWidth = CamFrustrumWidth;
-  // Bind one depth texture per quadrant so the compute shader can project each
-  // point into the camera that actually covers that azimuth.
   PointCloudParams.DepthTexture1 =
       DepthSceneCaptures[0]
           ->TextureTarget->GameThread_GetRenderTargetResource()
-          ->GetRenderTargetTexture();
-  PointCloudParams.DepthTexture2 =
-      DepthSceneCaptures[1]
-          ->TextureTarget->GameThread_GetRenderTargetResource()
-          ->GetRenderTargetTexture();
-  PointCloudParams.DepthTexture3 =
-      DepthSceneCaptures[2]
-          ->TextureTarget->GameThread_GetRenderTargetResource()
-          ->GetRenderTargetTexture();
-  PointCloudParams.DepthTexture4 =
-      DepthSceneCaptures[3]
-          ->TextureTarget->GameThread_GetRenderTargetResource()
-          ->GetRenderTargetTexture();
+          ->GetRenderTargetTexture();  // TODO: add rest for 360 fov
 
   PointCloudParams.RotationMatCam1 = FMatrix44f(CamRotationMats[0]);
   PointCloudParams.RotationMatCam2 = FMatrix44f(CamRotationMats[1]);
   PointCloudParams.RotationMatCam3 = FMatrix44f(CamRotationMats[2]);
   PointCloudParams.RotationMatCam4 = FMatrix44f(CamRotationMats[3]);
 
+  auto RenderTargetResource =
+      DepthSceneCaptures[0]
+          ->TextureTarget->GameThread_GetRenderTargetResource();
+
   IntensityExtension->UpdateParameters(PointCloudParams);
 
   auto world = this->GetWorld();
 
-  if (!IntensityExtension->bHasUnreadLidarPointCloudData) {
-    return false;
-  }
+  static int startIndex = 0;
+  static int numPointsToDraw =
+      HorizontalResolution *
+      Settings.number_of_channels;  // TODO: extend for more cams
 
   auto pointCloudData = IntensityExtension->LidarPointCloudData;
-  PointCloudTime = IntensityExtension->LidarPointCloudTime;
-  PointCloudPose = IntensityExtension->LidarPointCloudPose;
-  IntensityExtension->bHasUnreadLidarPointCloudData = false;
   auto cameraTransform = DepthSceneCaptures[0]->GetComponentTransform();
 
   if (pointCloudData.size()) {
-    for (int i = 0; i < pointCloudData.size(); i++) {
+    for (int i = startIndex; i < pointCloudData.size(); i++) {
       auto point = FVector(pointCloudData[i].X, pointCloudData[i].Y,
                            pointCloudData[i].Z);
 
@@ -372,7 +376,8 @@ bool UGPULidar::Simulate(const float SimTimeDeltaSec,
     }
   }
 
-  return true;
+  CurrentHorizontalAngleDeg =
+      std::fmod(CurrentHorizontalAngleDeg + AngleDistanceOfTickDeg, 360.0f);
 }
 
 void UGPULidar::BeginFrameCallback() { bool f = false; }

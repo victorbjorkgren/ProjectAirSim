@@ -3,8 +3,6 @@
 
 // MIT License. All rights reserved.
 
-#include <cstdarg>
-#include <cstdio>
 #include "serverconnectiontcp.h"
 
 #include <LVMon/lvmonprotocol.h>

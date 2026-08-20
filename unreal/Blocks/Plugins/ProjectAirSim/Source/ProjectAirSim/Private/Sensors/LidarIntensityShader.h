@@ -1,7 +1,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "UnrealCompatibility.h"
 #include "UnrealCameraRenderRequest.h"
 #include "Engine/TextureRenderTarget2D.h"
 
@@ -51,18 +50,11 @@ class FLidarIntensityPS : public FLidarIntensityShader {
   FLidarIntensityPS(
       const ShaderMetaType::CompiledShaderInitializerType& Initializer)
       : FLidarIntensityShader(Initializer) {}
-  #if UE_IS_5_7
-    void SetParameters(FRHIBatchedShaderParameters& BatchedParameters, const FSceneView& View) {
-      FGlobalShader::SetParameters<FViewUniformShaderParameters>(
-          BatchedParameters, View.ViewUniformBuffer);
-    }
-  #elif UE_IS_5_2
-    void SetParameters(FRHICommandList& RHICmdList, const FSceneView& View) {
-    FGlobalShader::SetParameters<FViewUniformShaderParameters>(
-        RHICmdList, RHICmdList.GetBoundPixelShader(), View.ViewUniformBuffer);
-  }
-  #endif
 
+  void SetParameters(FRHIBatchedShaderParameters& BatchedParameters, const FSceneView& View) {
+    FGlobalShader::SetParameters<FViewUniformShaderParameters>(
+        BatchedParameters, View.ViewUniformBuffer);
+  }
 
   static void ModifyCompilationEnvironment(
       const FGlobalShaderPermutationParameters& Parameters,
@@ -80,15 +72,9 @@ class FLidarIntensityVS : public FLidarIntensityShader {
   FLidarIntensityVS(
       const ShaderMetaType::CompiledShaderInitializerType& Initializer)
       : FLidarIntensityShader(Initializer) {}
-  #if UE_IS_5_7
-    void SetParameters(FRHIBatchedShaderParameters& BatchedParameters, const FSceneView& View) {
-      FGlobalShader::SetParameters<FViewUniformShaderParameters>(
-          BatchedParameters, View.ViewUniformBuffer);
-    }
-  #elif UE_IS_5_2
-    void SetParameters(FRHICommandList& RHICmdList, const FSceneView& View) {
+
+  void SetParameters(FRHIBatchedShaderParameters& BatchedParameters, const FSceneView& View) {
     FGlobalShader::SetParameters<FViewUniformShaderParameters>(
-        RHICmdList, RHICmdList.GetBoundVertexShader(), View.ViewUniformBuffer);
+        BatchedParameters, View.ViewUniformBuffer);
   }
-  #endif
 };

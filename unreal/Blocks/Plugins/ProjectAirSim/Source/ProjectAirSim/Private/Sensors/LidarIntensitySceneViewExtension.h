@@ -2,13 +2,9 @@
 
 #include "RHI.h"
 #include "RHIResources.h"
-#include "RHIGPUReadback.h"
 #include "SceneViewExtension.h"
 
 #include "LidarPointCloudCS.h"
-
-// Forward declarations
-struct FPostProcessingInputs;
 
 class FLidarIntensitySceneViewExtension : public FSceneViewExtensionBase {
  public:
@@ -43,21 +39,9 @@ class FLidarIntensitySceneViewExtension : public FSceneViewExtensionBase {
   END_SHADER_PARAMETER_STRUCT()
 
 public:
-  // Must be the float (16-byte) variant — UE5's FVector4 is TVector4<double>
-  // (32 bytes), which mismatches the 16-byte-per-point layout the compute
-  // shader writes and would cause silent stride misalignment.
-  std::vector<FVector4f> LidarPointCloudData;
-  TimeNano LidarPointCloudTime = 0;
-  microsoft::projectairsim::Pose LidarPointCloudPose;
-  bool bHasUnreadLidarPointCloudData = false;
+  std::vector<FVector4> LidarPointCloudData;
 
 private:
   std::queue<FLidarPointCloudCSParameters> CSParamsQ;
   TWeakObjectPtr<UTextureRenderTarget2D> RenderTarget2D;
-
-  static constexpr int NumReadbackBuffers = 2;
-  TUniquePtr<FRHIGPUBufferReadback> ReadbackBuffers[NumReadbackBuffers];
-  uint32 ReadbackBuffersSizes[NumReadbackBuffers] = {};
-  FLidarPointCloudCSParameters ReadbackMetadata[NumReadbackBuffers];
-  int CurrentReadbackIndex = 0;
 };

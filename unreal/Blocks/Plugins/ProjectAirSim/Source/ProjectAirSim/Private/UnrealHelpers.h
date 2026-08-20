@@ -15,6 +15,8 @@
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Components/InputComponent.h"
 #include "Components/MeshComponent.h"
+// ProceduralMeshComponent is not available in UE 5.6 by default
+// #include "Components/ProceduralMeshComponent.h"
 #include "Components/SkinnedMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "CoreMinimal.h"
@@ -202,7 +204,7 @@ class UnrealHelpers : public UBlueprintFunctionLibrary {
     }
   }
 
-  static FString GetSegmentationName(UProceduralMeshComponent* mesh,
+  static FString GetSegmentationName(UMeshComponent* mesh,
                                      bool use_owner_name);
 
   static FString GetSegmentationName(UStaticMeshComponent* mesh,

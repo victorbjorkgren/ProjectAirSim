@@ -154,7 +154,7 @@
           "accelerometer": { "$ref": "#/definitions/accelerometer" },
           "gyroscope": { "$ref": "#/definitions/gyroscope" },
           //Lidar Params
-          "lidar-type": { "enum": [ "generic_cylindrical", "generic_rosette", "livox_mid70", "livox_avia", "gpu_cylindrical", "depth_lidar" ] },
+          "lidar-type": { "enum": [ "generic_cylindrical", "generic_rosette", "livox_mid70", "livox_avia", "gpu_cylindrical" ] },
           "number-of-channels": {
             "type": "integer",
             "minimum": 1
@@ -871,7 +871,7 @@
             {
               "anyOf": [
                 { "properties": { "lidar-type": { "type": "null" } } },
-                { "properties": { "lidar-type": { "enum": [ "generic_cylindrical", "gpu_cylindrical", "depth_lidar" ] } } }
+                { "properties": { "lidar-type": { "enum": [ "generic_cylindrical", "gpu_cylindrical" ] } } }
               ]
             },
             { "$ref": "#/definitions/lidar-required-generic-cylindrical" }

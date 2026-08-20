@@ -84,8 +84,6 @@ class Constant {
     static constexpr const char* clock = "clock";
     static constexpr const char* steppable = "steppable";
     static constexpr const char* real_time = "real-time";
-    static constexpr const char* engine_driven = "engine-driven";
-    static constexpr const char* external_clock = "external-clock";
     static constexpr const char* type = "type";
     static constexpr const char* robot = "robot";
     static constexpr const char* env_actor = "env_actor";
@@ -343,7 +341,6 @@ class Constant {
     static constexpr const char* generic_cylindrical = "generic_cylindrical";
     static constexpr const char* generic_rosette = "generic_rosette";
     static constexpr const char* gpu_cylindrical = "gpu_cylindrical";
-    static constexpr const char* depth_lidar = "depth_lidar";
     static constexpr const char* livox_avia = "livox_avia";
     static constexpr const char* livox_mid70 = "livox_mid70";
     static constexpr const char* report_point_cloud = "report-point-cloud";

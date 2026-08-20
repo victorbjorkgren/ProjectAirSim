@@ -197,4 +197,16 @@ microsoft::projectairsim::ClientAuthorization::ClientAuthorization(
   SetLogger(logger);
 }
 
+#elif defined(__APPLE__)
+
+#include "client_authorization_mac.cpp"
+
+microsoft::projectairsim::ClientAuthorization::ClientAuthorization(void)
+    : pimpl_(std::make_shared<microsoft::projectairsim::ImplMac>()) {}
+microsoft::projectairsim::ClientAuthorization::ClientAuthorization(
+    const Logger& logger)
+    : pimpl_(std::make_shared<microsoft::projectairsim::ImplMac>()) {
+  SetLogger(logger);
+}
+
 #endif  //_WIN32

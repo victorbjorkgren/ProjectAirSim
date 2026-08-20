@@ -13,7 +13,6 @@
 #include <vector>
 
 #include "CoreMinimal.h"
-#include "DepthLidar.h"
 #include "GPULidar.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -126,13 +125,6 @@ class PROJECTAIRSIM_API UnrealSensorFactory {
       if (sim_lidar.GetLidarSettings().lidar_kind ==
           microsoft::projectairsim::LidarKind::kGPUCylindrical) {
         auto lidar = NewObject<UGPULidar>(Parent, Id.c_str());
-        lidar->Initialize(sim_lidar);
-        lidar->AttachToComponent(
-            Parent, FAttachmentTransformRules::KeepRelativeTransform);
-        Sensor = lidar;
-      } else if (sim_lidar.GetLidarSettings().lidar_kind ==
-                 microsoft::projectairsim::LidarKind::kDepthCylindrical) {
-                auto lidar = NewObject<UDepthLidar>(Parent, Id.c_str());
         lidar->Initialize(sim_lidar);
         lidar->AttachToComponent(
             Parent, FAttachmentTransformRules::KeepRelativeTransform);

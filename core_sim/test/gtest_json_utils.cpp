@@ -12,11 +12,6 @@ namespace projectairsim = microsoft::projectairsim;
 using json = nlohmann::json;
 
 TEST(JsonUtils, GetIdentifier) {
-  // General description:
-  // Verifies get identifier for JsonUtils.
-  // Arrange: prepare context for `EXPECT_EQ(`.
-  // Act: run `EXPECT_EQ(`.
-  // Assert: check result from `EXPECT_EQ(`.
   EXPECT_EQ(
       projectairsim::JsonUtils::GetIdentifier("{ \"id\": \"abc\" }"_json, "id"),
       "abc");
@@ -71,11 +66,6 @@ TEST(JsonUtils, GetIdentifier) {
 }
 
 TEST(JsonUtils, GetString) {
-  // General description:
-  // Verifies get string for JsonUtils.
-  // Arrange: prepare context for `EXPECT_EQ(`.
-  // Act: run `EXPECT_EQ(`.
-  // Assert: check result from `EXPECT_EQ(`.
   EXPECT_EQ(
       projectairsim::JsonUtils::GetString("{ \"id\": \"abc\" }"_json, "id"),
       "abc");
@@ -111,11 +101,6 @@ TEST(JsonUtils, GetString) {
 }
 
 TEST(JsonUtils, GetInteger) {
-  // General description:
-  // Verifies get integer for JsonUtils.
-  // Arrange: prepare context for `EXPECT_EQ(projectairsim::JsonUtils::GetInteger("{ \"id\": 10 }"_json, "id"),`.
-  // Act: run `EXPECT_EQ(projectairsim::JsonUtils::GetInteger("{ \"id\": 10 }"_json, "id"),`.
-  // Assert: check result from `EXPECT_EQ(projectairsim::JsonUtils::GetInteger("{ \"id\": 10 }"_json, "id"),`.
   EXPECT_EQ(projectairsim::JsonUtils::GetInteger("{ \"id\": 10 }"_json, "id"),
             10);
   EXPECT_EQ(projectairsim::JsonUtils::GetInteger("{ \"id\": 10.1 }"_json, "id"),
@@ -142,12 +127,7 @@ TEST(JsonUtils, GetInteger) {
 }
 
 TEST(JsonUtils, GetNumber) {
-  // General description:
-  // Verifies get number for JsonUtils.
   // Test GetNumber<float>
-  // Arrange: prepare context for `EXPECT_EQ(`.
-  // Act: run `EXPECT_EQ(`.
-  // Assert: check result from `EXPECT_EQ(`.
   EXPECT_EQ(
       projectairsim::JsonUtils::GetNumber<float>("{ \"id\": 10 }"_json, "id"),
       10.0f);
@@ -203,11 +183,6 @@ TEST(JsonUtils, GetNumber) {
 }
 
 TEST(JsonUtils, GetObject) {
-  // General description:
-  // Verifies get object for JsonUtils.
-  // Arrange: prepare context for `EXPECT_EQ(projectairsim::JsonUtils::GetJsonObject(`.
-  // Act: run `EXPECT_EQ(projectairsim::JsonUtils::GetJsonObject(`.
-  // Assert: check result from `EXPECT_EQ(projectairsim::JsonUtils::GetJsonObject(`.
   EXPECT_EQ(projectairsim::JsonUtils::GetJsonObject(
                 "{ \"id\": { \"id\": \"abc\" } }"_json, "id"),
             "{\"id\": \"abc\"}"_json);
@@ -235,11 +210,6 @@ TEST(JsonUtils, GetObject) {
 }
 
 TEST(JsonUtils, GetArray) {
-  // General description:
-  // Verifies get array for JsonUtils.
-  // Arrange: prepare context for `EXPECT_EQ(projectairsim::JsonUtils::GetArray(`.
-  // Act: run `EXPECT_EQ(projectairsim::JsonUtils::GetArray(`.
-  // Assert: check result from `EXPECT_EQ(projectairsim::JsonUtils::GetArray(`.
   EXPECT_EQ(projectairsim::JsonUtils::GetArray(
                 "{ \"id\": [ { \"x\": 1 } ] }"_json, "id"),
             "[ { \"x\": 1 } ]"_json);
@@ -263,11 +233,6 @@ TEST(JsonUtils, GetArray) {
 }
 
 TEST(JsonUtils, GetVector3) {
-  // General description:
-  // Verifies get vector3 for JsonUtils.
-  // Arrange: prepare context for `EXPECT_EQ(projectairsim::JsonUtils::GetVector3("{ \"xyz\": \"1 2 3\" }"_json,`.
-  // Act: run `EXPECT_EQ(projectairsim::JsonUtils::GetVector3("{ \"xyz\": \"1 2 3\" }"_json,`.
-  // Assert: check result from `EXPECT_EQ(projectairsim::JsonUtils::GetVector3("{ \"xyz\": \"1 2 3\" }"_json,`.
   EXPECT_EQ(projectairsim::JsonUtils::GetVector3("{ \"xyz\": \"1 2 3\" }"_json,
                                                  "xyz"),
             projectairsim::Vector3(1, 2, 3));
@@ -327,15 +292,10 @@ TEST(JsonUtils, GetVector3) {
 }
 
 TEST(JsonUtils, GetTransform) {
-  // General description:
-  // Verifies get transform for JsonUtils.
-  // Arrange: prepare context for `auto transform = projectairsim::JsonUtils::GetTransform(`.
   auto transform = projectairsim::JsonUtils::GetTransform(
       "{ \"origin\": { \"xyz\": \"1 2 3\", \"rpy\": \"30 30 30\" } }"_json,
       "origin");
-  // Act: run `auto quaternion = projectairsim::TransformUtils::ToQuaternion(30, 30, 30);`.
   auto quaternion = projectairsim::TransformUtils::ToQuaternion(30, 30, 30);
-  // Assert: check result from `EXPECT_EQ(transform.translation_, projectairsim::Vector3(1, 2, 3));`.
   EXPECT_EQ(transform.translation_, projectairsim::Vector3(1, 2, 3));
   EXPECT_EQ(transform.rotation_.w(), quaternion.w());
   EXPECT_EQ(transform.rotation_.x(), quaternion.x());
@@ -400,22 +360,12 @@ TEST(JsonUtils, GetTransform) {
 }
 
 TEST(JsonUtils, IsEmpty) {
-  // General description:
-  // Verifies is empty for JsonUtils.
-  // Arrange: prepare context for `EXPECT_FALSE(`.
-  // Act: run `EXPECT_FALSE(`.
-  // Assert: check result from `EXPECT_FALSE(`.
   EXPECT_FALSE(
       projectairsim::JsonUtils::IsEmpty("{ \"id\": [ { \"x\": 1 } ] }"_json));
   EXPECT_TRUE(projectairsim::JsonUtils::IsEmpty("{ }"_json));
 }
 
 TEST(JsonUtils, IsEmptyArray) {
-  // General description:
-  // Verifies is empty array for JsonUtils.
-  // Arrange: prepare context for `EXPECT_FALSE(projectairsim::JsonUtils::IsEmptyArray("[ { \"x\": 1 } ]"_json));`.
-  // Act: run `EXPECT_FALSE(projectairsim::JsonUtils::IsEmptyArray("[ { \"x\": 1 } ]"_json));`.
-  // Assert: check result from `EXPECT_FALSE(projectairsim::JsonUtils::IsEmptyArray("[ { \"x\": 1 } ]"_json));`.
   EXPECT_FALSE(projectairsim::JsonUtils::IsEmptyArray("[ { \"x\": 1 } ]"_json));
   EXPECT_TRUE(projectairsim::JsonUtils::IsEmptyArray("[ ]"_json));
 }

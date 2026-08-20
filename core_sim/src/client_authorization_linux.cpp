@@ -5,8 +5,7 @@
 
 #ifdef __linux__
 
-// Use OpenSSL v1.1.0 compatibility mode until this implementation is updated
-// for OpenSSL v3 APIs.
+#warning Setting OPENSSL to v1.1.0 compatibility mode--upgrade to v3 mode when possible
 #define OPENSSL_API_COMPAT 0x10100000L
 
 #include <arpa/inet.h>

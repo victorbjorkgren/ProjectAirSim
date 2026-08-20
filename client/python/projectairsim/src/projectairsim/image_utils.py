@@ -1,6 +1,7 @@
 import queue
 from threading import Thread
 from typing import Dict, List
+import os
 
 import cv2
 import matplotlib
@@ -28,6 +29,7 @@ class ImageDisplay:
         subwin_height=225,
         subwin_y_pct=0.8,
         with_bounding_box=False,
+        headless=False,
     ):
         """Display images in windows in specific positions. This runs its image
         display update loop in a separate thread independent of the client's async.io main
@@ -42,7 +44,17 @@ class ImageDisplay:
                 subwin_y_pct (float, optional): Sub-window y percentage. Defaults to 0.8.
                 with_bounding_box (bool, optional): Toggle bounding box display when available
                  (see `receive(...)` method). Defaults to False.
+                headless (bool, optional): If True, disable GUI windows (useful for headless environments).
+                 Defaults to False.
         """
+        # Check for headless environment
+        if not headless:
+            headless = self._check_headless_environment()
+        
+        self.headless = headless
+        if self.headless:
+            projectairsim_log().info("Running in headless mode - GUI windows will be disabled")
+        
         self.running = False
         self.runner = None
 
@@ -62,6 +74,29 @@ class ImageDisplay:
         self.buffer_size = 5
         self.ave_loop_sec = 0.0
         self.display_bbox = with_bounding_box
+
+    def _check_headless_environment(self) -> bool:
+        """Check if running in a headless environment"""
+        # Check for common headless indicators
+        if os.environ.get('DISPLAY') is None:
+            return True
+        if os.environ.get('XDG_SESSION_TYPE') == 'tty':
+            return True
+        if os.environ.get('SSH_CONNECTION') is not None:
+            return True
+        return False
+    
+    def is_headless(self) -> bool:
+        """Check if the display is running in headless mode"""
+        return self.headless
+    
+    def set_headless(self, headless: bool):
+        """Force headless mode on or off"""
+        self.headless = headless
+        if self.headless:
+            projectairsim_log().info("Forced headless mode - GUI windows will be disabled")
+        else:
+            projectairsim_log().info("Disabled headless mode - GUI windows will be enabled")
 
     def get_subwin_info(self, subwin_idx):
         if subwin_idx < 0 or subwin_idx > len(self.win_positions) - 1:
@@ -137,10 +172,14 @@ class ImageDisplay:
             image_q.put(image)
 
     def destroy_windows(self):
-        for image_name, win_info in list(self.named_windows.items()):
-            if win_info["created"]:
-                cv2.destroyWindow(image_name)
-                win_info["created"] = False
+        if not self.headless:
+            for image_name, win_info in list(self.named_windows.items()):
+                if win_info["created"]:
+                    try:
+                        cv2.destroyWindow(image_name)
+                    except Exception as e:
+                        projectairsim_log().warning(f"Could not destroy window {image_name}: {e}")
+                    win_info["created"] = False
 
     def dump_excess_data(self, image_q):
         while not image_q.empty() and image_q.qsize() > self.buffer_size:
@@ -154,25 +193,34 @@ class ImageDisplay:
                     image = image_q.get()
 
                     # Create window if not already visible
-                    if not win_info["created"]:
-                        cv2.namedWindow(
+                    if not win_info["created"] and not self.headless:
+                        try:
+                            cv2.namedWindow(
+                                image_name,
+                                flags=cv2.WINDOW_GUI_NORMAL + cv2.WINDOW_AUTOSIZE,
+                            )
+                            if win_info["x"] is not None and win_info["y"] is not None:
+                                cv2.moveWindow(image_name, win_info["x"], win_info["y"])
+                            win_info["created"] = True
+                        except Exception as e:
+                            projectairsim_log().warning(f"Could not create window for {image_name}: {e}")
+                            # Mark as created to avoid repeated attempts
+                            win_info["created"] = True
+
+                    # Only display image if not in headless mode
+                    if not self.headless:
+                        self.display_image(
+                            image,
                             image_name,
-                            flags=cv2.WINDOW_GUI_NORMAL + cv2.WINDOW_AUTOSIZE,
+                            win_info["resize_x"],
+                            win_info["resize_y"],
                         )
-                        if win_info["x"] is not None and win_info["y"] is not None:
-                            cv2.moveWindow(image_name, win_info["x"], win_info["y"])
-                        win_info["created"] = True
 
-                    self.display_image(
-                        image,
-                        image_name,
-                        win_info["resize_x"],
-                        win_info["resize_y"],
-                    )
-
-            key = cv2.waitKey(1)  # expensive, can take minimum 5~15 ms
-            if key == 27:  # Esc key
-                self.running = False
+            # Only wait for key events if not in headless mode
+            if not self.headless:
+                key = cv2.waitKey(1)  # expensive, can take minimum 5~15 ms
+                if key == 27:  # Esc key
+                    self.running = False
 
         self.destroy_windows()
 
@@ -210,8 +258,12 @@ class ImageDisplay:
                 img_np, (resize_x, resize_y), interpolation=cv2.INTER_LINEAR
             )
 
-        # Display image
-        cv2.imshow(win_name, img_np)
+        # Display image only if not in headless mode
+        if not self.headless:
+            try:
+                cv2.imshow(win_name, img_np)
+            except Exception as e:
+                projectairsim_log().warning(f"Could not display image in window {win_name}: {e}")
 
 
 def draw_bbox3D(img_np, annotation, color=(0, 0, 255), thickness=3):

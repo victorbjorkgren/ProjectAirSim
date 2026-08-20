@@ -9,10 +9,7 @@
 namespace projectairsim = microsoft::projectairsim;
 
 TEST(TransformUtils, ToQuaternion) {
-  // General description:
-  // Verifies to quaternion for TransformUtils.
   // Test basic example case
-  // Arrange: prepare context for `constexpr float t0_roll = M_PI / 6.0f;`.
   constexpr float t0_roll = M_PI / 6.0f;
   constexpr float t0_pitch = M_PI / 3.0f;
   constexpr float t0_yaw = M_PI / 2.0f;
@@ -21,10 +18,8 @@ TEST(TransformUtils, ToQuaternion) {
   constexpr float a0_y = 0.5f;
   constexpr float a0_z = 0.5f;
 
-  // Act: run `auto q = projectairsim::TransformUtils::ToQuaternion(t0_roll, t0_pitch, t0_yaw);`.
   auto q = projectairsim::TransformUtils::ToQuaternion(t0_roll, t0_pitch, t0_yaw);
 
-  // Assert: check result from `EXPECT_FLOAT_EQ(q.w(), a0_w);`.
   EXPECT_FLOAT_EQ(q.w(), a0_w);
   EXPECT_FLOAT_EQ(q.x(), a0_x);
   EXPECT_FLOAT_EQ(q.y(), a0_y);
@@ -222,71 +217,46 @@ TEST(TransformUtils, ToQuaternion) {
 }
 
 TEST(TransformUtils, ToRpy) {
-  // General description:
-  // Verifies to rpy for TransformUtils.
-  // Arrange: prepare context for `microsoft::projectairsim::Quaternion q(0.68301266f, -0.18301269f, 0.5f,`.
   microsoft::projectairsim::Quaternion q(0.68301266f, -0.18301269f, 0.5f,
                                        0.5f);  // w, x, y, z
 
-  // Act: run `auto v = projectairsim::TransformUtils::ToRPY(q);`.
   auto v = projectairsim::TransformUtils::ToRPY(q);
 
-  // Assert: check result from `EXPECT_FLOAT_EQ(v.x(), M_PI / 6.0f);`.
   EXPECT_FLOAT_EQ(v.x(), M_PI / 6.0f);
   EXPECT_FLOAT_EQ(v.y(), M_PI / 3.0f);
   EXPECT_FLOAT_EQ(v.z(), M_PI / 2.0f);
 }
 
 TEST(TransformUtils, Vector3ToCentimeters) {
-  // General description:
-  // Verifies vector3 to centimeters for TransformUtils.
-  // Arrange: prepare context for `auto x_meters = projectairsim::Vector3(1, 2, 3);`.
   auto x_meters = projectairsim::Vector3(1, 2, 3);
-      // Act: run `auto v = projectairsim::TransformUtils::ToCentimeters<projectairsim::Vector3>(`.
   auto v = projectairsim::TransformUtils::ToCentimeters<projectairsim::Vector3>(
       x_meters);
 
-  // Assert: check result from `EXPECT_FLOAT_EQ(v.x(), 100);`.
   EXPECT_FLOAT_EQ(v.x(), 100);
   EXPECT_FLOAT_EQ(v.y(), 200);
   EXPECT_FLOAT_EQ(v.z(), 300);
 }
 
 TEST(TransformUtils, FloatToCentimeters) {
-  // General description:
-  // Verifies float to centimeters for TransformUtils.
-  // Arrange: prepare context for `float x_meters = 1.23;`.
   float x_meters = 1.23;
-  // Act: run `auto v = projectairsim::TransformUtils::ToCentimeters<float>(x_meters);`.
   auto v = projectairsim::TransformUtils::ToCentimeters<float>(x_meters);
 
-  // Assert: check result from `EXPECT_FLOAT_EQ(v, 123);`.
   EXPECT_FLOAT_EQ(v, 123);
 }
 
 TEST(TransformUtils, Vector3ToMeters) {
-  // General description:
-  // Verifies vector3 to meters for TransformUtils.
-  // Arrange: prepare context for `auto x_centimeters = projectairsim::Vector3(100, 200, 300);`.
   auto x_centimeters = projectairsim::Vector3(100, 200, 300);
-      // Act: run `auto v = projectairsim::TransformUtils::ToMeters<projectairsim::Vector3>(`.
   auto v = projectairsim::TransformUtils::ToMeters<projectairsim::Vector3>(
       x_centimeters);
 
-  // Assert: check result from `EXPECT_FLOAT_EQ(v.x(), 1.0);`.
   EXPECT_FLOAT_EQ(v.x(), 1.0);
   EXPECT_FLOAT_EQ(v.y(), 2.0);
   EXPECT_FLOAT_EQ(v.z(), 3.0);
 }
 
 TEST(TransformUtils, FloatToMeters) {
-  // General description:
-  // Verifies float to meters for TransformUtils.
-  // Arrange: prepare context for `float x_centimeters = 123;`.
   float x_centimeters = 123;
-  // Act: run `auto v = projectairsim::TransformUtils::ToMeters<float>(x_centimeters);`.
   auto v = projectairsim::TransformUtils::ToMeters<float>(x_centimeters);
 
-  // Assert: check result from `EXPECT_FLOAT_EQ(v, 1.23);`.
   EXPECT_FLOAT_EQ(v, 1.23);
 }

@@ -1,4 +1,4 @@
-// Copyright (C) Microsoft Corporation.
+// Copyright (C) Microsoft Corporation. 
 // Copyright (C) 2025 IAMAI CONSULTING CORP
 
 // MIT License. All rights reserved.
@@ -86,7 +86,6 @@ class Simulator::Impl : public ComponentWithTopicsAndServiceMethods {
   friend class Simulator::Loader;
 
   bool SetInteractiveFeature(const std::string& feature_id, bool enable);
-  std::string GetBuildCommitHash();
 
   Simulator::Loader loader_;
   Scene sim_scene_;
@@ -220,21 +219,12 @@ void Simulator::Impl::RegisterServiceMethod(const ServiceMethod& method,
   service_manager_.RegisterMethod(unique_method, method_handler);
 }
 
-bool Simulator::Impl::SetInteractiveFeature(const std::string& feature_id,
-                                            bool enable) {
-  if (feature_id == "viewport_camera") {
+bool Simulator::Impl::SetInteractiveFeature(const std::string& feature_id, bool enable) {
+  if(feature_id == "viewport_camera"){
     sim_scene_.EnableViewportCamera(enable);
     return true;
   }
   return false;
-}
-
-std::string Simulator::Impl::GetBuildCommitHash() {
-#ifdef PROJECTAIRSIM_BUILD_COMMIT_HASH
-  return PROJECTAIRSIM_BUILD_COMMIT_HASH;
-#else
-  return "unknown";
-#endif
 }
 
 void Simulator::Impl::RegisterServiceMethods() {
@@ -248,22 +238,13 @@ void Simulator::Impl::RegisterServiceMethods() {
       [this](const ServiceMethod& method, MethodHandler method_handler) {
         RegisterServiceMethod(method, method_handler);
       });
+  
+  // Register service method SetInteractiveFeature( feature_id(str), enable(bool))
+  auto set_interactive_feature = ServiceMethod("SetInteractiveFeature", {"feature_id", "enable"});
+  auto set_interactive_feature_handler = set_interactive_feature.CreateMethodHandler(
+      &Simulator::Impl::SetInteractiveFeature, *this);
+  RegisterServiceMethod(set_interactive_feature, set_interactive_feature_handler);
 
-  // Register service method SetInteractiveFeature( feature_id(str),
-  // enable(bool))
-  auto set_interactive_feature =
-      ServiceMethod("SetInteractiveFeature", {"feature_id", "enable"});
-  auto set_interactive_feature_handler =
-      set_interactive_feature.CreateMethodHandler(
-          &Simulator::Impl::SetInteractiveFeature, *this);
-  RegisterServiceMethod(set_interactive_feature,
-                        set_interactive_feature_handler);
-
-  auto get_build_commit_hash = ServiceMethod("GetBuildCommitHash", {});
-  auto get_build_commit_hash_handler =
-      get_build_commit_hash.CreateMethodHandler(
-          &Simulator::Impl::GetBuildCommitHash, *this);
-  RegisterServiceMethod(get_build_commit_hash, get_build_commit_hash_handler);
 }
 
 // -----------------------------------------------------------------------------

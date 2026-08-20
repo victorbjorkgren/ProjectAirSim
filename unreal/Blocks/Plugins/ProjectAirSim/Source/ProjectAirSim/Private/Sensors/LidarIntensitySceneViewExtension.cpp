@@ -1,29 +1,18 @@
 #include "LidarIntensitySceneViewExtension.h"
 
 #include "RHI.h"
-#include "UnrealCompatibility.h"
 #include "SceneView.h"
 #include "RenderGraph.h"
-#include "ScreenPass.h"
-#include "RenderGraphUtils.h"
+#include "PostProcess/PostProcessing.h"
 #include "CommonRenderResources.h"
 #include "Containers/DynamicRHIResourceArray.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
-
-#include "PostProcess/SceneFilterRendering.h"
-#include "RenderGraphUtils.h"
-#include "RendererInterface.h"
-#include "SceneTextureParameters.h"
-
-// Access to FPostProcessingInputs definition from internal Renderer headers
-#if UE_IS_5_7
-    #include "Runtime/Renderer/Internal/PostProcess/PostProcessInputs.h"
-#elif UE_IS_5_2
-    #include "Runtime/Renderer/Private/PostProcess/PostProcessing.h"
-#endif
+// Removed SceneRendering.h to avoid MeshDrawCommands.h include chain
+// #include "SceneRendering.h"
 
 #include "LidarIntensityShader.h"
+#include "PostProcess/SceneFilterRendering.h"
 
 static const bool DEBUG_RENDER_TO_VIEWPORT = false;
 
@@ -50,18 +39,16 @@ FScreenPassTextureViewportParameters GetTextureViewportParameters(
     Parameters.ViewportMax = InViewport.Rect.Max;
 
     Parameters.ViewportSize = ViewportSize;
-    Parameters.ViewportSizeInverse =
-        FVector2f(1.0f / Parameters.ViewportSize.X,
-                  1.0f / Parameters.ViewportSize.Y);
+    Parameters.ViewportSizeInverse = FVector2f(
+        1.0f / Parameters.ViewportSize.X, 1.0f / Parameters.ViewportSize.Y);
 
     Parameters.UVViewportMin = ViewportMin * Parameters.ExtentInverse;
     Parameters.UVViewportMax = ViewportMax * Parameters.ExtentInverse;
 
     Parameters.UVViewportSize =
         Parameters.UVViewportMax - Parameters.UVViewportMin;
-    Parameters.UVViewportSizeInverse =
-        FVector2f(1.0f / Parameters.UVViewportSize.X,
-                  1.0f / Parameters.UVViewportSize.Y);
+    Parameters.UVViewportSizeInverse = FVector2f(
+        1.0f / Parameters.UVViewportSize.X, 1.0f / Parameters.UVViewportSize.Y);
 
     Parameters.UVViewportBilinearMin =
         Parameters.UVViewportMin + 0.5f * Parameters.ExtentInverse;
@@ -117,12 +104,7 @@ FLidarIntensitySceneViewExtension::FLidarIntensitySceneViewExtension(
     const FAutoRegister& AutoRegister,
     TWeakObjectPtr<UTextureRenderTarget2D> InRenderTarget2D)
     : FSceneViewExtensionBase(AutoRegister),
-      RenderTarget2D(InRenderTarget2D) {
-  for (int i = 0; i < NumReadbackBuffers; ++i) {
-    ReadbackBuffers[i] = MakeUnique<FRHIGPUBufferReadback>(FName(*FString::Printf(TEXT("LidarReadback_%d"), i)));
-    ReadbackBuffersSizes[i] = 0;
-  }
-}
+      RenderTarget2D(InRenderTarget2D) {}
 
 void FLidarIntensitySceneViewExtension::PrePostProcessPass_RenderThread(
     FRDGBuilder& GraphBuilder, const FSceneView& View,
@@ -131,13 +113,18 @@ void FLidarIntensitySceneViewExtension::PrePostProcessPass_RenderThread(
     return;
   }
 
+  Inputs.Validate();
   auto cachedParams = CSParamsQ.front();
   CSParamsQ.pop();
 
-  const FIntRect Viewport = View.UnscaledViewRect;
+  // The following is adapted from the ColorCorrectRegionsSceneViewExtension.cpp
+  // example from UE. Up until line 208, when the first pass is added.
+  checkSlow(View.bIsViewInfo);  // can't do dynamic_cast because FViewInfo
+                                // doesn't have any virtual functions.
+  const FIntRect Viewport = static_cast<const FViewInfo&>(View).ViewRect;
 
-  // Access scene color from the new API
-  const FScreenPassTexture SceneColor((*Inputs.SceneTextures)->SceneColorTexture, Viewport);
+  FScreenPassTexture SceneColor((*Inputs.SceneTextures)->SceneColorTexture,
+                                Viewport);
 
   // not sure of the implications of it being invalid
   if (!SceneColor.IsValid()) {
@@ -145,7 +132,7 @@ void FLidarIntensitySceneViewExtension::PrePostProcessPass_RenderThread(
   }
 
   // Getting material data for the current view.
-  FGlobalShaderMap* GlobalShaderMap = GetGlobalShaderMap(View.GetFeatureLevel());
+  FGlobalShaderMap* GlobalShaderMap = GetGlobalShaderMap(GMaxRHIFeatureLevel);
 
   // Reusing the same output description for our back buffer as SceneColor
   FRDGTextureDesc LidarIntensityOutputDesc = SceneColor.Texture->Desc;
@@ -168,16 +155,10 @@ void FLidarIntensitySceneViewExtension::PrePostProcessPass_RenderThread(
   const FScreenPassTextureViewportParameters SceneTextureViewportParams =
       GetTextureViewportParameters(SceneColorTextureViewport);
 
-#if UE_IS_5_7
-  FSceneTextureShaderParameters SceneTextures =
-      CreateSceneTextureShaderParameters(
-          GraphBuilder, View, ESceneTextureSetupMode::All);
-#elif UE_IS_5_2
   FSceneTextureShaderParameters SceneTextures =
       CreateSceneTextureShaderParameters(
           GraphBuilder, ((const FViewInfo&)View).GetSceneTexturesChecked(),
           View.GetFeatureLevel(), ESceneTextureSetupMode::All);
-#endif
 
   const FScreenPassTextureViewport TextureViewport(
       SceneColorRenderTarget.Texture, Viewport);
@@ -209,8 +190,7 @@ void FLidarIntensitySceneViewExtension::PrePostProcessPass_RenderThread(
       RDG_EVENT_NAME("LidarIntensityPass"), PostProcessMaterialParameters,
       ERDGPassFlags::Raster,
       [&View, TextureViewport, VertexShader, PixelShader, DefaultBlendState,
-       DepthStencilState, PostProcessMaterialParameters](
-          FRHICommandListImmediate& RHICmdList) {
+       DepthStencilState, PostProcessMaterialParameters](FRHICommandListImmediate& RHICmdList) {
         DrawScreenPass(
             RHICmdList, View,
             TextureViewport,  // Output Viewport
@@ -218,99 +198,54 @@ void FLidarIntensitySceneViewExtension::PrePostProcessPass_RenderThread(
             FScreenPassPipelineState(VertexShader, PixelShader,
                                      DefaultBlendState, DepthStencilState),
             [&](FRHICommandListImmediate& RHICmdList) {
-                #if UE_IS_5_7
-                    // View UB is already bound via PostProcessMaterialParameters->View;
-                    // SetShaderParameters commits everything in one scratch batch.
-                    // Do not call VS/PS->SetParameters here — it would dirty the
-                    // scratch parameters and trip the !HasParameters() ensure on
-                    // the next GetScratchShaderParameters() call inside SetShaderParameters.
-                    SetShaderParameters(RHICmdList, VertexShader,
-                                        VertexShader.GetVertexShader(),
-                                        *PostProcessMaterialParameters);
+              VertexShader->SetParameters(RHICmdList.GetScratchShaderParameters(), View);
+              SetShaderParameters(RHICmdList, VertexShader,
+                                  VertexShader.GetVertexShader(),
+                                  *PostProcessMaterialParameters);
 
-                    SetShaderParameters(RHICmdList, PixelShader,
-                                        PixelShader.GetPixelShader(),
-                                        *PostProcessMaterialParameters);
-                #elif UE_IS_5_2
-                     VertexShader->SetParameters(RHICmdList, View);
-                        SetShaderParameters(RHICmdList, VertexShader,
-                                            VertexShader.GetVertexShader(),
-                                            *PostProcessMaterialParameters);
-
-                        PixelShader->SetParameters(RHICmdList, View);
-                        SetShaderParameters(RHICmdList, PixelShader,
-                                            PixelShader.GetPixelShader(),
-                                            *PostProcessMaterialParameters);
-                #endif
+              PixelShader->SetParameters(RHICmdList.GetScratchShaderParameters(), View);
+              SetShaderParameters(RHICmdList, PixelShader,
+                                  PixelShader.GetPixelShader(),
+                                  *PostProcessMaterialParameters);
             });
       });
 
   // Now that we have computed the intensity texture, we can pass this to the
   // LidarPointCloud compute shader as input and add its pass.
 
-  TShaderMapRef<FLidarPointCloudCS> LidarPointCloudShader(GlobalShaderMap);
+  TShaderMapRef<FLidarPointCloudCS> LidarPointCloudShader(
+      GetGlobalShaderMap(GMaxRHIFeatureLevel));
 
-  uint32 NumPoints =
-      cachedParams.NumCams * cachedParams.HorizontalResolution * cachedParams.LaserNums;
-  uint32 BufferSize = NumPoints * sizeof(float) * 4;
+  auto NumPoints = cachedParams.NumCams * cachedParams.HorizontalResolution *
+                  cachedParams.LaserNums;
+  auto BufferSize = NumPoints * sizeof(float) * 4;
 
-  // Readback from previous frames if available
-  auto& CurrentReadback = ReadbackBuffers[CurrentReadbackIndex];
-  uint32 CurrentSize = ReadbackBuffersSizes[CurrentReadbackIndex];
-
-  if (CurrentSize > 0 && CurrentReadback && CurrentReadback->IsReady()) {
-      void* BufferData = CurrentReadback->Lock(CurrentSize);
-      if (BufferData) {
-          // Resize vector to match the data we are reading back
-          const int NumPointsRead = CurrentSize / (sizeof(float) * 4);
-          if (LidarPointCloudData.size() != NumPointsRead) {
-            LidarPointCloudData.resize(NumPointsRead);
-          }
-
-          FMemory::Memcpy(LidarPointCloudData.data(), BufferData, CurrentSize);
-          LidarPointCloudTime = ReadbackMetadata[CurrentReadbackIndex].CaptureTime;
-          LidarPointCloudPose = ReadbackMetadata[CurrentReadbackIndex].LidarPose;
-          bHasUnreadLidarPointCloudData = true;
-          CurrentReadback->Unlock();
-      }
-  }
-
-  // Guard: nothing to dispatch if NumPoints is zero.
-  if (NumPoints == 0) {
-    return;
-  }
-
-  // Create an RDG structured buffer for the compute shader output.
-  // We do NOT upload initial data here (no nullptr crash); the shader writes
-  // every slot, and AddClearUAVFloatPass zeroes any slots it misses.
+  float* InitialData = new float[NumPoints * 4];
   FRDGBufferRef PointCloudBufferRDG =
-      GraphBuilder.CreateBuffer(
-          FRDGBufferDesc::CreateStructuredDesc(sizeof(float), NumPoints * 4),
-          TEXT("FLidarPointCloudCS_PointCloudBuffer"));
-
-  // Structured UAV — no pixel format; must match RWStructuredBuffer<float> in HLSL.
-  FRDGBufferUAVRef PointCloudBufferUAV = GraphBuilder.CreateUAV(PointCloudBufferRDG);
-  AddClearUAVFloatPass(GraphBuilder, PointCloudBufferUAV, -1.0f);
+      CreateStructuredBuffer(GraphBuilder,  // Our FRDGBuilder
+                             TEXT("FLidarPointCloudCS_PointCloudBuffer_"
+                                  "StructuredBuffer"),  // The name of this
+                                                        // buffer (for debug
+                                                        // purposes)
+                             sizeof(float),  // The size of a single element
+                             NumPoints * 4, InitialData, BufferSize);
+  FRDGBufferUAVRef PointCloudBufferUAV = GraphBuilder.CreateUAV(
+      PointCloudBufferRDG, PF_FloatRGBA, ERDGUnorderedAccessViewFlags::None);
 
   FLidarPointCloudCS::FParameters* PassParameters =
       GraphBuilder.AllocParameters<FLidarPointCloudCS::FParameters>();
   PassParameters->PointCloudBuffer = PointCloudBufferUAV;
   PassParameters->HorizontalResolution = cachedParams.HorizontalResolution;
   PassParameters->LaserNums = cachedParams.LaserNums;
-  PassParameters->TotalPointCount = NumPoints;
   PassParameters->LaserRange = cachedParams.LaserRange;
   PassParameters->CurrentHorizontalAngleDeg =
       cachedParams.CurrentHorizontalAngleDeg;
   PassParameters->HorizontalFOV = cachedParams.HorizontalFOV;
-  // Forward the configured azimuth window so the compute pass uses the same
-  // FOV limits as the CPU-side sensor settings.
-  PassParameters->HorizontalFOVStartDeg = cachedParams.HorizontalFOVStartDeg;
-  PassParameters->HorizontalFOVEndDeg = cachedParams.HorizontalFOVEndDeg;
-  PassParameters->VerticalFOVUpperDeg = cachedParams.VerticalFOVUpperDeg;
-  PassParameters->VerticalFOVLowerDeg = cachedParams.VerticalFOVLowerDeg;
-  PassParameters->CameraHorizontalFOVDeg = cachedParams.CameraHorizontalFOVDeg;
+  PassParameters->VerticalFOV = cachedParams.VerticalFOV;
   PassParameters->CamFrustrumHeight = cachedParams.CamFrustrumHeight;
   PassParameters->CamFrustrumWidth = cachedParams.CamFrustrumWidth;
+  PassParameters->ProjectionMatrixInv =
+      cachedParams.ViewProjectionMatInv.GetTransposed();
 
   PassParameters->CamRotationMatrix1 = cachedParams.RotationMatCam1;
   PassParameters->CamRotationMatrix2 = cachedParams.RotationMatCam2;
@@ -318,29 +253,50 @@ void FLidarIntensitySceneViewExtension::PrePostProcessPass_RenderThread(
   PassParameters->CamRotationMatrix4 = cachedParams.RotationMatCam4;
 
   PassParameters->DepthImage1 = cachedParams.DepthTexture1;
-    // Each texture corresponds to one 90-degree capture used by the 360-degree
-    // GPU lidar sweep.
-    PassParameters->DepthImage2 = cachedParams.DepthTexture2;
+  PassParameters->DepthImage2 = IntensityRenderTarget.Texture;
   PassParameters->DepthImage3 = cachedParams.DepthTexture3;
   PassParameters->DepthImage4 = cachedParams.DepthTexture4;
 
+  FSceneViewProjectionData ProjData;
+  ProjData.ViewOrigin =
+      FVector(0.f);  // camera space, should always be the origin
+  // Apply rotation matrix of camera's pose plus the rotation matrix for
+  // converting Unreal's world axes to the camera's view axes (z forward, etc).
+  ProjData.ViewRotationMatrix = FMatrix(FPlane(0, 0, 1, 0), FPlane(1, 0, 0, 0),
+                                        FPlane(0, 1, 0, 0), FPlane(0, 0, 0, 1));
+  ProjData.ProjectionMatrix = cachedParams.ProjectionMat;
+  ProjData.SetConstrainedViewRectangle(FIntRect(
+      0, 0, cachedParams.CamFrustrumWidth, cachedParams.CamFrustrumHeight));
+  PassParameters->ProjectionMatrix =
+      FMatrix44f(ProjData.ComputeViewProjectionMatrix().GetTransposed());
+
   FIntVector GroupContext(
-      FMath::DivideAndRoundUp<uint32>(NumPoints, 1024u),
-      NUM_THREADS_PER_GROUP_DIMENSION_Y,
-      NUM_THREADS_PER_GROUP_DIMENSION_Z);
+      cachedParams.NumCams * cachedParams.HorizontalResolution *
+          cachedParams.LaserNums / 1024,
+      NUM_THREADS_PER_GROUP_DIMENSION_Y, NUM_THREADS_PER_GROUP_DIMENSION_Z);
+
+  LidarPointCloudData =
+      std::vector<FVector4>(NumPoints, FVector4(-1, -1, -1, -1));
 
   FComputeShaderUtils::AddPass(
       GraphBuilder, RDG_EVENT_NAME("LidarPointCloud Pass"),
       LidarPointCloudShader, PassParameters, GroupContext);
 
-  AddEnqueueCopyPass(GraphBuilder, CurrentReadback.Get(), PointCloudBufferRDG, BufferSize);
+    FCopyBufferToCPUPass* CopyPassParameters =
+        GraphBuilder.AllocParameters<FCopyBufferToCPUPass>();
+    CopyPassParameters->Buffer = PointCloudBufferRDG;
 
-  // Store the size for the next time we encounter this buffer slot
-  ReadbackBuffersSizes[CurrentReadbackIndex] = BufferSize;
-  ReadbackMetadata[CurrentReadbackIndex] = cachedParams;
+    GraphBuilder.AddPass(
+        RDG_EVENT_NAME("FCopyBufferToCPUPass"), CopyPassParameters,
+        ERDGPassFlags::Readback,
+        [this, &InitialData, PointCloudBufferRDG, BufferSize](FRHICommandList& RHICmdList) {
+          InitialData = (float*)RHICmdList.LockBuffer(PointCloudBufferRDG->GetRHI(), 0,
+                                              BufferSize, RLM_ReadOnly);
 
-  // Advance index for next frame
-  CurrentReadbackIndex = (CurrentReadbackIndex + 1) % NumReadbackBuffers;
+          FMemory::Memcpy(LidarPointCloudData.data(), InitialData, BufferSize);
+
+          RHICmdList.UnlockBuffer(PointCloudBufferRDG->GetRHI());
+        });
 }
 
 void FLidarIntensitySceneViewExtension::UpdateParameters(

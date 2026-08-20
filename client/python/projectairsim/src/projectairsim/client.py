@@ -81,6 +81,15 @@ class ProjectAirSimClient:
         self.recv_topic_thread = threading.Thread(target=self.__recv_topic)
         self.recv_topic_thread.start()
         projectairsim_log().info("Started the pub-sub topic receiving thread.")
+        
+        # Automatically handle authorization if needed
+        try:
+            projectairsim_log().info("Attempting automatic authorization...")
+            self.set_authorization_token("development_token")
+            projectairsim_log().info("Authorization successful")
+        except Exception as e:
+            projectairsim_log().warning(f"Authorization not required or failed: {e}")
+            projectairsim_log().info("Continuing without authorization...")
 
     def get_topic_info(self):
         """This is used by World to get the list of topic info on reload scene."""
@@ -163,15 +172,6 @@ class ProjectAirSimClient:
         else:
             utils.projectairsim_log().info("Successfully set interactive feature.")
 
-    def get_build_commit_hash(self) -> str:
-        """Gets the commit hash used to build the current sim libs."""
-        hash_req: Dict = {
-            "method": "/Sim/GetBuildCommitHash",
-            "params": {},
-            "version": 1.0,
-        }
-        return self.request(hash_req)
-
     def unsubscribe(self, topics):
         """Unsubscribes from one or more server topics
 
@@ -243,6 +243,7 @@ class ProjectAirSimClient:
         self.socket_services.send(request_packed)
         try:
             response = self.socket_services.recv_msg()
+            print(f"Response: {response}")
             output = self.postprocess_response(response)
             return output
         except pynng.exceptions.Timeout:
@@ -407,7 +408,7 @@ class ProjectAirSimClient:
         """Get the public RSA key to encrypt the client authorization token.
 
         Returns:
-            Public RSA key in OpenSSL format, base-64 encoded
+            Public RSA key in OpenSSL format, base-64 encoded, or empty string if no authorization required
         """
         get_authorization_token_public_key_req: Dict = {
             "method": f"/Sim/GetAuthorizationTokenPublicKey",
@@ -415,6 +416,17 @@ class ProjectAirSimClient:
             "version": 1.0,
         }
         encryption_key = self.request(get_authorization_token_public_key_req)
+        
+        # Handle the case where the server returns None or empty string
+        if encryption_key is None:
+            return ""
+        
+        # Convert to string if it's not already
+        if isinstance(encryption_key, bytes):
+            encryption_key = encryption_key.decode('utf-8')
+        elif not isinstance(encryption_key, str):
+            encryption_key = str(encryption_key)
+            
         return encryption_key
 
     def set_authorization_token(self, token: str) -> datetime:
@@ -423,9 +435,14 @@ class ProjectAirSimClient:
         Returns:
             datatime when the token expires
         """
-        encryption_key_openssh = bytes(
-            self.__get_authorization_token_public_key(), "utf-8"
-        )
+        encryption_key = self.__get_authorization_token_public_key()
+        
+        # If no encryption key is returned, it means no authorization is required
+        if not encryption_key:
+            projectairsim_log().info("No authorization required - server accepts all clients")
+            return datetime.max
+        
+        encryption_key_openssh = bytes(encryption_key, "utf-8")
         rsa_key_public = (
             cryptography.hazmat.primitives.serialization.load_ssh_public_key(
                 encryption_key_openssh

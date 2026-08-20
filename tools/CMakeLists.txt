@@ -15,5 +15,10 @@
 #
 # ---------------------------------------------------------------------------------------------------------------------
 
-# Add lvmon library
-add_subdirectory(lvmon)
+# Add lvmon library (Windows only - not compatible with macOS/Linux)
+if(WIN32)
+    add_subdirectory(lvmon)
+else()
+    message(STATUS "Skipping lvmon tool - not compatible with ${CMAKE_SYSTEM_NAME}")
+    message(STATUS "Using lvmon stub header for ${CMAKE_SYSTEM_NAME}")
+endif()

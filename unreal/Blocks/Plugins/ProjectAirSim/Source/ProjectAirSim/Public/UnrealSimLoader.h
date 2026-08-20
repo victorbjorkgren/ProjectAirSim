@@ -86,5 +86,5 @@ class PROJECTAIRSIM_API AUnrealSimLoader {
   std::ofstream SimLogFile;
 
   static constexpr int32 SupportedUnrealVersionMajor = 5;
-  static constexpr int32 SupportedUnrealVersionMinor = 1;
+  static constexpr int32 SupportedUnrealVersionMinor = 6;
 };

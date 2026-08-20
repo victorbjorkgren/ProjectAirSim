@@ -35,7 +35,6 @@ class StateManager;
 enum class LidarKind {
   kGenericCylindrical,  // Generic lidar with cylindrical scan pattern
   kGPUCylindrical,      // Experimental GPU-version of the cylindrical pattern
-  kDepthCylindrical,    // Depth-camera-based cylindrical scan pattern
   kGenericRosette,      // Generic lidar with rosette scan pattern
 };
 

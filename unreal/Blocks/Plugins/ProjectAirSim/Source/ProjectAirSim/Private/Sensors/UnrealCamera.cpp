@@ -27,7 +27,6 @@
 #include "UObject/ConstructorHelpers.h"
 #include "UnrealCameraRenderRequest.h"
 #include "UnrealHelpers.h"
-#include "UnrealCompatibility.h"
 #include "UnrealLogger.h"
 #include "UnrealScene.h"
 #include "core_sim/clock.hpp"
@@ -151,21 +150,12 @@ void UUnrealCamera::LoadCameraMaterials() {
 
 void HideDebugDrawComponent(USceneCaptureComponent2D* CaptureComponent,
                             UWorld* UnrealWorld) {
-  #if UE_IS_5_7
-    CaptureComponent->HideComponent(Cast<UPrimitiveComponent>(
-        UnrealWorld->GetLineBatcher(UWorld::ELineBatcherType::World)));
-    CaptureComponent->HideComponent(Cast<UPrimitiveComponent>(
-        UnrealWorld->GetLineBatcher(UWorld::ELineBatcherType::WorldPersistent)));
-    CaptureComponent->HideComponent(Cast<UPrimitiveComponent>(
-        UnrealWorld->GetLineBatcher(UWorld::ELineBatcherType::Foreground)));
-  #elif UE_IS_5_2
-    CaptureComponent->HideComponent(
-        Cast<UPrimitiveComponent>(UnrealWorld->LineBatcher));
-    CaptureComponent->HideComponent(
-        Cast<UPrimitiveComponent>(UnrealWorld->PersistentLineBatcher));
-    CaptureComponent->HideComponent(
-        Cast<UPrimitiveComponent>(UnrealWorld->ForegroundLineBatcher));
-  #endif
+  CaptureComponent->HideComponent(Cast<UPrimitiveComponent>(
+      UnrealWorld->GetLineBatcher(UWorld::ELineBatcherType::World)));
+  CaptureComponent->HideComponent(
+      Cast<UPrimitiveComponent>(UnrealWorld->GetLineBatcher(UWorld::ELineBatcherType::WorldPersistent)));
+  CaptureComponent->HideComponent(Cast<UPrimitiveComponent>(
+      UnrealWorld->GetLineBatcher(UWorld::ELineBatcherType::Foreground)));
 }
 
 void UUnrealCamera::CreateComponents() {

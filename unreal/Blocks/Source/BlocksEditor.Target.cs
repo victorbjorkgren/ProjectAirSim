@@ -13,6 +13,7 @@ public class BlocksEditorTarget : TargetRules
 		Type = TargetType.Editor;
 		DefaultBuildSettings = BuildSettingsVersion.Latest;
 		IncludeOrderVersion = EngineIncludeOrderVersion.Latest;  // from UE5.1
+		CppStandard = CppStandardVersion.Cpp20;
 		ExtraModuleNames.AddRange(new string[] { "Blocks" });
 
 		// Uncomment the below options to disable Unity file merging or PCHs to

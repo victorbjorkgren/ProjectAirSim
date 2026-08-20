@@ -3,6 +3,9 @@
 //
 // MIT License. All rights reserved.
 
+// Assimp is disabled on macOS due to zlib compatibility issues
+#ifndef __APPLE__
+
 #include "AssimpToProcMesh.h"
 
 #include <queue>
@@ -311,3 +314,5 @@ void AssimpToProcMesh::UpdateProcMesh(const aiScene* scene,
     }
   }
 }
+
+#endif // !__APPLE__

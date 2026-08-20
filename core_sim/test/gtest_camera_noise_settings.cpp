@@ -60,16 +60,11 @@ class Robot {  // : public ::testing::Test {
 namespace projectairsim = microsoft::projectairsim;
 
 TEST(CameraNoiseSettings, EnablesNoiseSettings) {
-  // General description:
-  // Verifies enables noise settings for CameraNoiseSettings.
-  // Arrange: prepare context for `auto camera = projectairsim::Robot::MakeDefaultCamera();`.
   auto camera = projectairsim::Robot::MakeDefaultCamera();
   auto camera_settings = projectairsim::Robot::GetBasicCameraConfig();
   projectairsim::Robot::LoadCamera(camera, camera_settings);
   const auto& actual_camera_settings = camera.GetCameraSettings();
-  // Act: run `auto actual_noise_settings = actual_camera_settings.noise_settings;`.
   auto actual_noise_settings = actual_camera_settings.noise_settings;
-  // Assert: check result from `EXPECT_EQ(actual_noise_settings.at(2).Enabled, false);`.
   EXPECT_EQ(actual_noise_settings.at(2).Enabled, false);
 
   json noise_settings = R"( [ {
@@ -86,9 +81,6 @@ TEST(CameraNoiseSettings, EnablesNoiseSettings) {
 
 //! Tests for Random Noise
 TEST(CameraNoiseSettings, EnablesRandContribNoiseParam) {
-  // General description:
-  // Verifies enables rand contrib noise param for CameraNoiseSettings.
-  // Arrange: prepare context for `auto camera = projectairsim::Robot::MakeDefaultCamera();`.
   auto camera = projectairsim::Robot::MakeDefaultCamera();
   auto camera_settings = projectairsim::Robot::GetBasicCameraConfig();
   json noise_settings = R"( [ {
@@ -100,16 +92,11 @@ TEST(CameraNoiseSettings, EnablesRandContribNoiseParam) {
   camera_settings["noise-settings"] = noise_settings;
   projectairsim::Robot::LoadCamera(camera, camera_settings);
   const auto& actual_camera_settings = camera.GetCameraSettings();
-  // Act: run `auto actual_noise_settings = actual_camera_settings.noise_settings;`.
   auto actual_noise_settings = actual_camera_settings.noise_settings;
-  // Assert: check result from `EXPECT_FLOAT_EQ(actual_noise_settings.at(2).RandContrib, 0.55);`.
   EXPECT_FLOAT_EQ(actual_noise_settings.at(2).RandContrib, 0.55);
 }
 
 TEST(CameraNoiseSettings, EnablesRandSpeedNoiseParam) {
-  // General description:
-  // Verifies enables rand speed noise param for CameraNoiseSettings.
-  // Arrange: prepare context for `auto camera = projectairsim::Robot::MakeDefaultCamera();`.
   auto camera = projectairsim::Robot::MakeDefaultCamera();
   auto camera_settings = projectairsim::Robot::GetBasicCameraConfig();
   json noise_settings = R"( [ {
@@ -121,16 +108,11 @@ TEST(CameraNoiseSettings, EnablesRandSpeedNoiseParam) {
   camera_settings["noise-settings"] = noise_settings;
   projectairsim::Robot::LoadCamera(camera, camera_settings);
   const auto& actual_camera_settings = camera.GetCameraSettings();
-  // Act: run `auto actual_noise_settings = actual_camera_settings.noise_settings;`.
   auto actual_noise_settings = actual_camera_settings.noise_settings;
-  // Assert: check result from `EXPECT_FLOAT_EQ(actual_noise_settings.at(2).RandSpeed, 1000);`.
   EXPECT_FLOAT_EQ(actual_noise_settings.at(2).RandSpeed, 1000);
 }
 
 TEST(CameraNoiseSettings, EnablesRandSizeNoiseParam) {
-  // General description:
-  // Verifies enables rand size noise param for CameraNoiseSettings.
-  // Arrange: prepare context for `auto camera = projectairsim::Robot::MakeDefaultCamera();`.
   auto camera = projectairsim::Robot::MakeDefaultCamera();
   auto camera_settings = projectairsim::Robot::GetBasicCameraConfig();
   json noise_settings = R"( [ {
@@ -142,16 +124,11 @@ TEST(CameraNoiseSettings, EnablesRandSizeNoiseParam) {
   camera_settings["noise-settings"] = noise_settings;
   projectairsim::Robot::LoadCamera(camera, camera_settings);
   const auto& actual_camera_settings = camera.GetCameraSettings();
-  // Act: run `auto actual_noise_settings = actual_camera_settings.noise_settings;`.
   auto actual_noise_settings = actual_camera_settings.noise_settings;
-  // Assert: check result from `EXPECT_FLOAT_EQ(actual_noise_settings.at(2).RandSize, 100);`.
   EXPECT_FLOAT_EQ(actual_noise_settings.at(2).RandSize, 100);
 }
 
 TEST(CameraNoiseSettings, EnablesRandDensityNoiseParam) {
-  // General description:
-  // Verifies enables rand density noise param for CameraNoiseSettings.
-  // Arrange: prepare context for `auto camera = projectairsim::Robot::MakeDefaultCamera();`.
   auto camera = projectairsim::Robot::MakeDefaultCamera();
   auto camera_settings = projectairsim::Robot::GetBasicCameraConfig();
   json noise_settings = R"( [ {
@@ -163,17 +140,12 @@ TEST(CameraNoiseSettings, EnablesRandDensityNoiseParam) {
   camera_settings["noise-settings"] = noise_settings;
   projectairsim::Robot::LoadCamera(camera, camera_settings);
   const auto& actual_camera_settings = camera.GetCameraSettings();
-  // Act: run `auto actual_noise_settings = actual_camera_settings.noise_settings;`.
   auto actual_noise_settings = actual_camera_settings.noise_settings;
-  // Assert: check result from `EXPECT_FLOAT_EQ(actual_noise_settings.at(2).RandDensity, 1);`.
   EXPECT_FLOAT_EQ(actual_noise_settings.at(2).RandDensity, 1);
 }
 
 //! Tests for wave/bump distortion noise parameters
 TEST(CameraNoiseSettings, EnablesHorzWaveContribNoiseParam) {
-  // General description:
-  // Verifies enables horz wave contrib noise param for CameraNoiseSettings.
-  // Arrange: prepare context for `auto camera = projectairsim::Robot::MakeDefaultCamera();`.
   auto camera = projectairsim::Robot::MakeDefaultCamera();
   auto camera_settings = projectairsim::Robot::GetBasicCameraConfig();
   json noise_settings = R"( [ {
@@ -185,16 +157,11 @@ TEST(CameraNoiseSettings, EnablesHorzWaveContribNoiseParam) {
   camera_settings["noise-settings"] = noise_settings;
   projectairsim::Robot::LoadCamera(camera, camera_settings);
   const auto& actual_camera_settings = camera.GetCameraSettings();
-  // Act: run `auto actual_noise_settings = actual_camera_settings.noise_settings;`.
   auto actual_noise_settings = actual_camera_settings.noise_settings;
-  // Assert: check result from `EXPECT_FLOAT_EQ(actual_noise_settings.at(2).HorzWaveContrib, 0.12);`.
   EXPECT_FLOAT_EQ(actual_noise_settings.at(2).HorzWaveContrib, 0.12);
 }
 
 TEST(CameraNoiseSettings, EnablesHorzWaveStrengthNoiseParam) {
-  // General description:
-  // Verifies enables horz wave strength noise param for CameraNoiseSettings.
-  // Arrange: prepare context for `auto camera = projectairsim::Robot::MakeDefaultCamera();`.
   auto camera = projectairsim::Robot::MakeDefaultCamera();
   auto camera_settings = projectairsim::Robot::GetBasicCameraConfig();
   json noise_settings = R"( [ {
@@ -206,16 +173,11 @@ TEST(CameraNoiseSettings, EnablesHorzWaveStrengthNoiseParam) {
   camera_settings["noise-settings"] = noise_settings;
   projectairsim::Robot::LoadCamera(camera, camera_settings);
   const auto& actual_camera_settings = camera.GetCameraSettings();
-  // Act: run `auto actual_noise_settings = actual_camera_settings.noise_settings;`.
   auto actual_noise_settings = actual_camera_settings.noise_settings;
-  // Assert: check result from `EXPECT_FLOAT_EQ(actual_noise_settings.at(2).HorzWaveStrength, 0.123);`.
   EXPECT_FLOAT_EQ(actual_noise_settings.at(2).HorzWaveStrength, 0.123);
 }
 
 TEST(CameraNoiseSettings, EnablesHorzWaveVertSizeNoiseParam) {
-  // General description:
-  // Verifies enables horz wave vert size noise param for CameraNoiseSettings.
-  // Arrange: prepare context for `auto camera = projectairsim::Robot::MakeDefaultCamera();`.
   auto camera = projectairsim::Robot::MakeDefaultCamera();
   auto camera_settings = projectairsim::Robot::GetBasicCameraConfig();
   json noise_settings = R"( [ {
@@ -227,16 +189,11 @@ TEST(CameraNoiseSettings, EnablesHorzWaveVertSizeNoiseParam) {
   camera_settings["noise-settings"] = noise_settings;
   projectairsim::Robot::LoadCamera(camera, camera_settings);
   const auto& actual_camera_settings = camera.GetCameraSettings();
-  // Act: run `auto actual_noise_settings = actual_camera_settings.noise_settings;`.
   auto actual_noise_settings = actual_camera_settings.noise_settings;
-  // Assert: check result from `EXPECT_FLOAT_EQ(actual_noise_settings.at(2).HorzWaveVertSize, 0.123);`.
   EXPECT_FLOAT_EQ(actual_noise_settings.at(2).HorzWaveVertSize, 0.123);
 }
 
 TEST(CameraNoiseSettings, EnablesHorzWaveScreenSizeNoiseParam) {
-  // General description:
-  // Verifies enables horz wave screen size noise param for CameraNoiseSettings.
-  // Arrange: prepare context for `auto camera = projectairsim::Robot::MakeDefaultCamera();`.
   auto camera = projectairsim::Robot::MakeDefaultCamera();
   auto camera_settings = projectairsim::Robot::GetBasicCameraConfig();
   json noise_settings = R"( [ {
@@ -248,17 +205,12 @@ TEST(CameraNoiseSettings, EnablesHorzWaveScreenSizeNoiseParam) {
   camera_settings["noise-settings"] = noise_settings;
   projectairsim::Robot::LoadCamera(camera, camera_settings);
   const auto& actual_camera_settings = camera.GetCameraSettings();
-  // Act: run `auto actual_noise_settings = actual_camera_settings.noise_settings;`.
   auto actual_noise_settings = actual_camera_settings.noise_settings;
-  // Assert: check result from `EXPECT_FLOAT_EQ(actual_noise_settings.at(2).HorzWaveScreenSize, 0.123);`.
   EXPECT_FLOAT_EQ(actual_noise_settings.at(2).HorzWaveScreenSize, 0.123);
 }
 
 //! Tests for line noise parameters
 TEST(CameraNoiseSettings, EnablesHorzNoiseLinesContribNoiseParam) {
-  // General description:
-  // Verifies enables horz noise lines contrib noise param for CameraNoiseSettings.
-  // Arrange: prepare context for `auto camera = projectairsim::Robot::MakeDefaultCamera();`.
   auto camera = projectairsim::Robot::MakeDefaultCamera();
   auto camera_settings = projectairsim::Robot::GetBasicCameraConfig();
   json noise_settings = R"( [ {
@@ -270,16 +222,11 @@ TEST(CameraNoiseSettings, EnablesHorzNoiseLinesContribNoiseParam) {
   camera_settings["noise-settings"] = noise_settings;
   projectairsim::Robot::LoadCamera(camera, camera_settings);
   const auto& actual_camera_settings = camera.GetCameraSettings();
-  // Act: run `auto actual_noise_settings = actual_camera_settings.noise_settings;`.
   auto actual_noise_settings = actual_camera_settings.noise_settings;
-  // Assert: check result from `EXPECT_FLOAT_EQ(actual_noise_settings.at(2).HorzNoiseLinesContrib, 0.123);`.
   EXPECT_FLOAT_EQ(actual_noise_settings.at(2).HorzNoiseLinesContrib, 0.123);
 }
 
 TEST(CameraNoiseSettings, EnablesHorzNoiseLinesDensityYNoiseParam) {
-  // General description:
-  // Verifies enables horz noise lines density ynoise param for CameraNoiseSettings.
-  // Arrange: prepare context for `auto camera = projectairsim::Robot::MakeDefaultCamera();`.
   auto camera = projectairsim::Robot::MakeDefaultCamera();
   auto camera_settings = projectairsim::Robot::GetBasicCameraConfig();
   json noise_settings = R"( [ {
@@ -291,16 +238,11 @@ TEST(CameraNoiseSettings, EnablesHorzNoiseLinesDensityYNoiseParam) {
   camera_settings["noise-settings"] = noise_settings;
   projectairsim::Robot::LoadCamera(camera, camera_settings);
   const auto& actual_camera_settings = camera.GetCameraSettings();
-  // Act: run `auto actual_noise_settings = actual_camera_settings.noise_settings;`.
   auto actual_noise_settings = actual_camera_settings.noise_settings;
-  // Assert: check result from `EXPECT_FLOAT_EQ(actual_noise_settings.at(2).HorzNoiseLinesDensityY, 0.123);`.
   EXPECT_FLOAT_EQ(actual_noise_settings.at(2).HorzNoiseLinesDensityY, 0.123);
 }
 
 TEST(CameraNoiseSettings, EnablesHorzNoiseLinesDensityXYNoiseParam) {
-  // General description:
-  // Verifies enables horz noise lines density xynoise param for CameraNoiseSettings.
-  // Arrange: prepare context for `auto camera = projectairsim::Robot::MakeDefaultCamera();`.
   auto camera = projectairsim::Robot::MakeDefaultCamera();
   auto camera_settings = projectairsim::Robot::GetBasicCameraConfig();
   json noise_settings = R"( [ {
@@ -312,17 +254,12 @@ TEST(CameraNoiseSettings, EnablesHorzNoiseLinesDensityXYNoiseParam) {
   camera_settings["noise-settings"] = noise_settings;
   projectairsim::Robot::LoadCamera(camera, camera_settings);
   const auto& actual_camera_settings = camera.GetCameraSettings();
-  // Act: run `auto actual_noise_settings = actual_camera_settings.noise_settings;`.
   auto actual_noise_settings = actual_camera_settings.noise_settings;
-  // Assert: check result from `EXPECT_FLOAT_EQ(actual_noise_settings.at(2).HorzNoiseLinesDensityXY, 0.123);`.
   EXPECT_FLOAT_EQ(actual_noise_settings.at(2).HorzNoiseLinesDensityXY, 0.123);
 }
 
 //! Tests for distortion line parameters
 TEST(CameraNoiseSettings, EnablesHorzDistortionContribNoiseParam) {
-  // General description:
-  // Verifies enables horz distortion contrib noise param for CameraNoiseSettings.
-  // Arrange: prepare context for `auto camera = projectairsim::Robot::MakeDefaultCamera();`.
   auto camera = projectairsim::Robot::MakeDefaultCamera();
   auto camera_settings = projectairsim::Robot::GetBasicCameraConfig();
   json noise_settings = R"( [ {
@@ -334,16 +271,11 @@ TEST(CameraNoiseSettings, EnablesHorzDistortionContribNoiseParam) {
   camera_settings["noise-settings"] = noise_settings;
   projectairsim::Robot::LoadCamera(camera, camera_settings);
   const auto& actual_camera_settings = camera.GetCameraSettings();
-  // Act: run `auto actual_noise_settings = actual_camera_settings.noise_settings;`.
   auto actual_noise_settings = actual_camera_settings.noise_settings;
-  // Assert: check result from `EXPECT_FLOAT_EQ(actual_noise_settings.at(2).HorzDistortionContrib, 0.123);`.
   EXPECT_FLOAT_EQ(actual_noise_settings.at(2).HorzDistortionContrib, 0.123);
 }
 
 TEST(CameraNoiseSettings, EnablesHorzDistortionStrengthNoiseParam) {
-  // General description:
-  // Verifies enables horz distortion strength noise param for CameraNoiseSettings.
-  // Arrange: prepare context for `auto camera = projectairsim::Robot::MakeDefaultCamera();`.
   auto camera = projectairsim::Robot::MakeDefaultCamera();
   auto camera_settings = projectairsim::Robot::GetBasicCameraConfig();
   json noise_settings = R"( [ {
@@ -355,16 +287,11 @@ TEST(CameraNoiseSettings, EnablesHorzDistortionStrengthNoiseParam) {
   camera_settings["noise-settings"] = noise_settings;
   projectairsim::Robot::LoadCamera(camera, camera_settings);
   const auto& actual_camera_settings = camera.GetCameraSettings();
-  // Act: run `auto actual_noise_settings = actual_camera_settings.noise_settings;`.
   auto actual_noise_settings = actual_camera_settings.noise_settings;
-  // Assert: check result from `EXPECT_FLOAT_EQ(actual_noise_settings.at(2).HorzDistortionStrength, 0.123);`.
   EXPECT_FLOAT_EQ(actual_noise_settings.at(2).HorzDistortionStrength, 0.123);
 }
 
 TEST(CameraNoiseSettings, SupportsAllNoiseSettingsParamsConcurrently) {
-  // General description:
-  // Verifies supports all noise settings params concurrently for CameraNoiseSettings.
-  // Arrange: prepare context for `auto camera = projectairsim::Robot::MakeDefaultCamera();`.
   auto camera = projectairsim::Robot::MakeDefaultCamera();
   auto camera_settings = projectairsim::Robot::GetBasicCameraConfig();
   json noise_settings = R"( [ {
@@ -392,9 +319,7 @@ TEST(CameraNoiseSettings, SupportsAllNoiseSettingsParamsConcurrently) {
   camera_settings["noise-settings"] = noise_settings;
   projectairsim::Robot::LoadCamera(camera, camera_settings);
   const auto& actual_camera_settings = camera.GetCameraSettings();
-  // Act: run `auto actual_noise_settings = actual_camera_settings.noise_settings;`.
   auto actual_noise_settings = actual_camera_settings.noise_settings;
-  // Assert: check result from `EXPECT_EQ(actual_noise_settings.at(1).Enabled, true);`.
   EXPECT_EQ(actual_noise_settings.at(1).Enabled, true);
   EXPECT_FLOAT_EQ(actual_noise_settings.at(1).RandContrib, 0.123);
   EXPECT_FLOAT_EQ(actual_noise_settings.at(1).RandSpeed, 123.0);

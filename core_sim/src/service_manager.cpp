@@ -5,10 +5,12 @@
 
 #include "core_sim/service_manager.hpp"
 
+#include <chrono>
 #include <exception>
 #include <map>
 #include <shared_mutex>
 #include <string>
+#include <thread>
 #include <utility>
 
 #include "constant.hpp"
@@ -194,8 +196,14 @@ void ServiceManager::Impl::Start() {
                    service_socket_);
 
   // Initialize jobs and bind their AIO callbacks to JobRunner() state machine
+  logger_.LogTrace(name_, "Initializing %d jobs", kMaxConcurrentJobs);
   for (int job_num = 0; job_num < kMaxConcurrentJobs; job_num++) {
     CreateJob(service_socket_, this, &jobs_[job_num]);
+    // Check if job initialization failed
+    if (jobs_[job_num].aio == nullptr) {
+      logger_.LogError(name_, "Failed to initialize job %d - AIO is null", job_num);
+      throw Error("Error initializing service manager jobs.");
+    }
   }
 
   rv = nng_pipe_notify(service_socket_, NNG_PIPE_EV_REM_POST,
@@ -222,6 +230,7 @@ void ServiceManager::Impl::Start() {
   is_alive_ = true;
 
   // Kick-start the async job runners to start listening for requests
+  logger_.LogTrace(name_, "Starting job runners");
   for (int job_num = 0; job_num < kMaxConcurrentJobs; job_num++) {
     JobRunner(&jobs_[job_num]);
   }
@@ -237,6 +246,34 @@ void ServiceManager::Impl::Stop() {
 
   is_alive_ = false;
 
+  // First, cancel all pending AIO operations to prevent new async operations
+  logger_.LogTrace(name_, "Cancelling all pending AIO operations");
+  for (int job_num = 0; job_num < kMaxConcurrentJobs; job_num++) {
+    if (jobs_[job_num].aio != nullptr) {
+      nng_aio_cancel(jobs_[job_num].aio);
+    }
+  }
+
+  // Wait for all operations to complete before proceeding
+  logger_.LogTrace(name_, "Waiting for all AIO operations to complete");
+  for (int job_num = 0; job_num < kMaxConcurrentJobs; job_num++) {
+    if (jobs_[job_num].aio != nullptr) {
+      // Add timeout to prevent hanging
+      auto start_time = std::chrono::steady_clock::now();
+      while (nng_aio_busy(jobs_[job_num].aio)) {
+        auto elapsed = std::chrono::steady_clock::now() - start_time;
+        if (elapsed > std::chrono::seconds(5)) {
+          logger_.LogWarning(name_, "Timeout waiting for AIO operation %d to complete", job_num);
+          break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      }
+      nng_aio_wait(jobs_[job_num].aio);
+    }
+  }
+
+  // Close the socket after all operations are complete
+  logger_.LogTrace(name_, "Closing service socket");
   auto error = nng_close(service_socket_);
   if (error != 0) {
     auto errno_str = nng_strerror(error);
@@ -244,13 +281,29 @@ void ServiceManager::Impl::Stop() {
                      errno_str);
   }
 
-  // Stop all AIO Runners & free the async I/O handle
+  // Close all NNG contexts before freeing AIO objects
+  logger_.LogTrace(name_, "Closing all NNG contexts");
   for (int job_num = 0; job_num < kMaxConcurrentJobs; job_num++) {
-    // cancel -> wait -> stop -> free
-    nng_aio_free(jobs_[job_num].aio);
+    if (jobs_[job_num].aio != nullptr) {  // Only close context if AIO is valid
+      int rv = nng_ctx_close(jobs_[job_num].ctx);
+      if (rv != 0) {
+        auto errno_str = nng_strerror(rv);
+        logger_.LogWarning(name_, "nng_ctx_close failed for job %d: %s", job_num, errno_str);
+      }
+    }
+  }
+
+  // Now safely free all AIO objects after all operations are complete
+  logger_.LogTrace(name_, "Freeing all AIO objects");
+  for (int job_num = 0; job_num < kMaxConcurrentJobs; job_num++) {
+    if (jobs_[job_num].aio != nullptr) {
+      nng_aio_free(jobs_[job_num].aio);
+      jobs_[job_num].aio = nullptr;
+    }
   }
 
   service_socket_ = default_service_socket_;
+  logger_.LogTrace(name_, "ServiceManager stopped successfully");
 }
 
 void ServiceManager::Impl::RegisterMethod(const ServiceMethod& method,
@@ -417,6 +470,9 @@ void ServiceManager::Impl::RunJob(Job* job) {
 
   switch (job->state) {
     case JobState::kListening:
+      // Additional safety check to prevent starting new operations during shutdown
+      if (job->parent_is_alive->load() == false) return;
+      
       //! 0. Check if a prev response was not sent successfully
       if ((rv = nng_aio_result(job->aio)) != 0) {
         // job->logger->LogError(*(job->parent_name), "nng_ctx_send: %d", rv);
@@ -437,6 +493,9 @@ void ServiceManager::Impl::RunJob(Job* job) {
       return;
 
     case JobState::kProcessing:
+      // Additional safety check to prevent processing during shutdown
+      if (job->parent_is_alive->load() == false) return;
+      
       service_method_start_time = SimClock::Get()->NowSimNanos();
 
       //! 0. Check if prev request was not received successfully
@@ -538,12 +597,17 @@ void ServiceManager::Impl::CreateJob(nng_socket sock,
   int rv;
   if ((rv = nng_aio_alloc(&new_job->aio, &ServiceManager::Impl::JobRunner,
                           new_job)) != 0) {
-    logger_.LogError(name_, "nng_aio_alloc: %d", rv);
+    logger_.LogError(name_, "nng_aio_alloc failed: %d - %s", rv, nng_strerror(rv));
+    return;
   }
 
   // Create CTX socket context object
   if ((rv = nng_ctx_open(&new_job->ctx, sock)) != 0) {
-    logger_.LogError(name_, "nng_ctx_open: %d", rv);
+    logger_.LogError(name_, "nng_ctx_open failed: %d - %s", rv, nng_strerror(rv));
+    // Clean up the AIO object if context creation fails
+    nng_aio_free(new_job->aio);
+    new_job->aio = nullptr;
+    return;
   }
 
   // Save management pointers

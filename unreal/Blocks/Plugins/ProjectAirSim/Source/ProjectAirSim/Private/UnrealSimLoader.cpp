@@ -10,6 +10,7 @@
 #include <string>
 #include <unordered_map>
 
+#include "Constant.h"
 #include "Engine/Engine.h"
 #include "Interfaces/IPluginManager.h"
 #include "Kismet/KismetSystemLibrary.h"
@@ -32,10 +33,29 @@ AUnrealSimLoader::AUnrealSimLoader(const FString& SimLogDir)
     : SimServer(std::make_shared<projectairsim::SimServer>(
           UnrealLogger::LogSim, projectairsim::LogLevel::kVerbose)) {
   // Open log file output stream to start capturing clog
+  // Try primary location, fallback to user temp directory if that fails (e.g., in Shipping builds)
   FString SimLogPath =
       FPaths::Combine(SimLogDir, TEXT("projectairsim_server.log"));
-  SimLogFile = std::ofstream(TCHAR_TO_UTF8(*SimLogPath));
-  std::clog.rdbuf(SimLogFile.rdbuf());  // set clog output to log_file stream
+  
+  // Ensure directory exists
+  FString LogDir = FPaths::GetPath(SimLogPath);
+  IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
+  if (!PlatformFile.DirectoryExists(*LogDir)) {
+    PlatformFile.CreateDirectoryTree(*LogDir);
+  }
+  
+  SimLogFile = std::ofstream(TCHAR_TO_UTF8(*SimLogPath), std::ios::out | std::ios::app);
+  
+  // If log file failed to open (e.g., read-only location in Shipping), try temp directory
+  if (!SimLogFile.is_open() || !SimLogFile.good()) {
+    SimLogPath = FPaths::Combine(FPlatformProcess::UserTempDir(), TEXT("projectairsim_server.log"));
+    SimLogFile = std::ofstream(TCHAR_TO_UTF8(*SimLogPath), std::ios::out | std::ios::app);
+  }
+  
+  // Only redirect clog if we successfully opened the log file
+  if (SimLogFile.is_open() && SimLogFile.good()) {
+    std::clog.rdbuf(SimLogFile.rdbuf());  // set clog output to log_file stream
+  }
 
   // Bind callbacks for Unreal scene load/start/stop/unloading
   SimServer->SetCallbackLoadExternalScene(

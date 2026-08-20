@@ -4,6 +4,9 @@
 // MIT License. All rights reserved.
 #pragma once
 
+// Assimp is disabled on macOS due to zlib compatibility issues
+#ifndef __APPLE__
+
 #include "Renderers/ProcMeshActor.h"
 #include "assimp/scene.h"
 #include <vector>
@@ -14,3 +17,5 @@ public:
   PROJECTAIRSIM_API static void UpdateProcMesh(const aiScene* scene,
                                             AProcMeshActor * RuntimeActor);
 };
+
+#endif // !__APPLE__

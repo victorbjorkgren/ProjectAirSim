@@ -19,6 +19,7 @@ public class ProjectAirSim : ModuleRules
 
         bEnableExceptions = true;
 
+
         string buildType = (Target.Configuration == UnrealTargetConfiguration.Debug ||
                             Target.Configuration == UnrealTargetConfiguration.DebugGame)
                             ? "Debug"
@@ -33,7 +34,8 @@ public class ProjectAirSim : ModuleRules
 
         PrivateIncludePaths.AddRange(
             new string[] {
-                EngineDirectory + "/Source/Runtime/Renderer/Private"
+                EngineDirectory + "/Source/Runtime/Renderer/Private",
+                EngineDirectory + "/Source/Runtime/Renderer/Internal"
             }
         );
 
@@ -52,14 +54,15 @@ public class ProjectAirSim : ModuleRules
                     PluginDirectory + "/SimLibs/eigen/include",
                     PluginDirectory + "/SimLibs/assimp/include",
                     PluginDirectory + "/SimLibs/json/include",
-                    PluginDirectory + "/SimLibs/nng/include",
-                    PluginDirectory + "/SimLibs/shared_libs/onnxruntime/include"
+                    PluginDirectory + "/SimLibs/nng/include"
+                    // ONNX Runtime is disabled for macOS due to API compatibility issues
+                    // PluginDirectory + "/SimLibs/shared_libs/onnxruntime/include"
                     // ... add other private include paths required here ...
                 };
 
             if (buildType == "Debug")
                 liststrIncludes.Add(PluginDirectory + "/SimLibs/lvmon/include");
-                liststrIncludes.Add(Path.Combine(GetModuleDirectory("Renderer"), "Internal"));
+            liststrIncludes.Add(Path.Combine(GetModuleDirectory("Renderer"), "Internal"));
 
             PrivateIncludePaths.AddRange(liststrIncludes);
         }
@@ -75,19 +78,18 @@ public class ProjectAirSim : ModuleRules
                     PluginDirectory + "/SimLibs/rendering_scene/include",
                     PluginDirectory + "/SimLibs/mavlinkcom/include",
                     PluginDirectory + "/SimLibs/eigen/include",
-                    PluginDirectory + "/SimLibs/assimp/include",
+                    // Assimp is disabled for macOS due to zlib compatibility issues
+                    // PluginDirectory + "/SimLibs/assimp/include",
                     PluginDirectory + "/SimLibs/json/include",
-                    PluginDirectory + "/SimLibs/nng/include",
-                    PluginDirectory + "/SimLibs/shared_libs/onnxruntime/include"
+                    PluginDirectory + "/SimLibs/nng/include"
+                    // ONNX Runtime is disabled for macOS due to API compatibility issues
+                    // PluginDirectory + "/SimLibs/shared_libs/onnxruntime/include"
                     // ... add other private include paths required here ...
                 };
 
-            if (buildType == "Debug")
-                liststrIncludes.Add(PluginDirectory + "/SimLibs/lvmon/include");
-
-            // Add Renderer internal headers for PostProcess access
-            string EngineDir = Path.GetFullPath(Target.RelativeEnginePath);
-            liststrIncludes.Add(Path.Combine(EngineDir, "Source/Runtime/Renderer/Internal"));
+            // LVMON is not compatible with macOS (Darwin)
+            // if (buildType == "Debug")
+            //     liststrIncludes.Add(PluginDirectory + "/SimLibs/lvmon/include");
 
             PrivateIncludePaths.AddRange(liststrIncludes);
         }
@@ -173,6 +175,41 @@ public class ProjectAirSim : ModuleRules
                 var fileName = Path.GetFileName(file);
                 RuntimeDependencies.Add("$(BinaryOutputDir)/" + fileName, PluginDirectory + "/SimLibs/shared_libs/" + fileName);
             }
+        }
+        else if (Target.Platform == UnrealTargetPlatform.Mac)
+        {
+            List<string> liststrLibraries = new List<string> {
+                    PluginDirectory + "/SimLibs/core_sim/" + buildType + "/libcore_sim.a",
+                    PluginDirectory + "/SimLibs/simserver/" + buildType + "/libsimserver.a",
+                    PluginDirectory + "/SimLibs/physics/" + buildType + "/libphysics.a",
+                    PluginDirectory + "/SimLibs/multirotor_api/" + buildType + "/libmultirotor_api.a",
+                    PluginDirectory + "/SimLibs/rover_api/" + buildType + "/librover_api.a",
+                    PluginDirectory + "/SimLibs/rendering_scene/" + buildType + "/librendering_scene.a",
+                    PluginDirectory + "/SimLibs/mavlinkcom/" + buildType + "/libmavlinkcom.a",
+                    PluginDirectory + "/SimLibs/nng/" + buildType + "/libnng.a",
+                    // Assimp is disabled for macOS due to zlib compatibility issues
+                    // PluginDirectory + "/SimLibs/assimp/" + buildType + "/libassimp.dylib",
+                    // ONNX Runtime is disabled for macOS due to API compatibility issues
+                    // PluginDirectory + "/SimLibs/shared_libs/libonnxruntime.dylib",
+                };
+
+            // LVMON is not compatible with macOS (Darwin)
+            // if (buildType == "Debug")
+            //     liststrLibraries.Add(PluginDirectory + "/SimLibs/lvmon/" + buildType + "/liblvmon.a");
+
+            // ONNX Runtime is disabled for macOS due to API compatibility issues
+            // No ONNX files are copied to avoid runtime errors
+            
+            // TBB libraries are not needed for this project
+
+            PublicAdditionalLibraries.AddRange(liststrLibraries);
+            PublicSystemLibraries.AddRange(
+                new string[] {
+                    "stdc++",
+                    "pthread"
+                    // Note: supc++ and anl are Linux-specific libraries, not available on macOS
+                }
+            );
         }
         else
         {

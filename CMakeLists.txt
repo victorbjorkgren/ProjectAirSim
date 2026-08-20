@@ -1,6 +1,6 @@
 # ---------------------------------------------------------------------------------------------------------------------
 #
-# Copyright (C) Microsoft Corporation.
+# Copyright (C) Microsoft Corporation.  
 # Copyright (C) 2025 IAMAI CONSULTING CORP
 #
 # MIT License. All rights reserved.
@@ -19,61 +19,47 @@ cmake_minimum_required(VERSION 3.15.0)
 
 # Before making projects, set CMake policy to use MSVC_RUNTIME_LIBRARY property
 cmake_policy(SET CMP0091 NEW)
-# CMake 3.24+ warns unless URL-based FetchContent downloads use extraction-time
-# timestamps, which avoids stale rebuild decisions when downloaded contents change.
-if(POLICY CMP0135)
-    cmake_policy(SET CMP0135 NEW)
-endif()
-# CMake 3.30+ deprecates the current FetchContent_Populate() pattern used below.
-# Keep OLD behavior until this file is refactored to FetchContent_MakeAvailable().
-if(POLICY CMP0169)
-    cmake_policy(SET CMP0169 OLD)
-endif()
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")  # Have to match UE (uses /MD non-debug CRT for all configs)
 
 include(FetchContent)
 include(ExternalProject)
 
 if (UNIX)
-    if(DEFINED ENV{UE_ROOT} AND NOT "$ENV{UE_ROOT}" STREQUAL "")
+    if(DEFINED ENV{UE_ROOT} AND NOT APPLE)
         # Build/link against UE's packaged Linux toolchain instead of system-installed toolchain
         # Note: This must be set BEFORE `project()` is called
+        # Only use Linux toolchain on actual Linux systems, not on macOS
         message("Building/linking against Unreal packaged toolchain from UE_ROOT=$ENV{UE_ROOT}")
-        set(PROJECTAIRSIM_USE_UE_TOOLCHAIN ON)
         set(CMAKE_TOOLCHAIN_FILE "unreal-linux-toolchain.cmake")
         link_directories("$ENV{UE_ROOT}/Engine/Source/ThirdParty/Unix/LibCxx/lib/Unix/x86_64-unknown-linux-gnu")
     else()
         message("Building/linking against system-installed toolchain")
-        set(PROJECTAIRSIM_USE_UE_TOOLCHAIN OFF)
-        set(CMAKE_C_COMPILER clang-13)
-        set(CMAKE_CXX_COMPILER clang++-13)
+        if(APPLE)
+            # macOS: use system clang or Homebrew LLVM
+            if(EXISTS "/opt/homebrew/opt/llvm/bin/clang")
+                set(CMAKE_C_COMPILER /opt/homebrew/opt/llvm/bin/clang)
+                set(CMAKE_CXX_COMPILER /opt/homebrew/opt/llvm/bin/clang++)
+            elseif(EXISTS "/usr/local/opt/llvm/bin/clang")
+                set(CMAKE_C_COMPILER /usr/local/opt/llvm/bin/clang)
+                set(CMAKE_CXX_COMPILER /usr/local/opt/llvm/bin/clang++)
+            else()
+                # Use system clang
+                set(CMAKE_C_COMPILER clang)
+                set(CMAKE_CXX_COMPILER clang++)
+            endif()
+            # Set macOS deployment target to match Unreal Engine's requirement
+            set(CMAKE_OSX_DEPLOYMENT_TARGET "14.0" CACHE STRING "Minimum macOS deployment version" FORCE)
+            message("Setting macOS deployment target to: ${CMAKE_OSX_DEPLOYMENT_TARGET}")
+        else()
+            # Linux: use clang-13
+            set(CMAKE_C_COMPILER clang-13)
+            set(CMAKE_CXX_COMPILER clang++-13)
+        endif()
     endif()
 endif()
 
 # Set up project
 project("ProjectAirSimLibs")
-
-# Capture build commit hash once during configure. Fallback to "unknown"
-# when git is unavailable (or source is not a git checkout).
-set(PROJECTAIRSIM_BUILD_COMMIT_HASH "unknown")
-find_package(Git QUIET)
-if(GIT_FOUND)
-    execute_process(
-        COMMAND ${GIT_EXECUTABLE} rev-parse HEAD
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-        OUTPUT_VARIABLE PROJECTAIRSIM_BUILD_COMMIT_HASH
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-        ERROR_QUIET
-        RESULT_VARIABLE PROJECTAIRSIM_GIT_RESULT
-    )
-
-    if(NOT PROJECTAIRSIM_GIT_RESULT EQUAL 0 OR PROJECTAIRSIM_BUILD_COMMIT_HASH STREQUAL "")
-        set(PROJECTAIRSIM_BUILD_COMMIT_HASH "unknown")
-    endif()
-endif()
-message("PROJECTAIRSIM_BUILD_COMMIT_HASH set to ${PROJECTAIRSIM_BUILD_COMMIT_HASH}")
-
-file(WRITE ${CMAKE_BINARY_DIR}/commit_hash.txt "${PROJECTAIRSIM_BUILD_COMMIT_HASH}\n")
 
 # Set up paths for packaging the sim libs build outputs as custom post-command steps
 set(SIMLIBS_PACKAGE_DIR ${CMAKE_SOURCE_DIR}/packages/projectairsim_simlibs)
@@ -101,12 +87,24 @@ if(WIN32)
 elseif(UNIX)
     add_compile_definitions(__CLANG__)
     add_compile_options(-stdlib=libc++ -ferror-limit=10)
-    # Note: Linking -lanl (for getaddrinfo) and -pthread are required because of nng
-    add_link_options(-stdlib=libc++ -lanl -pthread)
+    
+    if(APPLE)
+        # macOS: -lanl is not available, only need -pthread
+        add_link_options(-stdlib=libc++ -pthread)
+    else()
+        # Linux: -lanl (for getaddrinfo) and -pthread are required because of nng
+        add_link_options(-stdlib=libc++ -lanl -pthread)
+    endif()
 
     # set(CESIUM_CXX_FLAGS "-std=c++17 -stdlib=libc++")
     # set(CESIUM_LINKER_FLAGS "-stdlib=libc++ -lc++abi")
-    # set(CESIUM_LINUX_TOOLCHAIN ${UE_CESIUM_PLUGIN_DIR}/extern/unreal-linux-toolchain.cmake)
+    # set(CESIUM_LINUX_TOOLCHAIN ${UE_CESIUM_PLUGIN_DIR}/extern/unreal-linux-toolchain.cmake")
+    
+    # Add lvmon stub header for macOS/Linux builds
+    if(APPLE OR UNIX)
+        include_directories(${CMAKE_CURRENT_SOURCE_DIR}/tools/lvmon/Lib/include)
+        message(STATUS "Added lvmon stub header include path for ${CMAKE_SYSTEM_NAME}")
+    endif()
 endif()
 
 
@@ -114,8 +112,8 @@ endif()
 # Directly download single include file json.hpp
 FetchContent_Declare(
     nlohmann-json
-    URL                  https://raw.githubusercontent.com/nlohmann/json/v3.11.3/single_include/nlohmann/json.hpp
-    URL_HASH             SHA256=9bea4c8066ef4a1c206b2be5a36302f8926f7fdc6087af5d20b417d0cf103ea6
+    URL                  https://raw.githubusercontent.com/nlohmann/json/v3.11.2/single_include/nlohmann/json.hpp
+    URL_HASH             MD5=b1c1ce77d46b72b72f38051d8384c7b8  # from PowerShell: CertUtil -hashfile json.hpp MD5
     DOWNLOAD_NO_EXTRACT  True
     DOWNLOAD_NO_PROGRESS True
     DOWNLOAD_DIR         ${CMAKE_BINARY_DIR}/_deps/nlohmann-install
@@ -153,11 +151,6 @@ ExternalProject_Add(nng-external
     INSTALL_COMMAND         ${CMAKE_COMMAND} --build <BINARY_DIR> --config ${NNG_BUILD_TYPE} --target install
     TEST_COMMAND            ""  # disable test step
     CMAKE_ARGS
-        -DCMAKE_SYSROOT=${CMAKE_SYSROOT}
-        -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=${CMAKE_FIND_ROOT_PATH_MODE_PROGRAM}
-        -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=${CMAKE_FIND_ROOT_PATH_MODE_LIBRARY}
-        -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=${CMAKE_FIND_ROOT_PATH_MODE_INCLUDE}
-        -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=${CMAKE_FIND_ROOT_PATH_MODE_PACKAGE}
         -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
         -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
         -DCMAKE_EXE_LINKER_FLAGS=${NNG_CMAKE_LINKER_MANIFEST_FLAG}
@@ -167,6 +160,7 @@ ExternalProject_Add(nng-external
         -DCMAKE_BUILD_TYPE:STRING=${NNG_BUILD_TYPE}  # for single-config generators (Ninja)
         -DNNG_HAVE_GETRANDOM=False  # llvm-ar fails to find symbol `getrandom` (a syscall on Linux); Requires glibc >=2.25
         -DNNG_TESTS=False  # don't build NNG's unit tests
+        $<$<BOOL:${APPLE}>:-DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}>  # Pass macOS deployment target on Apple platforms
     EXCLUDE_FROM_ALL        True
 )
 set(NNG_LIB_DIR ${CMAKE_BINARY_DIR}/_deps/nng-install/lib)
@@ -188,70 +182,66 @@ ExternalProject_Add_Step(nng-external post-install
     DEPENDEES install
 )
 
-# Assimp compiler-specific flags
-set(ASSIMP_EXTRA_CXX_FLAGS "")
-
-if (MSVC)
-    # Assimp builds as an external project and does not inherit add_compile_options(/EHsc).
-    # Pass /EHsc explicitly to avoid C4530 when assimp treats warnings as errors.
-    set(ASSIMP_EXTRA_CXX_FLAGS "/EHsc")
-elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
-    set(ASSIMP_EXTRA_CXX_FLAGS "-Wno-error=nontrivial-memcall")
-endif()
-
 # Set up dependency: assimp
-message("Setting up [assimp] dependency as an external project...")
-# CMake external projects don't adopt the parent's CMAKE_MSVC_RUNTIME_LIBRARY setting,
-# so to force /MD non-debug CRT to match UE, build Debug config as Relwithdebinfo and
-# build Release as Release.
-set(ASSIMP_BUILD_TYPE $<IF:$<CONFIG:Debug>,Relwithdebinfo,Release>)
-if(WIN32)
-    # Drop VC toolset version from library name so ProjectAirSim.Build.cs works regardless of the version of Visual Studio
-    set(ASSIMP_LIBRARY_SUFFIX_OVERRIDE "-DLIBRARY_SUFFIX:STRING=-mt")
+if(APPLE)
+    # On macOS, temporarily disable assimp due to zlib compatibility issues with macOS 15.5
+    message("WARNING: [assimp] dependency disabled on macOS due to zlib compatibility issues")
+    message("This will limit 3D model import capabilities but allows the build to proceed")
+    set(ASSIMP_LIB_DIR "")
+    set(ASSIMP_INCLUDE_DIR "")
+    set(ASSIMP_LIBRARIES "")
 else()
-    set(ASSIMP_LIBRARY_SUFFIX_OVERRIDE "")
+    # On non-macOS platforms, build from source as before
+    message("Setting up [assimp] dependency as an external project...")
+    set(ASSIMP_BUILD_TYPE $<IF:$<CONFIG:Debug>,Relwithdebinfo,Release>)
+    if(WIN32)
+        set(ASSIMP_LIBRARY_SUFFIX_OVERRIDE "-DLIBRARY_SUFFIX:STRING=-mt")
+    else()
+        set(ASSIMP_LIBRARY_SUFFIX_OVERRIDE "")
+    endif()
+    ExternalProject_Add(assimp-external
+        GIT_REPOSITORY          https://github.com/assimp/assimp.git
+        GIT_TAG                 v5.2.5
+        GIT_CONFIG              "advice.detachedHead=false"
+        PREFIX                  ${CMAKE_BINARY_DIR}/_deps/assimp
+        UPDATE_COMMAND          ""  # disable update step
+        BUILD_COMMAND           ${CMAKE_COMMAND} --build <BINARY_DIR> --config ${ASSIMP_BUILD_TYPE}
+        INSTALL_COMMAND         ${CMAKE_COMMAND} --build <BINARY_DIR> --config ${ASSIMP_BUILD_TYPE} --target install
+        TEST_COMMAND            ""  # disable test step
+        CMAKE_ARGS
+            -DCMAKE_SYSROOT=${CMAKE_SYSROOT}
+            -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=${CMAKE_FIND_ROOT_PATH_MODE_PROGRAM}
+            -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=${CMAKE_FIND_ROOT_PATH_MODE_LIBRARY}
+            -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=${CMAKE_FIND_ROOT_PATH_MODE_INCLUDE}
+            -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=${CMAKE_FIND_ROOT_PATH_MODE_PACKAGE}
+            -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+            -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+            -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}
+            -DCMAKE_POSITION_INDEPENDENT_CODE=True
+            -DBUILD_SHARED_LIBS=OFF
+            -DASSIMP_BUILD_ZLIB=ON  # force build of assimp's packaged zlib in case it detects it existing in a python environment
+            -DASSIMP_BUILD_TESTS=OFF
+            -DASSIMP_BUILD_ASSIMP_TOOLS=OFF
+            ${ASSIMP_LIBRARY_SUFFIX_OVERRIDE}
+            -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_BINARY_DIR}/_deps/assimp-install
+            -DCMAKE_INSTALL_MESSAGE=LAZY  # don't print out all files copied
+            -DCMAKE_BUILD_TYPE:STRING=${ASSIMP_BUILD_TYPE}  # for single-config generators (Ninja)
+            -DCMAKE_C_FLAGS="-Wno-deprecated-declarations -Wno-macro-redefined -D_POSIX_C_SOURCE=200809L"
+            -DCMAKE_CXX_FLAGS="-Wno-deprecated-declarations -D_POSIX_C_SOURCE=200809L"
+    )
+    set(ASSIMP_LIB_DIR ${CMAKE_BINARY_DIR}/_deps/assimp-install/lib)
+    set(ASSIMP_INCLUDE_DIR ${CMAKE_BINARY_DIR}/_deps/assimp-install/include)
+    message("ASSIMP_LIB_DIR set to ${ASSIMP_LIB_DIR}")
+    message("ASSIMP_INCLUDE_DIR set to ${ASSIMP_INCLUDE_DIR}")
+    ExternalProject_Add_Step(assimp-external post-install
+        COMMAND ${CMAKE_COMMAND} -E echo "Packaging [assimp] installed outputs to ${UE_PLUGIN_SIMLIBS_DIR}/assimp/$<IF:$<CONFIG:Release>,Release,Debug>"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory "${ASSIMP_LIB_DIR}" "${UE_PLUGIN_SIMLIBS_DIR}/assimp/$<IF:$<CONFIG:Release>,Release,Debug>"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory "${ASSIMP_INCLUDE_DIR}" "${UE_PLUGIN_SIMLIBS_DIR}/assimp/include"
+        COMMAND ${CMAKE_COMMAND} -E remove_directory "${UE_PLUGIN_SIMLIBS_DIR}/assimp/$<IF:$<CONFIG:Release>,Release,Debug>/cmake"
+        COMMAND ${CMAKE_COMMAND} -E remove_directory "${UE_PLUGIN_SIMLIBS_DIR}/assimp/$<IF:$<CONFIG:Release>,Release,Debug>/pkgconfig"
+        DEPENDEES install
+    )
 endif()
-ExternalProject_Add(assimp-external
-    GIT_REPOSITORY          https://github.com/assimp/assimp.git
-    GIT_TAG                 v5.2.5
-    GIT_CONFIG              "advice.detachedHead=false"
-    PREFIX                  ${CMAKE_BINARY_DIR}/_deps/assimp
-    UPDATE_COMMAND          ""  # disable update step
-    BUILD_COMMAND           ${CMAKE_COMMAND} --build <BINARY_DIR> --config ${ASSIMP_BUILD_TYPE}
-    INSTALL_COMMAND         ${CMAKE_COMMAND} --build <BINARY_DIR> --config ${ASSIMP_BUILD_TYPE} --target install
-    TEST_COMMAND            ""  # disable test step
-    CMAKE_ARGS
-        -DCMAKE_SYSROOT=${CMAKE_SYSROOT}
-        -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=${CMAKE_FIND_ROOT_PATH_MODE_PROGRAM}
-        -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=${CMAKE_FIND_ROOT_PATH_MODE_LIBRARY}
-        -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=${CMAKE_FIND_ROOT_PATH_MODE_INCLUDE}
-        -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=${CMAKE_FIND_ROOT_PATH_MODE_PACKAGE}
-        -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-        -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
-        -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}\ ${ASSIMP_EXTRA_CXX_FLAGS}
-	    -DASSIMP_WARNINGS_AS_ERRORS=OFF
-        -DCMAKE_POSITION_INDEPENDENT_CODE=True
-        -DBUILD_SHARED_LIBS=OFF
-        -DASSIMP_BUILD_ZLIB=ON  # force build of assimp's packaged zlib in case it detects it existing in a python environment
-        -DASSIMP_BUILD_TESTS=OFF
-        -DASSIMP_BUILD_ASSIMP_TOOLS=OFF
-        ${ASSIMP_LIBRARY_SUFFIX_OVERRIDE}
-        -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_BINARY_DIR}/_deps/assimp-install
-        -DCMAKE_INSTALL_MESSAGE=LAZY  # don't print out all files copied
-        -DCMAKE_BUILD_TYPE:STRING=${ASSIMP_BUILD_TYPE}  # for single-config generators (Ninja)
-)
-set(ASSIMP_LIB_DIR ${CMAKE_BINARY_DIR}/_deps/assimp-install/lib)
-set(ASSIMP_INCLUDE_DIR ${CMAKE_BINARY_DIR}/_deps/assimp-install/include)
-message("ASSIMP_LIB_DIR set to ${ASSIMP_LIB_DIR}")
-message("ASSIMP_INCLUDE_DIR set to ${ASSIMP_INCLUDE_DIR}")
-ExternalProject_Add_Step(assimp-external post-install
-    COMMAND ${CMAKE_COMMAND} -E echo "Packaging [assimp] installed outputs to ${UE_PLUGIN_SIMLIBS_DIR}/assimp/$<IF:$<CONFIG:Release>,Release,Debug>"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory "${ASSIMP_LIB_DIR}" "${UE_PLUGIN_SIMLIBS_DIR}/assimp/$<IF:$<CONFIG:Release>,Release,Debug>"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory "${ASSIMP_INCLUDE_DIR}" "${UE_PLUGIN_SIMLIBS_DIR}/assimp/include"
-    COMMAND ${CMAKE_COMMAND} -E remove_directory "${UE_PLUGIN_SIMLIBS_DIR}/assimp/$<IF:$<CONFIG:Release>,Release,Debug>/cmake"
-    COMMAND ${CMAKE_COMMAND} -E remove_directory "${UE_PLUGIN_SIMLIBS_DIR}/assimp/$<IF:$<CONFIG:Release>,Release,Debug>/pkgconfig"
-    DEPENDEES install
-)
 
 # Set up dependency: msgpack
 # "When you use msgpack on C++, you can just add msgpack-c/include to your include path"
@@ -261,10 +251,12 @@ FetchContent_Declare(
     GIT_TAG        cpp-6.1.0
 )
 FetchContent_GetProperties(msgpack)
-add_definitions(-DMSGPACK_NO_BOOST)
 if(NOT msgpack_POPULATED)
     message("Checking if [msgpack] dependency needs to be fetched...")
     FetchContent_Populate(msgpack)
+    add_definitions(-DMSGPACK_NO_BOOST)
+    set(MSGPACK_INCLUDE_DIR ${msgpack_SOURCE_DIR}/include)
+    message("MSGPACK_INCLUDE_DIR set to ${MSGPACK_INCLUDE_DIR}")
     # Note: msgpack is only used internally by sim libs, so no need to package it with other sim libs
 
     # Copy msgpack headers to Matlab physics and control S-function folders for building in Matlab:
@@ -274,42 +266,25 @@ if(NOT msgpack_POPULATED)
     message("Packaging [msgpack] headers to ${MATLAB_CONTROL_DIR}/msgpack")
     file(COPY ${msgpack_SOURCE_DIR}/include/ DESTINATION ${MATLAB_CONTROL_DIR}/_deps/msgpack/include)
 endif()
-set(MSGPACK_INCLUDE_DIR ${msgpack_SOURCE_DIR}/include)
-message("MSGPACK_INCLUDE_DIR set to ${MSGPACK_INCLUDE_DIR}")
 
 # Set up dependency: Eigen3
 # Using latest stable release as of from 08/18/21
-find_package(Eigen3 3.4.0 QUIET NO_MODULE)
-if(Eigen3_FOUND)
-    get_target_property(EIGEN_INCLUDE_DIR Eigen3::Eigen INTERFACE_INCLUDE_DIRECTORIES)
-    message("Using system [Eigen3] dependency")
-else()
-    if(EXISTS "/usr/include/eigen3/Eigen/Core")
-        set(EIGEN_INCLUDE_DIR "/usr/include/eigen3")
-    elseif(EXISTS "/usr/local/include/eigen3/Eigen/Core")
-        set(EIGEN_INCLUDE_DIR "/usr/local/include/eigen3")
-    endif()
-    if(EIGEN_INCLUDE_DIR)
-        message("Using local [Eigen3] headers")
-    else()
-        FetchContent_Declare(
-            Eigen3
-            GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
-            GIT_TAG        3.4.0
-        )
-        FetchContent_GetProperties(Eigen3)
-        string(TOLOWER "Eigen3" lc_eigen)
-        if(NOT ${lc_eigen}_POPULATED)
-            message("Checking if [Eigen3] dependency needs to be fetched...")
-            FetchContent_Populate(Eigen3)
-            set(EIGEN_INCLUDE_DIR ${${lc_eigen}_SOURCE_DIR})
-        endif()
-    endif()
-endif()
-message("EIGEN_INCLUDE_DIR set to ${EIGEN_INCLUDE_DIR}")
+FetchContent_Declare(
+    Eigen3
+    GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
+    GIT_TAG        3.4.0
+)
+FetchContent_GetProperties(Eigen3)
+string(TOLOWER "Eigen3" lc_eigen)
+if(NOT ${lc_eigen}_POPULATED)
+    message("Checking if [Eigen3] dependency needs to be fetched...")
+    FetchContent_Populate(Eigen3)
+    set(EIGEN_INCLUDE_DIR ${${lc_eigen}_SOURCE_DIR})
+    message("EIGEN_INCLUDE_DIR set to ${EIGEN_INCLUDE_DIR}")
 
-message("Packaging [Eigen3] headers to ${UE_PLUGIN_SIMLIBS_DIR}/eigen")
-file(COPY ${EIGEN_INCLUDE_DIR}/ DESTINATION ${UE_PLUGIN_SIMLIBS_DIR}/eigen/include)
+    message("Packaging [Eigen3] headers to ${UE_PLUGIN_SIMLIBS_DIR}/eigen")
+    file(COPY ${EIGEN_INCLUDE_DIR}/ DESTINATION ${UE_PLUGIN_SIMLIBS_DIR}/eigen/include)
+endif()
 
 # Set up dependency: Google Test
 FetchContent_Declare(
@@ -346,59 +321,33 @@ endif()
 if(UNIX)
     # Set up dependency: openssl
     message("Setting up [openssl] dependency as an external project...")
-    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        set(OPENSSL_BUILD_TYPE debug)
+    # CMake external projects don't adopt the parent's CMAKE_MSVC_RUNTIME_LIBRARY setting,
+    # so to force /MD non-debug CRT to match UE, build Debug config as Relwithdebinfo and
+    # build Release as Release.
+    set(OPENSSL_BUILD_TYPE $<IF:$<CONFIG:Debug>,debug,release>)
+    if(APPLE)
+        # On macOS, pass deployment target via environment variable
+        set(OPENSSL_MACOS_FLAGS "MACOSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}")
     else()
-        set(OPENSSL_BUILD_TYPE release)
+        set(OPENSSL_MACOS_FLAGS "")
     endif()
-
-    # Build OpenSSL with the same compiler/sysroot as the rest of the project so that all
-    # glibc symbol version requirements are consistent.  Use no-shared so only the static
-    # libraries (libcrypto.a / libssl.a) are produced, avoiding runtime dynamic-library
-    # glibc ABI mismatches when linking against the UE toolchain (CentOS 7 / glibc 2.17).
-    if(DEFINED ENV{UE_ROOT})
-        # UE cross-compiler targets a CentOS 7 sysroot (glibc 2.17).  Tell OpenSSL to use
-        # the same clang and sysroot so the compiled objects only reference old glibc symbols.
-        set(OPENSSL_CONFIGURE_COMMAND
-            ${CMAKE_COMMAND} -E env
-                CC=${CMAKE_C_COMPILER}
-                "CFLAGS=--sysroot=${CMAKE_SYSROOT}"
-            <SOURCE_DIR>/Configure linux-x86_64
-                --${OPENSSL_BUILD_TYPE}
-                --prefix=${CMAKE_BINARY_DIR}/_deps/openssl-install
-                no-tests no-shared no-module
-        )
-    else()
-        # System toolchain: still force static-only build for consistency.
-        set(OPENSSL_CONFIGURE_COMMAND
-            ${CMAKE_COMMAND} -E env
-                CC=${CMAKE_C_COMPILER}
-            <SOURCE_DIR>/Configure
-                --${OPENSSL_BUILD_TYPE}
-                --prefix=${CMAKE_BINARY_DIR}/_deps/openssl-install
-                no-tests no-shared no-module
-        )
-    endif()
-
-    set(OPENSSL_LIB_DIR ${CMAKE_BINARY_DIR}/_deps/openssl-install/lib64)
-    set(OPENSSL_CRYPTO_LIBRARY ${OPENSSL_LIB_DIR}/libcrypto.a)
-    set(OPENSSL_SSL_LIBRARY ${OPENSSL_LIB_DIR}/libssl.a)
-    set(OPENSSL_INCLUDE_DIR ${CMAKE_BINARY_DIR}/_deps/openssl-install/include)
-
     ExternalProject_Add(openssl-external
         GIT_REPOSITORY          https://github.com/openssl/openssl.git
         GIT_TAG                 openssl-3.1.1
         GIT_CONFIG              "advice.detachedHead=false"
         PREFIX                  ${CMAKE_BINARY_DIR}/_deps/openssl
         UPDATE_COMMAND          ""  # disable update step
-        CONFIGURE_COMMAND       ${OPENSSL_CONFIGURE_COMMAND}
-        # Build/install only static runtime + dev artifacts; avoid build_sw/install_sw
-        # which attempt to link provider DSOs (e.g., providers/legacy.so).
-        BUILD_COMMAND           make build_libs
-        BUILD_BYPRODUCTS        ${OPENSSL_CRYPTO_LIBRARY} ${OPENSSL_SSL_LIBRARY}
-        INSTALL_COMMAND         make install_dev
+        CONFIGURE_COMMAND       ${CMAKE_COMMAND} -E env ${OPENSSL_MACOS_FLAGS} <SOURCE_DIR>/Configure --${OPENSSL_BUILD_TYPE} --prefix=${CMAKE_BINARY_DIR}/_deps/openssl-install no-tests
+        BUILD_COMMAND           ${CMAKE_COMMAND} -E env ${OPENSSL_MACOS_FLAGS} make
+        INSTALL_COMMAND         make install
         TEST_COMMAND            ""  # disable test step
     )
+    if(APPLE)
+    set(OPENSSL_LIB_DIR ${CMAKE_BINARY_DIR}/_deps/openssl-install/lib)
+else()
+    set(OPENSSL_LIB_DIR ${CMAKE_BINARY_DIR}/_deps/openssl-install/lib64)
+endif()
+    set(OPENSSL_INCLUDE_DIR ${CMAKE_BINARY_DIR}/_deps/openssl-install/include)
     message("OPENSSL_LIB_DIR set to ${OPENSSL_LIB_DIR}")
     message("OPENSSL_INCLUDE_DIR set to ${OPENSSL_INCLUDE_DIR}")
     ExternalProject_Add_Step(openssl-external post-install
@@ -411,113 +360,120 @@ if(UNIX)
     )
 endif()
 
-if(UNIX)
-    set(onnx_url https://github.com/microsoft/onnxruntime/releases/download/v1.12.1/onnxruntime-linux-x64-gpu-1.12.1.tgz)
-    set(onnx_hash MD5=27adfa51648d2713608f35c3c6957a4f)
-
-    message("Setting up [zlib] dependency as an external project for ONNX Runtime...")
-    set(ZLIB_TOOLCHAIN_CMAKE_ARGS "")
-    if(PROJECTAIRSIM_USE_UE_TOOLCHAIN)
-        list(APPEND ZLIB_TOOLCHAIN_CMAKE_ARGS
-            -DCMAKE_SYSROOT=${CMAKE_SYSROOT}
-            -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=${CMAKE_FIND_ROOT_PATH_MODE_PROGRAM}
-            -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=${CMAKE_FIND_ROOT_PATH_MODE_LIBRARY}
-            -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=${CMAKE_FIND_ROOT_PATH_MODE_INCLUDE}
-            -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=${CMAKE_FIND_ROOT_PATH_MODE_PACKAGE}
-        )
-    endif()
-    set(ZLIB_BUILD_TYPE RelWithDebInfo)
-    set(ZLIB_BINARY_DIR ${CMAKE_BINARY_DIR}/_deps/zlib/src/zlib-external-build)
-    set(ZLIB_INSTALL_DIR ${CMAKE_BINARY_DIR}/_deps/zlib-install)
-    set(ZLIB_LIB_DIR ${ZLIB_BINARY_DIR})
-    set(ZLIB_INSTALL_LIB_DIR ${ZLIB_INSTALL_DIR}/lib)
-    set(ZLIB_SHARED_LIBRARY ${ZLIB_BINARY_DIR}/libz.so.1)
-    ExternalProject_Add(zlib-external
-        GIT_REPOSITORY          https://github.com/madler/zlib.git
-        GIT_TAG                 v1.3.1
-        GIT_CONFIG              "advice.detachedHead=false"
-        PREFIX                  ${CMAKE_BINARY_DIR}/_deps/zlib
-        UPDATE_COMMAND          ""  # disable update step
-        BUILD_COMMAND           ${CMAKE_COMMAND} --build <BINARY_DIR> --config ${ZLIB_BUILD_TYPE}
-        BUILD_BYPRODUCTS        ${ZLIB_SHARED_LIBRARY}
-        INSTALL_COMMAND         ${CMAKE_COMMAND} --build <BINARY_DIR> --config ${ZLIB_BUILD_TYPE} --target install
-        TEST_COMMAND            ""  # disable test step
-        CMAKE_ARGS
-            ${ZLIB_TOOLCHAIN_CMAKE_ARGS}
-            -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-            -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
-            -DCMAKE_POSITION_INDEPENDENT_CODE=True
-            -DBUILD_SHARED_LIBS=ON
-            -DCMAKE_INSTALL_PREFIX:PATH=${ZLIB_INSTALL_DIR}
-            -DCMAKE_INSTALL_MESSAGE=LAZY
-            -DCMAKE_BUILD_TYPE:STRING=${ZLIB_BUILD_TYPE}
-        EXCLUDE_FROM_ALL        True
-    )
-    message("ZLIB_LIB_DIR set to ${ZLIB_LIB_DIR}")
-    ExternalProject_Add_Step(zlib-external post-install
-        COMMAND ${CMAKE_COMMAND} -E echo "Packaging [zlib] installed outputs to ${UE_PLUGIN_SIMLIBS_DIR}/shared_libs"
-        COMMAND ${CMAKE_COMMAND} -E copy_directory "${ZLIB_INSTALL_LIB_DIR}" "${UE_PLUGIN_SIMLIBS_DIR}/shared_libs"
-        COMMAND ${CMAKE_COMMAND} -E copy_directory "${ZLIB_INSTALL_LIB_DIR}" "${UNITY_WRAPPER_DLL_DIR}"
-        DEPENDEES install
-    )
-else()
-    set(onnx_url https://github.com/microsoft/onnxruntime/releases/download/v1.12.1/onnxruntime-win-x64-gpu-1.12.1.zip)
-    set(onnx_hash MD5=dd6d6ba7aaaa58dd9ef8528dfcb822d2)
-endif()
-
-FetchContent_Declare(
-    onnxruntime
-    URL                  ${onnx_url}
-    URL_HASH             ${onnx_hash} # from PowerShell: CertUtil -hashfile json.hpp MD5
-    DOWNLOAD_NO_PROGRESS True
-    DOWNLOAD_DIR         ${CMAKE_BINARY_DIR}/_deps/onnxruntime-download
-)
-FetchContent_GetProperties(onnxruntime)
-
-if(NOT onnxruntime_POPULATED)
-    message("Checking if [onnxruntime] dependency needs to be fetched...")
-    FetchContent_Populate(onnxruntime)
-    set(ONNXRUNTIME_ROOTDIR ${onnxruntime_SOURCE_DIR})
-    set(ONNX_INCLUDE_DIR ${onnxruntime_SOURCE_DIR}/include)
-    set(ONNX_LIB_DIR  ${onnxruntime_SOURCE_DIR}/lib/)
-    message("ONNX_INCLUDE_DIR set to ${ONNX_INCLUDE_DIR}")
-
-    message("Packaging [onnxruntime] to ${UE_PLUGIN_SIMLIBS_DIR}/shared_libs")
-    file(COPY "${ONNX_INCLUDE_DIR}" DESTINATION "${UE_PLUGIN_SIMLIBS_DIR}/shared_libs/onnxruntime")
-    file(COPY "${ONNX_LIB_DIR}" DESTINATION "${UE_PLUGIN_SIMLIBS_DIR}/shared_libs" FILES_MATCHING PATTERN "*onn*.dll" PATTERN "*onn*.lib" PATTERN "*.so*")
-
-    message("Packaging [onnxruntime] to ${UNITY_WRAPPER_DLL_DIR}")
-    file(COPY "${ONNX_LIB_DIR}/" DESTINATION "${UNITY_WRAPPER_DLL_DIR}/" FILES_MATCHING PATTERN "*onn*.dll" PATTERN "*onn*.lib" PATTERN "*.so*")
-
-    add_definitions(-DUSE_CUDA)
-    add_definitions(-DUSE_TENSORRT)
-endif()
-
-if(UNIX)
-    set(ONNXRUNTIME_LIBRARY "${ONNX_LIB_DIR}/libonnxruntime.so")
-    if(PROJECTAIRSIM_USE_UE_TOOLCHAIN)
-        set(ONNXRUNTIME_CXX_RUNTIME_LIBRARIES
-            "-Wl,--start-group"
-            "${CMAKE_SYSROOT}/lib64/libc++.a"
-            "${CMAKE_SYSROOT}/lib64/libc++abi.a"
-            "${CMAKE_SYSROOT}/lib64/libstdc++.so.6"
-            "-Wl,--end-group"
-        )
-        foreach(ONNXRUNTIME_CXX_RUNTIME_LIBRARY IN LISTS ONNXRUNTIME_CXX_RUNTIME_LIBRARIES)
-            if(ONNXRUNTIME_CXX_RUNTIME_LIBRARY MATCHES "^/" AND NOT EXISTS "${ONNXRUNTIME_CXX_RUNTIME_LIBRARY}")
-                message(FATAL_ERROR "ONNX Runtime C++ runtime dependency not found: ${ONNXRUNTIME_CXX_RUNTIME_LIBRARY}")
-            endif()
-        endforeach()
+if(APPLE)
+    # ONNX Runtime is disabled for macOS due to API compatibility issues
+    message("ONNX Runtime is disabled for macOS due to API compatibility issues")
+    add_definitions(-DDISABLE_ONNX_RUNTIME)
+    
+    # CUDA and TensorRT are not available on macOS
+    # add_definitions(-DUSE_CUDA)
+    # add_definitions(-DUSE_TENSORRT)
+elseif(UNIX)
+    # For Linux, try to use system package or fall back to download
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+        pkg_check_modules(ONNXRUNTIME QUIET onnxruntime)
+        if(ONNXRUNTIME_FOUND)
+            set(ONNXRUNTIME_ROOTDIR ${ONNXRUNTIME_PREFIX})
+            set(ONNX_INCLUDE_DIR ${ONNXRUNTIME_INCLUDE_DIRS})
+            set(ONNX_LIB_DIR ${ONNXRUNTIME_LIBRARY_DIRS})
+            message("Using system-installed ONNX Runtime")
+        else()
+            # Fall back to downloading if system package not found
+            set(onnx_url https://github.com/microsoft/onnxruntime/releases/download/v1.16.0/onnxruntime-linux-x64-gpu-1.16.0.tgz)
+            set(onnx_hash MD5=27adfa51648d2713608f35c3c6957a4f)
+            message("System ONNX Runtime not found, downloading...")
+        endif()
     else()
-        set(ONNXRUNTIME_CXX_RUNTIME_LIBRARIES stdc++)
+        set(onnx_url https://github.com/microsoft/onnxruntime/releases/download/v1.16.0/onnxruntime-linux-x64-gpu-1.16.0.tgz)
+        set(onnx_hash MD5=27adfa51648d2713608f35c3c6957a4f)
+        message("PkgConfig not found, downloading ONNX Runtime...")
     endif()
+    
+    if(DEFINED onnx_url)
+        FetchContent_Declare(
+            onnxruntime
+            URL                  ${onnx_url}
+            URL_HASH             ${onnx_hash}
+            DOWNLOAD_NO_PROGRESS True
+            DOWNLOAD_DIR         ${CMAKE_BINARY_DIR}/_deps/onnxruntime-download
+        )
+        FetchContent_GetProperties(onnxruntime)
 
-    add_library(onnxruntime SHARED IMPORTED GLOBAL)
-    set_target_properties(onnxruntime PROPERTIES
-        IMPORTED_LOCATION "${ONNXRUNTIME_LIBRARY}"
-        INTERFACE_LINK_LIBRARIES "${ZLIB_SHARED_LIBRARY};${ONNXRUNTIME_CXX_RUNTIME_LIBRARIES};dl;rt;pthread"
-        INTERFACE_LINK_OPTIONS "-Wl,-rpath-link,${ZLIB_LIB_DIR}"
-    )
+        if(NOT onnxruntime_POPULATED)
+            message("Checking if [onnxruntime] dependency needs to be fetched...")
+            FetchContent_Populate(onnxruntime)
+            set(ONNXRUNTIME_ROOTDIR ${onnxruntime_SOURCE_DIR})
+            set(ONNX_INCLUDE_DIR ${onnxruntime_SOURCE_DIR}/include)
+            set(ONNX_LIB_DIR  ${onnxruntime_SOURCE_DIR}/lib/)
+            message("ONNX_INCLUDE_DIR set to ${ONNX_INCLUDE_DIR}")
+        endif()
+    endif()
+    
+    if(ONNX_INCLUDE_DIR AND ONNX_LIB_DIR)
+        message("Packaging [onnxruntime] to ${UE_PLUGIN_SIMLIBS_DIR}/shared_libs")
+        file(COPY "${ONNX_INCLUDE_DIR}" DESTINATION "${UE_PLUGIN_SIMLIBS_DIR}/shared_libs/onnxruntime")
+        file(COPY "${ONNX_LIB_DIR}" DESTINATION "${UE_PLUGIN_SIMLIBS_DIR}/shared_libs" FILES_MATCHING PATTERN "*onn*.dll" PATTERN "*onn*.lib" PATTERN "*.so*")
+
+        message("Packaging [onnxruntime] to ${UNITY_WRAPPER_DLL_DIR}")
+        file(COPY "${ONNX_LIB_DIR}/" DESTINATION "${UNITY_WRAPPER_DLL_DIR}/" FILES_MATCHING PATTERN "*onn*.dll" PATTERN "*onn*.lib" PATTERN "*.so*")
+
+        add_definitions(-DUSE_CUDA)
+        add_definitions(-DUSE_TENSORRT)
+    endif()
+else()
+    # Windows - try to use system package or fall back to download
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+        pkg_check_modules(ONNXRUNTIME QUIET onnxruntime)
+        if(ONNXRUNTIME_FOUND)
+            set(ONNXRUNTIME_ROOTDIR ${ONNXRUNTIME_PREFIX})
+            set(ONNX_INCLUDE_DIR ${ONNXRUNTIME_INCLUDE_DIRS})
+            set(ONNX_LIB_DIR ${ONNXRUNTIME_LIBRARY_DIRS})
+            message("Using system-installed ONNX Runtime")
+        else()
+            # Fall back to downloading if system package not found
+            set(onnx_url https://github.com/microsoft/onnxruntime/releases/download/v1.16.0/onnxruntime-win-x64-gpu-1.16.0.zip)
+            set(onnx_hash MD5=dd6d6ba7aaaa58dd9ef8528dfcb822d2)
+            message("System ONNX Runtime not found, downloading...")
+        endif()
+    else()
+        set(onnx_url https://github.com/microsoft/onnxruntime/releases/download/v1.16.0/onnxruntime-win-x64-gpu-1.16.0.zip)
+        set(onnx_hash MD5=dd6d6ba7aaaa58dd9ef8528dfcb822d2)
+        message("PkgConfig not found, downloading ONNX Runtime...")
+    endif()
+    
+    if(DEFINED onnx_url)
+        FetchContent_Declare(
+            onnxruntime
+            URL                  ${onnx_url}
+            URL_HASH             ${onnx_hash}
+            DOWNLOAD_NO_PROGRESS True
+            DOWNLOAD_DIR         ${CMAKE_BINARY_DIR}/_deps/onnxruntime-download
+        )
+        FetchContent_GetProperties(onnxruntime)
+
+        if(NOT onnxruntime_POPULATED)
+            message("Checking if [onnxruntime] dependency needs to be fetched...")
+            FetchContent_Populate(onnxruntime)
+            set(ONNXRUNTIME_ROOTDIR ${onnxruntime_SOURCE_DIR})
+            set(ONNX_INCLUDE_DIR ${onnxruntime_SOURCE_DIR}/include)
+            set(ONNX_LIB_DIR  ${onnxruntime_SOURCE_DIR}/lib/)
+            message("ONNX_INCLUDE_DIR set to ${ONNX_INCLUDE_DIR}")
+        endif()
+    endif()
+    
+    if(ONNX_INCLUDE_DIR AND ONNX_LIB_DIR)
+        message("Packaging [onnxruntime] to ${UE_PLUGIN_SIMLIBS_DIR}/shared_libs")
+        file(COPY "${ONNX_INCLUDE_DIR}" DESTINATION "${UE_PLUGIN_SIMLIBS_DIR}/shared_libs/onnxruntime")
+        file(COPY "${ONNX_LIB_DIR}" DESTINATION "${UE_PLUGIN_SIMLIBS_DIR}/shared_libs" FILES_MATCHING PATTERN "*onn*.dll" PATTERN "*onn*.lib" PATTERN "*.so*")
+
+        message("Packaging [onnxruntime] to ${UNITY_WRAPPER_DLL_DIR}")
+        file(COPY "${ONNX_LIB_DIR}/" DESTINATION "${UNITY_WRAPPER_DLL_DIR}/" FILES_MATCHING PATTERN "*onn*.dll" PATTERN "*onn*.lib" PATTERN "*.so*")
+
+        add_definitions(-DUSE_CUDA)
+        add_definitions(-DUSE_TENSORRT)
+    endif()
 endif()
 
 # if(WIN32)
@@ -575,24 +531,3 @@ add_subdirectory(rendering)
 add_subdirectory(tools)
 add_subdirectory(unity)
 add_subdirectory(vehicle_apis)
-
-if(BUILD_TESTING)
-    set(SIMLIBS_UNIT_TEST_TARGETS
-        core_sim_gtests
-        physics_gtests
-        rendering_scene_gtests
-        multirotor_api_gtests
-        rover_api_gtests
-    )
-
-    if(WIN32)
-        list(APPEND SIMLIBS_UNIT_TEST_TARGETS MavLinkTest)
-    endif()
-
-    add_custom_target(simlibs_unit_tests)
-    foreach(TEST_TARGET ${SIMLIBS_UNIT_TEST_TARGETS})
-        if(TARGET ${TEST_TARGET})
-            add_dependencies(simlibs_unit_tests ${TEST_TARGET})
-        endif()
-    endforeach()
-endif()
