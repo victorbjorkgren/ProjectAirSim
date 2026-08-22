@@ -10,9 +10,6 @@ using namespace projectairsim::rendering::scene;
 // Testcase 1, make sure we get at least one tile whose x,y match as bingmap
 // conversion will give
 TEST(TileDivider, GetKeys_Test1) {
-  // General description:
-  // Verifies get keys test1 for TileDivider.
-  // Arrange: prepare context for `std::vector<std::pair<double, double>> lat_lon_list = {`.
   std::vector<std::pair<double, double>> lat_lon_list = {
       {32, -117}, {32, 117}, {-32, 117}, {-32, -117}};
 
@@ -34,10 +31,8 @@ TEST(TileDivider, GetKeys_Test1) {
           robot_pos_found = true;
           break;
         }
-      // Act: run `}`.
       }
 
-      // Assert: check result from `EXPECT_TRUE(robot_pos_found);`.
       EXPECT_TRUE(robot_pos_found);
     }
   }
@@ -46,9 +41,6 @@ TEST(TileDivider, GetKeys_Test1) {
 // Testcase 2, make sure we get tiles from divider that are in range of what
 // bingmap will give for given lat/lon/lod
 TEST(TileDivider, GetKeys_Test2) {
-  // General description:
-  // Verifies get keys test2 for TileDivider.
-  // Arrange: prepare context for `std::vector<TileKey> robot_tiles;`.
   std::vector<TileKey> robot_tiles;
 
   // get list of robot_xy for each lod
@@ -74,10 +66,8 @@ TEST(TileDivider, GetKeys_Test2) {
         }
       }
       return false;
-    // Act: run `});`.
     });
 
-    // Assert: check result from `EXPECT_TRUE(itr != keys.end());`.
     EXPECT_TRUE(itr != keys.end());
   }
 }

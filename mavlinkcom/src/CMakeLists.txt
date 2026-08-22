@@ -77,7 +77,6 @@ target_include_directories(
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
         # ${EIGEN_INCLUDE_DIR}
-        lvmon
 )
 
 target_link_libraries(

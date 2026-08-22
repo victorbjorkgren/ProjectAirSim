@@ -20,7 +20,6 @@ set(TARGET_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/..)
 
 add_executable(
     ${TARGET_NAME}
-    EXCLUDE_FROM_ALL
     gtest_simple_flight.cpp
 )
 
@@ -73,8 +72,7 @@ target_link_libraries(
         core_sim
         nng
         mavlinkcom
-        lvmon
-        ${OPENSSL_CRYPTO_LIBRARY} # Client authorization
+        crypto # Client authorization
 )
 endif()
 

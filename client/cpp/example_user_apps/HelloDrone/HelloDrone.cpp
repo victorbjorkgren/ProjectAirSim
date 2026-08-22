@@ -6,45 +6,26 @@
 // Demonstrates flying a quadrotor drone.
 //
 
-#include <ProjectAirsimClient/ProjectAirsimClient.h>
+#include <AirSimClient/AirSimClient.h>
 
-#include <cctype>
 #include <iostream>
-#include <string_view>
 #include <thread>
 
-namespace pasc = microsoft::projectairsim::client;
-using pasc::Status;
+namespace mpc = microsoft::projectairsim::client;
+using mpc::Status;
 
-void MyLogOutputSink(pasc::Log::Severity /*severity*/,
+void MyLogOutputSink(mpc::Log::Severity /*severity*/,
                      const char* sz_message) noexcept {
   // Route log output to standard output
   std::cout << sz_message << std::endl;
 }
 
-bool IsCaseInsensitiveEqual(const char* lhs, const char* rhs) {
-  std::string_view left(lhs == nullptr ? "" : lhs);
-  std::string_view right(rhs == nullptr ? "" : rhs);
-
-  if (left.size() != right.size()) return false;
-
-  for (size_t i = 0; i < left.size(); ++i) {
-    if (std::tolower(static_cast<unsigned char>(left[i])) !=
-        std::tolower(static_cast<unsigned char>(right[i])))
-      return false;
-  }
-
-  return true;
-}
-
 int main(int argc, const char* argv[]) {
-  pasc::AsyncResult asyncresult;
+  mpc::AsyncResult asyncresult;
   bool f;
-  pasc::LandedState landed_state;
-  pasc::ReadyState ready_state;
-  std::shared_ptr<pasc::Client> pclient;
-  std::shared_ptr<pasc::Drone> pdrone;
-  std::shared_ptr<pasc::World> pworld;
+  std::shared_ptr<mpc::Client> pclient;
+  std::shared_ptr<mpc::Drone> pdrone;
+  std::shared_ptr<mpc::World> pworld;
   Status status;
   std::string strSimulationHost = "localhost";
   std::string strSceneFile = "scene_basic_drone.jsonc";
@@ -52,9 +33,8 @@ int main(int argc, const char* argv[]) {
 
   // Parse arguments
   if (argc > 1) {
-    if (IsCaseInsensitiveEqual(argv[1], "/?") ||
-        IsCaseInsensitiveEqual(argv[1], "-h") ||
-        IsCaseInsensitiveEqual(argv[1], "--help")) {
+    if ((_stricmp(argv[1], "/?") == 0) || (_stricmp(argv[1], "-h") == 0) ||
+        (_stricmp(argv[1], "--help") == 0)) {
       std::cout << "Perform a simple drone takeoff, move up, and landing "
                    "in Project AirSim."
                 << std::endl
@@ -92,7 +72,7 @@ int main(int argc, const char* argv[]) {
               std::filesystem::canonical(*pszArg);
           strPathSimConfig = pathConfig.string();
           strSceneFile = (pathConfig / strSceneFile).string();
-        } catch (const std::filesystem::filesystem_error& e) {
+        } catch (std::filesystem::filesystem_error e) {
           std::cerr << "sim_config path error: " << e.what() << std::endl;
           return (1);
         }
@@ -105,21 +85,21 @@ int main(int argc, const char* argv[]) {
   }
 
   // Set custom log output handler
-  pasc::log.SetLogSink(MyLogOutputSink);
+  mpc::log.SetLogSink(MyLogOutputSink);
 
   // Connect to simulation environment
-  pclient.reset(new pasc::Client());
+  pclient.reset(new mpc::Client());
   if ((status = pclient->Connect(strSimulationHost)) != Status::OK) goto LError;
 
   // Create a World object to interact with the sim world and load a scene
-  pworld.reset(new pasc::World());
-  pasc::log.InfoF("Looking for scene file \"%s\"", strSceneFile.c_str());
+  pworld.reset(new mpc::World());
+  mpc::log.InfoF("Looking for scene file \"%s\"", strSceneFile.c_str());
   if ((status = pworld->Initialize(pclient, strSceneFile, strPathSimConfig,
                                    2.0f)) != Status::OK)
     goto LError;
 
   // Connect to the drone
-  pdrone.reset(new pasc::Drone());
+  pdrone.reset(new mpc::Drone());
   if ((status = pdrone->Initialize(pclient, pworld, "Drone1")) != Status::OK)
     goto LError;
 
@@ -130,20 +110,16 @@ int main(int argc, const char* argv[]) {
       ((status = pdrone->Arm(&f)) != Status::OK)) {
     goto LError;
   }
-  if ((status = pdrone->GetReadyState(&ready_state)) != Status::OK) goto LError;
-  pasc::log.InfoF("Ready state: %s (%s)",
-                 ready_state.is_ready ? "ready" : "not ready",
-                 ready_state.message.c_str());
 
   /*----------------------------------------------------------------------*/
 
   // Launch the drone
-  pasc::log.Info("TakeoffAsync: starting");
+  mpc::log.Info("TakeoffAsync: starting");
   asyncresult = pdrone->TakeoffAsync();
 
   // Example 1: Wait on the result of async operation
   if ((status = asyncresult.Wait()) != Status::OK) goto LError;
-  pasc::log.Info("TakeoffAsync: completed");
+  mpc::log.Info("TakeoffAsync: completed");
 
   /*----------------------------------------------------------------------*/
 
@@ -153,7 +129,7 @@ int main(int argc, const char* argv[]) {
                                             0.0f,   // v_east
                                             -1.0f,  // v_down
                                             4.0);   // sec_duration
-  pasc::log.Info("Move-Up invoked");
+  mpc::log.Info("Move-Up invoked");
 
   // Example 2: Wait for async task to complete before continuing
   while (!asyncresult.FIsDone())
@@ -161,20 +137,15 @@ int main(int argc, const char* argv[]) {
 
   // Note: must call AsyncResult::Wait() even though AsyncResult::FIsDone() was used
   if ((status = asyncresult.Wait()) != Status::OK) goto LError;
-  pasc::log.Info("Move-Up completed");
+  mpc::log.Info("Move-Up completed");
 
   /*----------------------------------------------------------------------*/
 
   // Land the drone
-  pasc::log.Info("LandAsync: starting");
+  mpc::log.Info("LandAsync: starting");
   asyncresult = pdrone->LandAsync();
   if ((status = asyncresult.Wait()) != Status::OK) goto LError;
-  if ((status = pdrone->GetLandedState(&landed_state)) != Status::OK)
-    goto LError;
-  pasc::log.InfoF("Landed state: %s",
-                 landed_state == pasc::LandedState::Landed ? "landed"
-                                                          : "flying");
-  pasc::log.Info("LandAsync: completed");
+  mpc::log.Info("LandAsync: completed");
 
   /*----------------------------------------------------------------------*/
 
@@ -187,7 +158,7 @@ int main(int argc, const char* argv[]) {
   /*----------------------------------------------------------------------*/
 
   // All done!
-  pasc::log.Info("Drone landed.");
+  mpc::log.Info("Drone landed.");
   pclient->Disconnect();
 
   return (0);
@@ -195,8 +166,8 @@ int main(int argc, const char* argv[]) {
 LError : {
   char szErr[256];
 
-  pasc::GetStatusString(status, szErr);
-  pasc::log.Critical(szErr);
+  mpc::GetStatusString(status, szErr);
+  mpc::log.Critical(szErr);
 }
 
   return (1);

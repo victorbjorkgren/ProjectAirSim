@@ -64,7 +64,6 @@ development/sensors/display.md
 
 controllers/controllers.md
 controllers/simple_flight.md
-controllers/ardupilot.md
 controllers/px4/px4.md
 controllers/px4/px4_build.md
 controllers/px4/px4_hitl.md
@@ -90,8 +89,7 @@ physics/matlab_physics.md
 :caption: APIs & Programmatic Control
 
 api.md
-cpp_client.md
-ros/ros2.md
+ros/ros.md
 ```
 
 ```{toctree}

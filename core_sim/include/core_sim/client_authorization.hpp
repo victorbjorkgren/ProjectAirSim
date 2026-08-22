@@ -58,6 +58,7 @@ class ClientAuthorization {
   class Impl;              // Implementation class
   friend class ImplWin;    // Implementation for Windows
   friend class ImplLinux;  // Implementation for Linux
+  friend class ImplMac;    // Implementation for macOS
 
  private:
   std::shared_ptr<Impl> pimpl_;  // Implementation object

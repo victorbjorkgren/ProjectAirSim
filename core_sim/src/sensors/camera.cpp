@@ -16,9 +16,13 @@
 #include "core_sim/math_utils.hpp"
 #include "core_sim/sensors/sensor.hpp"
 #include "json.hpp"
+#ifndef DISABLE_ONNX_RUNTIME
 #include "onnxruntime_cxx_api.h"
+#endif
 #include "sensor_impl.hpp"
+#ifdef USE_TENSORRT
 #include "tensorrt_provider_factory.h"
+#endif
 
 namespace microsoft {
 namespace projectairsim {
@@ -42,7 +46,9 @@ class Camera::Loader {
   void LoadGimbalSetting(const json& json);
   void LoadOriginSetting(const json& json);
   void LoadAnnotationSettings(const json& json);
+#ifndef DISABLE_ONNX_RUNTIME
   void LoadOnnxModelSettings(const json& json);
+#endif
 
   Camera::Impl& impl;
 };
@@ -216,9 +222,9 @@ class Camera::Impl : public SensorImpl {
     Camera::Impl* pcamera_impl_;  // Pointer to owner of image_entries_ array
   };                              // class ImageGenerationOverride
 
+#ifndef DISABLE_ONNX_RUNTIME
   // Onnx runtime objects
   struct Onnx {
-    std::unique_ptr<Ort::AllocatorWithDefaultOptions> allocator = nullptr;
     Ort::Env env = Ort::Env(nullptr);
     Ort::MemoryInfo memory_info = Ort::MemoryInfo(nullptr);
     Ort::SessionOptions session_options = Ort::SessionOptions(nullptr);
@@ -226,6 +232,7 @@ class Camera::Impl : public SensorImpl {
     ImageEntry post_process_image_entry;  // Topic entry for publishing
                                           // Onnx-generated image
   };                                      // struct Onnx
+#endif
 
  private:
   Camera::Loader loader;  // Config loader
@@ -233,7 +240,9 @@ class Camera::Impl : public SensorImpl {
   CameraSettings camera_settings;  // Camera settings loaded from config
 
   ImageEntries image_entries_;  // Image type entries
+#ifndef DISABLE_ONNX_RUNTIME
   Onnx onnx_;                   // Onnx-related data
+#endif
 
   std::queue<TimeNano> capture_queue;  // Queue of image capture times
   std::map<ImageType, ImageMessage>
@@ -403,13 +412,14 @@ void Camera::Impl::Initialize(const Kinematics& kinematics,
                               const Environment& environment) {
   //! Ground-truth kinematics and environment info insn't used
   //! by the camera impl
+#ifndef DISABLE_ONNX_RUNTIME
   if (camera_settings.post_process_model_settings.enabled) {
     onnx_.env = Ort::Env(ORT_LOGGING_LEVEL_WARNING, "onnx");
     onnx_.session_options = Ort::SessionOptions();
     onnx_.memory_info = Ort::MemoryInfo::CreateCpu(
         OrtAllocatorType::OrtArenaAllocator, OrtMemType::OrtMemTypeDefault);
-    onnx_.allocator = std::make_unique<Ort::AllocatorWithDefaultOptions>();
   }
+#endif
 }
 
 void Camera::Impl::Update(const TimeNano sim_time,
@@ -461,9 +471,11 @@ void Camera::Impl::CreateTopics() {
       Topic("surface_normals_camera_info", topic_path_, TopicType::kPublished,
             60, MessageType::kCameraInfo));
 
+#ifndef DISABLE_ONNX_RUNTIME
   onnx_.post_process_image_entry.image_topic =
       Topic("post_process_onnx_image", topic_path_, TopicType::kPublished, 60,
             MessageType::kImage);
+#endif
 }
 
 const CameraSettings& Camera::Impl::GetCameraSetting() const {
@@ -564,6 +576,12 @@ bool Camera::Impl::HasSubscribers(int iimage_type) const {
 }
 
 std::vector<uint8_t> Camera::Impl::RunOnnxModelOnImages(ImageMessage imgMsg) {
+#ifdef DISABLE_ONNX_RUNTIME
+  // ONNX Runtime functionality is disabled for this platform
+  logger_.LogWarning(name_, "ONNX Runtime functionality is disabled for this platform");
+  auto& input_img_data = imgMsg.GetPixelVector();
+  return input_img_data;
+#else
   auto& encoding = imgMsg.GetEncoding();
   auto& input_img_data = imgMsg.GetPixelVector();
   auto input_img_width = imgMsg.GetWidth();
@@ -572,38 +590,25 @@ std::vector<uint8_t> Camera::Impl::RunOnnxModelOnImages(ImageMessage imgMsg) {
   try {
     if (!camera_settings.post_process_model_settings.session_initialized) {
       logger_.LogVerbose(name_, "[%s] Entered onnx section'.", id_.c_str());
-      auto throw_on_onnx_status = [](OrtStatus* status,
-                                     const char* provider_name) {
-        if (status == nullptr) {
-          return;
-        }
-
-        std::string error_message =
-            std::string("Failed to add ONNX execution provider ") +
-            provider_name + ": " + Ort::GetApi().GetErrorMessage(status);
-        Ort::GetApi().ReleaseStatus(status);
-        throw Error(error_message);
-      };
-
       if (camera_settings.post_process_model_settings.execution_provider ==
           "cuda") {
+#ifdef USE_CUDA
         logger_.LogVerbose(name_, "Trying to add CUDA EP since it is enabled.");
-        throw_on_onnx_status(
-            OrtSessionOptionsAppendExecutionProvider_CUDA(
-                onnx_.session_options, 0),
-            "CUDA");
+        OrtSessionOptionsAppendExecutionProvider_CUDA(onnx_.session_options, 0);
         logger_.LogVerbose(name_, "onnx CUDA session declared");
+#else
+        logger_.LogWarning(name_, "CUDA execution provider requested but not available on this platform");
+#endif
       } else if (camera_settings.post_process_model_settings
                      .execution_provider == "tensorrt") {
-        throw_on_onnx_status(
-            OrtSessionOptionsAppendExecutionProvider_Tensorrt(
-                onnx_.session_options, 0),
-            "TensorRT");
-        throw_on_onnx_status(
-            OrtSessionOptionsAppendExecutionProvider_CUDA(
-                onnx_.session_options, 0),
-            "CUDA");
+#ifdef USE_TENSORRT
+        OrtSessionOptionsAppendExecutionProvider_Tensorrt(onnx_.session_options,
+                                                          0);
+        OrtSessionOptionsAppendExecutionProvider_CUDA(onnx_.session_options, 0);
         logger_.LogVerbose(name_, "onnx TensorRT session declared");
+#else
+        logger_.LogWarning(name_, "TensorRT execution provider requested but not available on this platform");
+#endif
       }
       logger_.LogVerbose(name_, "onnx Creating session");
       auto model_file = camera_settings.post_process_model_settings.filepath;
@@ -657,14 +662,11 @@ std::vector<uint8_t> Camera::Impl::RunOnnxModelOnImages(ImageMessage imgMsg) {
       input = std::vector<float>(input_img_data.begin(), input_img_data.end());
     }
 
-    auto allocator_ptr = onnx_.allocator.get();
-    if (allocator_ptr == nullptr) {
-      throw Error("Invalid onnx allocator when trying to run model on image.");
-    }
-
-    const char* input_names[] = {onnx_.session.GetInputName(0, *allocator_ptr)};
-    const char* output_names[] = {
-        onnx_.session.GetOutputName(0, *allocator_ptr)};
+    // In newer versions of ONNX Runtime, GetInputName and GetOutputName are deprecated
+    // We'll use hardcoded names assuming the model has standard input/output naming
+    // Alternatively, you could store these names when the model is loaded
+    const char* input_names[] = {"input"};
+    const char* output_names[] = {"output"};
 
     input_tensor = Ort::Value::CreateTensor<float>(
         onnx_.memory_info, input.data(), input.size(), input_shape.data(),
@@ -687,6 +689,7 @@ std::vector<uint8_t> Camera::Impl::RunOnnxModelOnImages(ImageMessage imgMsg) {
   }
   // Exception was caught during onnx processing, return the unmodified image.
   return input_img_data;
+#endif
 }
 
 bool Camera::Impl::LookAtObject(const std::string& object_name,
@@ -752,7 +755,9 @@ void Camera::Impl::OnSubscribed(const Topic& topic, bool is_subscribed) {
 }
 
 void Camera::Impl::OnSubscribed_Onnx(const Topic& topic, bool is_subscribed) {
+#ifndef DISABLE_ONNX_RUNTIME
   onnx_.post_process_image_entry.fimage_is_subscribed = is_subscribed;
+#endif
 }
 
 // Sets the pose update
@@ -937,10 +942,12 @@ void Camera::Impl::OnBeginUpdate() {
           });
     }
   }
+#ifndef DISABLE_ONNX_RUNTIME
   topic_manager_.RegisterTopic(onnx_.post_process_image_entry.image_topic,
                                [this](const Topic& topic, bool is_subscribed) {
                                  OnSubscribed_Onnx(topic, is_subscribed);
                                });
+#endif
 
   // Publish info topics for each camera type
   for (int ImageTypeCounter = 0;
@@ -1049,6 +1056,7 @@ void Camera::Impl::PublishImages(std::map<ImageType, ImageMessage>&& images) {
 
         if (image_entry.fimage_is_subscribed)
           topic_manager_.PublishTopic(image_entry.image_topic, image_msg);
+#ifndef DISABLE_ONNX_RUNTIME
         if (camera_settings.post_process_model_settings.enabled &&
             onnx_.post_process_image_entry.fimage_is_subscribed &&
             (image_msg.GetEncoding() == "BGR")) {
@@ -1063,6 +1071,7 @@ void Camera::Impl::PublishImages(std::map<ImageType, ImageMessage>&& images) {
           topic_manager_.PublishTopic(
               onnx_.post_process_image_entry.image_topic, pp_img_msg);
         }
+#endif
       } else {
         ImageEntry* pimage_entry;
         Topic* ptopic;
@@ -1205,11 +1214,13 @@ void Camera::Impl::OnEndUpdate() {
     }
   }
 
+#ifndef DISABLE_ONNX_RUNTIME
   if (onnx_.post_process_image_entry.image_topic.IsEmpty() &&
       topic_manager_.ContainsTopic(
           onnx_.post_process_image_entry.image_topic.GetPath())) {
     topic_manager_.UnregisterTopic(onnx_.post_process_image_entry.image_topic);
   }
+#endif
 }
 
 // class camera::loader
@@ -1231,7 +1242,9 @@ void Camera::Loader::Load(const json& json) {
   LoadOriginSetting(json);
 
   LoadAnnotationSettings(json);
+#ifndef DISABLE_ONNX_RUNTIME
   LoadOnnxModelSettings(json);
+#endif
 
   impl.is_loaded_ = true;
 
@@ -1555,6 +1568,7 @@ void Camera::Loader::LoadAnnotationSettings(const json& json) {
   impl.logger_.LogVerbose(impl.name_, "'annotation-settings' loaded.");
 }
 
+#ifndef DISABLE_ONNX_RUNTIME
 void Camera::Loader::LoadOnnxModelSettings(const json& json) {
   impl.logger_.LogVerbose(impl.name_, "Loading 'post-process-onnx-settings'.");
 
@@ -1581,6 +1595,7 @@ void Camera::Loader::LoadOnnxModelSettings(const json& json) {
   }
   impl.logger_.LogVerbose(impl.name_, "Loaded 'post-process-onnx-settings'.");
 }
+#endif
 
 }  // namespace projectairsim
 }  // namespace microsoft

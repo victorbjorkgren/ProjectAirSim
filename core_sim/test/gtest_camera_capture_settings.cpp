@@ -60,29 +60,19 @@ class Robot {  // : public ::testing::Test {
 namespace projectairsim = microsoft::projectairsim;
 
 TEST(CameraCaptureSettings, SetsCaptureInterval) {
-  // General description:
-  // Verifies sets capture interval for CameraCaptureSettings.
-  // Arrange: prepare context for `auto camera = projectairsim::Robot::MakeDefaultCamera();`.
   auto camera = projectairsim::Robot::MakeDefaultCamera();
   auto camera_settings = projectairsim::Robot::GetDefaultCameraConfig();
   projectairsim::Robot::LoadCamera(camera, camera_settings);
-  // Act: run `const auto& actual_camera_settings = camera.GetCameraSettings();`.
   const auto& actual_camera_settings = camera.GetCameraSettings();
-  // Assert: check result from `EXPECT_FLOAT_EQ(actual_camera_settings.capture_interval, 1.23);`.
   EXPECT_FLOAT_EQ(actual_camera_settings.capture_interval, 1.23);
 }
 
 TEST(CameraCaptureSettings, EnablesCapture) {
-  // General description:
-  // Verifies enables capture for CameraCaptureSettings.
-  // Arrange: prepare context for `auto camera = projectairsim::Robot::MakeDefaultCamera();`.
   auto camera = projectairsim::Robot::MakeDefaultCamera();
   auto camera_settings = projectairsim::Robot::GetDefaultCameraConfig();
   projectairsim::Robot::LoadCamera(camera, camera_settings);
   const auto& actual_camera_settings = camera.GetCameraSettings();
-  // Act: run `auto actual_capture_settings = actual_camera_settings.capture_settings;`.
   auto actual_capture_settings = actual_camera_settings.capture_settings;
-  // Assert: check result from `EXPECT_FLOAT_EQ(actual_capture_settings.at(2).capture_enabled, false);`.
   EXPECT_FLOAT_EQ(actual_capture_settings.at(2).capture_enabled, false);
 
   json capture_settings = R"( [ {
@@ -98,16 +88,11 @@ TEST(CameraCaptureSettings, EnablesCapture) {
 }
 
 TEST(CameraCaptureSettings, EnablesAutoExposureMethodParam) {
-  // General description:
-  // Verifies enables auto exposure method param for CameraCaptureSettings.
-  // Arrange: prepare context for `auto camera = projectairsim::Robot::MakeDefaultCamera();`.
   auto camera = projectairsim::Robot::MakeDefaultCamera();
   auto camera_settings = projectairsim::Robot::GetDefaultCameraConfig();
   projectairsim::Robot::LoadCamera(camera, camera_settings);
   const auto& actual_camera_settings = camera.GetCameraSettings();
-  // Act: run `auto actual_capture_settings = actual_camera_settings.capture_settings;`.
   auto actual_capture_settings = actual_camera_settings.capture_settings;
-  // Assert: check result from `EXPECT_FLOAT_EQ(actual_capture_settings.at(2).auto_exposure_method, 0);`.
   EXPECT_FLOAT_EQ(actual_capture_settings.at(2).auto_exposure_method, 0);
 
   json capture_settings = R"( [ {
@@ -123,9 +108,6 @@ TEST(CameraCaptureSettings, EnablesAutoExposureMethodParam) {
 }
 
 TEST(CameraCaptureSettings, EnablesWidthParam) {
-  // General description:
-  // Verifies enables width param for CameraCaptureSettings.
-  // Arrange: prepare context for `auto camera = projectairsim::Robot::MakeDefaultCamera();`.
   auto camera = projectairsim::Robot::MakeDefaultCamera();
   auto camera_settings = projectairsim::Robot::GetDefaultCameraConfig();
   json capture_settings = R"( [ {
@@ -136,16 +118,11 @@ TEST(CameraCaptureSettings, EnablesWidthParam) {
   camera_settings["capture-settings"] = capture_settings;
   projectairsim::Robot::LoadCamera(camera, camera_settings);
   const auto& actual_camera_settings = camera.GetCameraSettings();
-  // Act: run `auto actual_capture_settings = actual_camera_settings.capture_settings;`.
   auto actual_capture_settings = actual_camera_settings.capture_settings;
-  // Assert: check result from `EXPECT_FLOAT_EQ(actual_capture_settings.at(2).width, 123);`.
   EXPECT_FLOAT_EQ(actual_capture_settings.at(2).width, 123);
 }
 
 TEST(CameraCaptureSettings, EnablesHeightParam) {
-  // General description:
-  // Verifies enables height param for CameraCaptureSettings.
-  // Arrange: prepare context for `auto camera = projectairsim::Robot::MakeDefaultCamera();`.
   auto camera = projectairsim::Robot::MakeDefaultCamera();
   auto camera_settings = projectairsim::Robot::GetDefaultCameraConfig();
   json capture_settings = R"( [ {
@@ -156,16 +133,11 @@ TEST(CameraCaptureSettings, EnablesHeightParam) {
   camera_settings["capture-settings"] = capture_settings;
   projectairsim::Robot::LoadCamera(camera, camera_settings);
   const auto& actual_camera_settings = camera.GetCameraSettings();
-  // Act: run `auto actual_capture_settings = actual_camera_settings.capture_settings;`.
   auto actual_capture_settings = actual_camera_settings.capture_settings;
-  // Assert: check result from `EXPECT_FLOAT_EQ(actual_capture_settings.at(2).height, 123);`.
   EXPECT_FLOAT_EQ(actual_capture_settings.at(2).height, 123);
 }
 
 TEST(CameraCaptureSettings, EnablesFovDegreesParam) {
-  // General description:
-  // Verifies enables fov degrees param for CameraCaptureSettings.
-  // Arrange: prepare context for `auto camera = projectairsim::Robot::MakeDefaultCamera();`.
   auto camera = projectairsim::Robot::MakeDefaultCamera();
   auto camera_settings = projectairsim::Robot::GetDefaultCameraConfig();
   json capture_settings = R"( [ {
@@ -176,16 +148,11 @@ TEST(CameraCaptureSettings, EnablesFovDegreesParam) {
   camera_settings["capture-settings"] = capture_settings;
   projectairsim::Robot::LoadCamera(camera, camera_settings);
   const auto& actual_camera_settings = camera.GetCameraSettings();
-  // Act: run `auto actual_capture_settings = actual_camera_settings.capture_settings;`.
   auto actual_capture_settings = actual_camera_settings.capture_settings;
-  // Assert: check result from `EXPECT_FLOAT_EQ(actual_capture_settings.at(2).fov_degrees, 123);`.
   EXPECT_FLOAT_EQ(actual_capture_settings.at(2).fov_degrees, 123);
 }
 
 TEST(CameraCaptureSettings, EnablesAutoExposureSpeedParam) {
-  // General description:
-  // Verifies enables auto exposure speed param for CameraCaptureSettings.
-  // Arrange: prepare context for `auto camera = projectairsim::Robot::MakeDefaultCamera();`.
   auto camera = projectairsim::Robot::MakeDefaultCamera();
   auto camera_settings = projectairsim::Robot::GetDefaultCameraConfig();
   json capture_settings = R"( [ {
@@ -196,16 +163,11 @@ TEST(CameraCaptureSettings, EnablesAutoExposureSpeedParam) {
   camera_settings["capture-settings"] = capture_settings;
   projectairsim::Robot::LoadCamera(camera, camera_settings);
   const auto& actual_camera_settings = camera.GetCameraSettings();
-  // Act: run `auto actual_capture_settings = actual_camera_settings.capture_settings;`.
   auto actual_capture_settings = actual_camera_settings.capture_settings;
-  // Assert: check result from `EXPECT_FLOAT_EQ(actual_capture_settings.at(2).auto_exposure_speed, 1.23);`.
   EXPECT_FLOAT_EQ(actual_capture_settings.at(2).auto_exposure_speed, 1.23);
 }
 
 TEST(CameraCaptureSettings, EnablesAutoExposureBiasParam) {
-  // General description:
-  // Verifies enables auto exposure bias param for CameraCaptureSettings.
-  // Arrange: prepare context for `auto camera = projectairsim::Robot::MakeDefaultCamera();`.
   auto camera = projectairsim::Robot::MakeDefaultCamera();
   auto camera_settings = projectairsim::Robot::GetDefaultCameraConfig();
   json capture_settings = R"( [ {
@@ -216,16 +178,11 @@ TEST(CameraCaptureSettings, EnablesAutoExposureBiasParam) {
   camera_settings["capture-settings"] = capture_settings;
   projectairsim::Robot::LoadCamera(camera, camera_settings);
   const auto& actual_camera_settings = camera.GetCameraSettings();
-  // Act: run `auto actual_capture_settings = actual_camera_settings.capture_settings;`.
   auto actual_capture_settings = actual_camera_settings.capture_settings;
-  // Assert: check result from `EXPECT_FLOAT_EQ(actual_capture_settings.at(2).auto_exposure_bias, 0.123);`.
   EXPECT_FLOAT_EQ(actual_capture_settings.at(2).auto_exposure_bias, 0.123);
 }
 
 TEST(CameraCaptureSettings, EnablesAutoExposureMaxBrightnessParam) {
-  // General description:
-  // Verifies enables auto exposure max brightness param for CameraCaptureSettings.
-  // Arrange: prepare context for `auto camera = projectairsim::Robot::MakeDefaultCamera();`.
   auto camera = projectairsim::Robot::MakeDefaultCamera();
   auto camera_settings = projectairsim::Robot::GetDefaultCameraConfig();
   json capture_settings = R"( [ {
@@ -236,17 +193,12 @@ TEST(CameraCaptureSettings, EnablesAutoExposureMaxBrightnessParam) {
   camera_settings["capture-settings"] = capture_settings;
   projectairsim::Robot::LoadCamera(camera, camera_settings);
   const auto& actual_camera_settings = camera.GetCameraSettings();
-  // Act: run `auto actual_capture_settings = actual_camera_settings.capture_settings;`.
   auto actual_capture_settings = actual_camera_settings.capture_settings;
-  // Assert: check result from `EXPECT_FLOAT_EQ(actual_capture_settings.at(2).auto_exposure_max_brightness,`.
   EXPECT_FLOAT_EQ(actual_capture_settings.at(2).auto_exposure_max_brightness,
                   1.23);
 }
 
 TEST(CameraCaptureSettings, EnablesAutoExposureMinBrightnessParam) {
-  // General description:
-  // Verifies enables auto exposure min brightness param for CameraCaptureSettings.
-  // Arrange: prepare context for `auto camera = projectairsim::Robot::MakeDefaultCamera();`.
   auto camera = projectairsim::Robot::MakeDefaultCamera();
   auto camera_settings = projectairsim::Robot::GetDefaultCameraConfig();
   json capture_settings = R"( [ {
@@ -257,17 +209,12 @@ TEST(CameraCaptureSettings, EnablesAutoExposureMinBrightnessParam) {
   camera_settings["capture-settings"] = capture_settings;
   projectairsim::Robot::LoadCamera(camera, camera_settings);
   const auto& actual_camera_settings = camera.GetCameraSettings();
-  // Act: run `auto actual_capture_settings = actual_camera_settings.capture_settings;`.
   auto actual_capture_settings = actual_camera_settings.capture_settings;
-  // Assert: check result from `EXPECT_FLOAT_EQ(actual_capture_settings.at(2).auto_exposure_min_brightness,`.
   EXPECT_FLOAT_EQ(actual_capture_settings.at(2).auto_exposure_min_brightness,
                   0.123);
 }
 
 TEST(CameraCaptureSettings, EnablesAutoExposureLowPercentParam) {
-  // General description:
-  // Verifies enables auto exposure low percent param for CameraCaptureSettings.
-  // Arrange: prepare context for `auto camera = projectairsim::Robot::MakeDefaultCamera();`.
   auto camera = projectairsim::Robot::MakeDefaultCamera();
   auto camera_settings = projectairsim::Robot::GetDefaultCameraConfig();
   json capture_settings = R"( [ {
@@ -278,17 +225,12 @@ TEST(CameraCaptureSettings, EnablesAutoExposureLowPercentParam) {
   camera_settings["capture-settings"] = capture_settings;
   projectairsim::Robot::LoadCamera(camera, camera_settings);
   const auto& actual_camera_settings = camera.GetCameraSettings();
-  // Act: run `auto actual_capture_settings = actual_camera_settings.capture_settings;`.
   auto actual_capture_settings = actual_camera_settings.capture_settings;
-  // Assert: check result from `EXPECT_FLOAT_EQ(actual_capture_settings.at(2).auto_exposure_low_percent,`.
   EXPECT_FLOAT_EQ(actual_capture_settings.at(2).auto_exposure_low_percent,
                   0.123);
 }
 
 TEST(CameraCaptureSettings, EnablesAutoExposureHighPercentParam) {
-  // General description:
-  // Verifies enables auto exposure high percent param for CameraCaptureSettings.
-  // Arrange: prepare context for `auto camera = projectairsim::Robot::MakeDefaultCamera();`.
   auto camera = projectairsim::Robot::MakeDefaultCamera();
   auto camera_settings = projectairsim::Robot::GetDefaultCameraConfig();
   json capture_settings = R"( [ {
@@ -299,17 +241,12 @@ TEST(CameraCaptureSettings, EnablesAutoExposureHighPercentParam) {
   camera_settings["capture-settings"] = capture_settings;
   projectairsim::Robot::LoadCamera(camera, camera_settings);
   const auto& actual_camera_settings = camera.GetCameraSettings();
-  // Act: run `auto actual_capture_settings = actual_camera_settings.capture_settings;`.
   auto actual_capture_settings = actual_camera_settings.capture_settings;
-  // Assert: check result from `EXPECT_FLOAT_EQ(actual_capture_settings.at(2).auto_exposure_high_percent,`.
   EXPECT_FLOAT_EQ(actual_capture_settings.at(2).auto_exposure_high_percent,
                   0.99);
 }
 
 TEST(CameraCaptureSettings, EnablesAutoExposureHistogramLogMinParam) {
-  // General description:
-  // Verifies enables auto exposure histogram log min param for CameraCaptureSettings.
-  // Arrange: prepare context for `auto camera = projectairsim::Robot::MakeDefaultCamera();`.
   auto camera = projectairsim::Robot::MakeDefaultCamera();
   auto camera_settings = projectairsim::Robot::GetDefaultCameraConfig();
   json capture_settings = R"( [ {
@@ -320,17 +257,12 @@ TEST(CameraCaptureSettings, EnablesAutoExposureHistogramLogMinParam) {
   camera_settings["capture-settings"] = capture_settings;
   projectairsim::Robot::LoadCamera(camera, camera_settings);
   const auto& actual_camera_settings = camera.GetCameraSettings();
-  // Act: run `auto actual_capture_settings = actual_camera_settings.capture_settings;`.
   auto actual_capture_settings = actual_camera_settings.capture_settings;
-  // Assert: check result from `EXPECT_FLOAT_EQ(actual_capture_settings.at(2).auto_exposure_histogram_log_min,`.
   EXPECT_FLOAT_EQ(actual_capture_settings.at(2).auto_exposure_histogram_log_min,
                   -12.3);
 }
 
 TEST(CameraCaptureSettings, EnablesAutoExposureHistogramLogMaxParam) {
-  // General description:
-  // Verifies enables auto exposure histogram log max param for CameraCaptureSettings.
-  // Arrange: prepare context for `auto camera = projectairsim::Robot::MakeDefaultCamera();`.
   auto camera = projectairsim::Robot::MakeDefaultCamera();
   auto camera_settings = projectairsim::Robot::GetDefaultCameraConfig();
   json capture_settings = R"( [ {
@@ -341,17 +273,12 @@ TEST(CameraCaptureSettings, EnablesAutoExposureHistogramLogMaxParam) {
   camera_settings["capture-settings"] = capture_settings;
   projectairsim::Robot::LoadCamera(camera, camera_settings);
   const auto& actual_camera_settings = camera.GetCameraSettings();
-  // Act: run `auto actual_capture_settings = actual_camera_settings.capture_settings;`.
   auto actual_capture_settings = actual_camera_settings.capture_settings;
-  // Assert: check result from `EXPECT_FLOAT_EQ(actual_capture_settings.at(2).auto_exposure_histogram_log_max,`.
   EXPECT_FLOAT_EQ(actual_capture_settings.at(2).auto_exposure_histogram_log_max,
                   12.3);
 }
 
 TEST(CameraCaptureSettings, EnablesMotionBlurParam) {
-  // General description:
-  // Verifies enables motion blur param for CameraCaptureSettings.
-  // Arrange: prepare context for `auto camera = projectairsim::Robot::MakeDefaultCamera();`.
   auto camera = projectairsim::Robot::MakeDefaultCamera();
   auto camera_settings = projectairsim::Robot::GetDefaultCameraConfig();
   json capture_settings = R"( [ {
@@ -362,8 +289,6 @@ TEST(CameraCaptureSettings, EnablesMotionBlurParam) {
   camera_settings["capture-settings"] = capture_settings;
   projectairsim::Robot::LoadCamera(camera, camera_settings);
   const auto& actual_camera_settings = camera.GetCameraSettings();
-  // Act: run `auto actual_capture_settings = actual_camera_settings.capture_settings;`.
   auto actual_capture_settings = actual_camera_settings.capture_settings;
-  // Assert: check result from `EXPECT_FLOAT_EQ(actual_capture_settings.at(2).motion_blur_amount, 1.23);`.
   EXPECT_FLOAT_EQ(actual_capture_settings.at(2).motion_blur_amount, 1.23);
 }

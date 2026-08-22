@@ -59,60 +59,40 @@ namespace projectairsim = microsoft::projectairsim;
 using json = nlohmann::json;
 
 TEST(Actuator, HandlesNoActuators) {
-  // General description:
-  // Verifies handles no actuators for Actuator.
-  // Arrange: prepare context for `auto config_json = R"({`.
   auto config_json = R"({
       "links": [ { "name": "Frame" } ]
     })"_json;
   auto robot = projectairsim::Scene::MakeRobot("TestRobot");
   projectairsim::Scene::LoadRobot(robot, config_json);
-  // Act: run `auto& actuators = robot.GetActuators();`.
   auto& actuators = robot.GetActuators();
-  // Assert: check result from `EXPECT_EQ(actuators.size(), 0);`.
   EXPECT_EQ(actuators.size(), 0);
 }
 
 TEST(Actuator, HandlesEmptyActuators) {
-  // General description:
-  // Verifies handles empty actuators for Actuator.
-  // Arrange: prepare context for `auto config_json = projectairsim::Scene::get_actuator_config();`.
   auto config_json = projectairsim::Scene::get_actuator_config();
   //! Explicitly empty actuators for testing
   config_json["actuators"] = "[]"_json;
   auto robot = projectairsim::Scene::MakeRobot("TestRobot");
   projectairsim::Scene::LoadRobot(robot, config_json);
-  // Act: run `auto& actuators = robot.GetActuators();`.
   auto& actuators = robot.GetActuators();
-  // Assert: check result from `EXPECT_EQ(actuators.size(), 0);`.
   EXPECT_EQ(actuators.size(), 0);
 }
 
 TEST(Actuator, LoadsOneActuator) {
-  // General description:
-  // Verifies loads one actuator for Actuator.
-  // Arrange: prepare context for `auto config_json = projectairsim::Scene::get_actuator_config();`.
   auto config_json = projectairsim::Scene::get_actuator_config();
   auto robot = projectairsim::Scene::MakeRobot("TestRobot");
   projectairsim::Scene::LoadRobot(robot, config_json);
-  // Act: run `auto& actuators = robot.GetActuators();`.
   auto& actuators = robot.GetActuators();
-  // Assert: check result from `EXPECT_EQ(actuators.size(), 1);`.
   EXPECT_EQ(actuators.size(), 1);
 }
 
 TEST(Actuator, LoadsTwoActuatorsSameID) {
-  // General description:
-  // Verifies loads two actuators same id for Actuator.
-  // Arrange: prepare context for `auto config_json = projectairsim::Scene::get_actuator_config();`.
   auto config_json = projectairsim::Scene::get_actuator_config();
   //! Clone existing actuator
   config_json["actuators"].push_back(config_json["actuators"].at(0));
   auto robot = projectairsim::Scene::MakeRobot("TestRobot");
   projectairsim::Scene::LoadRobot(robot, config_json);
-  // Act: run `auto& actuators = robot.GetActuators();`.
   auto& actuators = robot.GetActuators();
-  // Assert: check result from `EXPECT_EQ(actuators.size(),`.
   EXPECT_EQ(actuators.size(),
             2);  // Multiple actuators can have the same ID, and each will refer
                  // to the same control output ID signal in the controller's
@@ -124,9 +104,6 @@ TEST(Actuator, LoadsTwoActuatorsSameID) {
 }
 
 TEST(Actuator, LoadsTwoActuatorsDifferentID) {
-  // General description:
-  // Verifies loads two actuators different id for Actuator.
-  // Arrange: prepare context for `json config_json = R"({`.
   json config_json = R"({
         "links": [ { "name": "Frame" } ],
         "actuators": [
@@ -157,8 +134,6 @@ TEST(Actuator, LoadsTwoActuatorsDifferentID) {
 
   auto robot = projectairsim::Scene::MakeRobot("TestRobot");
   projectairsim::Scene::LoadRobot(robot, config_json);
-  // Act: run `auto& actuators = robot.GetActuators();`.
   auto& actuators = robot.GetActuators();
-  // Assert: check result from `EXPECT_EQ(actuators.size(), 2);`.
   EXPECT_EQ(actuators.size(), 2);
 }

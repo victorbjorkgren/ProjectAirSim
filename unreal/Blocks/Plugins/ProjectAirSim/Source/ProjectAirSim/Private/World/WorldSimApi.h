@@ -17,6 +17,7 @@
 #include "Runtime/Engine/Classes/Engine/Engine.h"
 #include "TextureShuffleActor.h"
 #include "UnrealHelpers.h"
+#include "UnrealScene.h"
 #include "UnrealTransforms.h"
 #include "LightActorBase.h"
 #include "World/TimeofDay.hpp"
@@ -174,6 +175,8 @@ class WorldSimApi {
                               bool use_owner_name);
 
   nlohmann::json GetSegmentationIDMap();
+
+  nlohmann::json GetSpawnPoints();
 
   /* Server-side only */
   AActor* FindActor(const std::string& object_name);

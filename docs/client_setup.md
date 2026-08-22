@@ -4,12 +4,12 @@
 
 A Python client uses the following to communicate with the Project AirSim simulation server:
 
-- Python 3.7 or newer, 64-bit
+- Python 3.7-3.9, 64-bit
 - **[pynng](https://github.com/codypiersall/pynng)** nanomsg-next-gen wrapper pip package
 
 ### Setting Up the Client on **Windows**
 
-1. Install Python 3.7 or newer for Windows. There are many options for installing Python, but one recommended way is to:
+1. Install Python 3.7-3.9 for Windows. There are many options for installing Python, but one recommended way is to:
 
     - Download the official **[Windows installer for Python](https://www.python.org/downloads/windows/)**.  Please note that the 64-bit version is required.
 
@@ -21,12 +21,12 @@ A Python client uses the following to communicate with the Project AirSim simula
 
 2. Activate the Python environment to use with Project AirSim.
 
-    If you don't have a suitable Python environment yet, do the following. Use the version and directory of your installation of Python:
+    If you don't have a suitable Python environment yet, do the following.  Here, we assume we're using Python 3.8 installed in the directory `C:\Python38`, but use the version and directory of your installation of Python:
 
     A) Install `virtualenv` and create a new environment (here named `airsim-venv` but you may choose any convenient name):
 
-        python -m pip install virtualenv
-        python -m venv C:\path\to\airsim-venv
+        C:\Python310\python -m pip install virtualenv
+        C:\Python310\python -m venv C:\path\to\airsim-venv
 
     B) Activate your environment:
 
@@ -62,24 +62,19 @@ A Python client uses the following to communicate with the Project AirSim simula
         cd path\to\repo
         python -m pip install -e client\python\projectairsim
 
-    The base client install does not include Open3D. To use the LIDAR visualization
-    utilities such as `LidarDisplay` and the LIDAR example scripts, install the
-    optional `lidar` extra:
+    If you get this error:
 
-        python -m pip install -e client\python\projectairsim[lidar]
+        Error: Could not find a version that satisfies the requirement open3d
 
-    If Open3D cannot be installed, your environment is most likely using a 32-bit
-    build or a Python version that Open3D does not publish packages for. Rebuild
-    the virtual environment (see step 2A) using a supported 64-bit version of
-    Python, or install Open3D separately through a package manager such as conda.
+    most likely your virtual environment is using a 32-bit build or an unsupported version of Python. In either case, delete and rebuild the virtual environment (see step 2A) using a supported 64-bit version of Python.
 
 ---
 
 ### Setting Up the Client on **Linux**
 
-1. Install Python 3.7 or newer to your system:
+1. Install Python 3.7-3.9 to your system:
 
-    Ubuntu 20.04 comes with Python 3.8, while newer versions like Ubuntu 24.04 come with Python 3.12:
+    Ubuntu 20.04 comes with Python 3.8, but Project AirSim requires additional packages:
 
         sudo apt install python3-dev python3-venv
 
@@ -126,17 +121,11 @@ A Python client uses the following to communicate with the Project AirSim simula
 
         cd path\to\repo
         python -m pip install -e client\python\projectairsim
+    
+    If you get this error:
+        Error: Could not find a version that satisfies the requirement open3d
 
-    The base client install does not include Open3D. To use the LIDAR visualization
-    utilities such as `LidarDisplay` and the LIDAR example scripts, install the
-    optional `lidar` extra:
-
-        python -m pip install -e client/python/projectairsim[lidar]
-
-    If Open3D cannot be installed, your environment is most likely using a 32-bit
-    build or a Python version that Open3D does not publish packages for. Rebuild
-    the virtual environment (see step 2A) using a supported 64-bit version of
-    Python, or install Open3D separately through a package manager such as conda.
+    most likely your virtual environment is using a 32-bit build or an unsupported version of Python. In either case, delete and rebuild the virtual environment (see step 2A) using a supported 64-bit version of Python.
 
 ---
 
@@ -162,47 +151,7 @@ For more details about using the client to connect, send/receive signals, etc, s
 
 ## C++ Client
 
-Project AirSim also includes a native C++17 client under `client/cpp/`.
-
-The C++ client uses the following to communicate with the Project AirSim
-simulation server:
-
-- A C++17 compiler
-- CMake 3.20 or newer
-- NNG-based transport through the `NNGI` wrapper
-- The `ProjectAirSimMessageLib` message serialization library
-- The high-level `ProjectAirsimClient` API library
-
-Build the C++ client from the repository root:
-
-```bash
-./build.sh cpp_client_debug
-./build.sh cpp_client_release
-```
-
-On Windows:
-
-```bat
-build.cmd cpp_client_debug
-build.cmd cpp_client_release
-```
-
-Compiled Linux libraries and example binaries are placed in:
-
-```text
-client/cpp/build_linux/Debug/
-client/cpp/build_linux/Release/
-```
-
-Windows library artifacts are placed in:
-
-```text
-client\cpp\libraries\x64\Debug\
-client\cpp\libraries\x64\Release\
-```
-
-For setup details, binary locations, and usage examples, see
-**[Project AirSim C++ Client](cpp_client.md)**.
+Currently, only Python clients are supported.
 
 ---
 

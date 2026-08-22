@@ -1,0 +1,88 @@
+{
+  "flight_path_type": "yaw_rotation",
+  "capture_fps": 3.0,
+  "scene_file": "scene_fpv_drone.jsonc",
+  "delay_after_load_sec": 2.0,
+  "create_gif": true,
+  "gif_duration": 200,
+  
+  "flight_paths": {
+    "simple_box": {
+      "description": "Simple box-shaped flight path (up, forward, right, down)",
+      "parameters": {}
+    },
+    
+    "yaw_rotation": {
+      "description": "Yaw rotation flight path - drone rotates 360 degrees in place",
+      "parameters": {
+        "height": 4.0,
+        "yaw_rate": 2.0,
+        "rotation_duration": 3.14
+      }
+    },
+    
+    "spiral": {
+      "description": "Spiral flight path for comprehensive area coverage",
+      "parameters": {
+        "radius": 5.0,
+        "height": 4.0,
+        "spiral_turns": 1,
+        "duration_per_turn": 3.0
+      }
+    },
+    
+    "grid": {
+      "description": "Grid pattern flight path for systematic area coverage",
+      "parameters": {
+        "grid_size": 10.0,
+        "grid_spacing": 2.0,
+        "flight_height": 8.0
+      }
+    }
+  },
+  
+  "examples": {
+    "change_to_spiral": {
+      "flight_path_type": "spiral",
+      "capture_fps": 5.0,
+      "flight_paths": {
+        "spiral": {
+          "parameters": {
+            "radius": 8.0,
+            "height": 15.0,
+            "spiral_turns": 5,
+            "duration_per_turn": 10.0
+          }
+        }
+      }
+    },
+    
+    "change_to_grid": {
+      "flight_path_type": "grid",
+      "capture_fps": 4.0,
+      "flight_paths": {
+        "grid": {
+          "parameters": {
+            "grid_size": 20.0,
+            "grid_spacing": 3.0,
+            "flight_height": 12.0
+          }
+        }
+      }
+    },
+    
+    "change_to_yaw_rotation": {
+      "flight_path_type": "yaw_rotation",
+      "capture_fps": 5.0,
+      "flight_paths": {
+        "yaw_rotation": {
+          "parameters": {
+            "height": 6.0,
+            "yaw_rate": 2.0,
+            "rotation_duration": 2.0
+          }
+        }
+      }
+    }
+  }
+}

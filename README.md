@@ -4,8 +4,6 @@ Project AirSim is a simulation platform for drones, robots, and other autonomous
 
 Building on the previous work of **[AirSim](https://github.com/microsoft/AirSim)**, it leverages **[Unreal Engine 5](https://www.unrealengine.com/)** to provide photo-realistic visuals, while providing the simulation framework needed to integrate custom physics, controllers, actuators, and sensors to develop an autonomous system.
 
-**IAMAI Simulations** is composed of former engineers from the original AirSim project at Microsoft, who have decided to continue its development after Microsoft discontinued the project. With their expertise, the team is committed to advancing the platform and fostering innovation in autonomous systems.
-
 Project AirSim consists of three main layers:
 
 1. **Project AirSim Sim Libs** - Base infrastructure for defining a generic robot structure and simulation scene tick loop
@@ -18,7 +16,7 @@ For more details on the architecture, see **[Project AirSim Architecture Overvie
 
 Project AirSim currently supports Windows 11 and Ubuntu 22. For more info about hardware specs for working with Project AirSim, see **[System Specifications](docs/system_specs.md)**.
 
-![Drone flying in Urban environment](docs/images/airtaxi_in_dynamic_city.jpg)
+![Drone flying in Blocks environment](docs/images/drone_in_blocks.jpg)
 
 ## Open Source Commitment
 
@@ -36,13 +34,17 @@ Whether you're working on large-scale simulations, custom features, or integrati
 
 ## Support the Project
 
-Maintaining and improving a project of this scale requires significant effort and resources. If you or your organization benefit from Project AirSim, consider contributing by:
+Running and maintaining a project of this size has significant infrastructure and development costs. We are not Microsoft — we are a focused, passionate team. If you or your organization is benefiting from Project AirSim, please consider becoming a sponsor.
 
-- Sharing feedback and reporting issues  
-- Contributing code or documentation  
-- Collaborating on new features  
+Your support helps us:
 
-Your involvement helps us improve the platform and foster a thriving community.
+- Host and distribute binary releases  
+- Improve developer documentation and onboarding  
+- Offer community support and mentorship  
+- Push the platform forward with new features
+
+**To become a sponsor or partner, tap on the Sponsor button**
+
 
 ## Join the Community
 
@@ -52,6 +54,7 @@ We believe that collaboration is key to building a thriving ecosystem around Pro
 - **GitHub Discussions**: Participate in discussions, share feedback, and contribute to shaping the future of Project AirSim. [Start a discussion](https://github.com/iamaisim/ProjectAirSim/discussions).
 
 We look forward to hearing from you and building the future of autonomous systems together!
+
 
 ## What's New
 
@@ -69,7 +72,7 @@ See **[Installing system prerequisites](docs/system_specs.md#installing-system-p
 
 > I just want to download and run a Project AirSim environment and drive it with some Python code.
 
-*Note:* You can either build Project AirSim from source or download pre-built binaries to use with the Python client.
+*Note:* You can either build Project AirSim from source or download pre-built binaries to use with the Python client. Currently, only the classic Blocks environment is available. If you require another environment (e.g., urban, geo-specific, etc.), you can sponsor its maintenance by contacting [envs@iamaisim.com](mailto:envs@iamaisim.com).
 
 #### **[Use pre-built binary environments](docs/development/use_prebuilt.md)**
 
@@ -78,52 +81,6 @@ See **[Installing system prerequisites](docs/system_specs.md#installing-system-p
 > I'm going to build the sim libs, Plugin, Blocks, and my own UE project environment from the ground up so I can customize it to my application.
 
 #### **[Build from source as a developer](docs/development/use_source.md)**
-
-## Quick Start: Run from Source
-
-Follow these steps to set up and run Project AirSim from source:
-
-### 1. Install Unreal Engine versions 5.2 or 5.7
-- Download and install **[Unreal Engine](https://www.unrealengine.com/en-US/download)**.
-- Set the `UE_ROOT` environment variable to the Unreal Engine installation path:
-  ```bash
-  export UE_ROOT=/path/to/UnrealEngine
-  ```
-**Note**: Project AirSim currently supports Unreal Engine versions 5.2 and 5.7 only.
-
-### 2. Install Dependencies (Linux Only)
-- Run the setup script to install required development tools:
-  ```bash
-  ./setup_linux_dev_tools.sh
-  ```
-
-### 3. Build Simulation Libraries
-- Build the simulation libraries in debug mode:
-  - **Linux/macOS**:
-    ```bash
-    ./build.sh simlibs_debug
-    ```
-  - **Windows** (use "x64 Native Tools Command Prompt for VS 2022"):
-    ```cmd
-    build.cmd simlibs_debug
-    ```
-
-### 4. Generate Project Files
-- Generate Visual Studio Code project files:
-  - **Linux/macOS**:
-    ```bash
-    ./blocks_genprojfiles_vscode.sh
-    ```
-  - **Windows**:
-    ```cmd
-    blocks_genprojfiles_vscode.bat
-    ```
-
-### 5. Open and Run the Editor
-- Open the generated workspace in Visual Studio Code.
-- Launch the Unreal Engine editor in DebugGame mode.
-
-Once the editor is running, you can explore and interact with the simulation environment.
 
 ## Running Headless (Docker)
 
@@ -153,6 +110,38 @@ These arguments can also be used while debugging in VS Code by modifying the `la
 
 - **[Overall API Info](docs/api.md)**
 
+### Controllers
+
+- **[Flight Controllers](docs/controllers/controllers.md)**
+- **[Simple Flight Controller](docs/controllers/simple_flight.md)**
+- **[PX4 Flight Controller](docs/controllers/px4/px4.md)**
+
+### Sensors
+
+- Airspeed
+- Barometer
+- **[Camera](docs/sensors/camera_capture_settings.md)**
+- Distance
+- GPS
+- IMU
+- **[Lidar](docs/sensors/lidar.md)**
+- Magnetometer
+- **[Radar](docs/sensors/radar.md)**
+
+### Scene
+
+- **[Simulation Clock](docs/scene/sim_clock.md)**
+- Coordinate System
+- **[Weather Visual Effects](docs/scene/weather_visual_effects.md)**
+
+### Physics
+
+- **[Fast Physics](docs/physics/fast_physics.md)**
+- **[Matlab Physics](docs/physics/matlab_physics.md)**
+
+## FAQ
+
+If you run into problems, check the **[FAQ](docs/faq.md)** for help.
 
 ## Transitioning from AirSim
 

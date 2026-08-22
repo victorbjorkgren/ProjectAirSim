@@ -18,7 +18,10 @@ async def main():
     client = ProjectAirSimClient()
 
     # Initialize an ImageDisplay object to display camera sub-windows
-    image_display = ImageDisplay()
+    # Note: If you encounter OpenCV display errors, you can use headless mode:
+    # image_display = ImageDisplay(headless=True)
+    # Or let it auto-detect: image_display = ImageDisplay(headless=False)
+    image_display = ImageDisplay(headless=False)
 
     try:
         # Connect to simulation environment

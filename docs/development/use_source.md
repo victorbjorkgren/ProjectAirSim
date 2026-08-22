@@ -61,15 +61,14 @@ Choose your development tool:
 
 ## Command Line (Windows/Linux)
 
-On Windows, run the `build.cmd` script using the `x64 Native Tools Command Prompt for VS 2022`. 
+On Windows, run the `build.cmd` script using the `x64 Native Tools Command Prompt for VS 2019`. 
 
-Unreal Engine 5.x requires a specific MSVC compiler version and will fail with newer versions. Make sure the correct compiler version is installed:
+Unreal Engine 5.2.x requires a specific MSVC compiler version and will fail with newer versions. Load the correct toolset into your command prompt session:
+```cmd
+"C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat" -vcvars_ver=14.37.32822
+```
 
-For `UE5.2`: 14.37.32822
-
-For `UE5.7`: 14.39.33519
-
-Note: This path assumes a default VS 2022 Community installation. Adjust the path if yours is different. There is no need to choose the version, both can be installed, `build.cmd` will choose the correct one according to the UE_ROOT set up previously in the Initial Setup.
+Note: This path assumes a default VS 2022 Community installation. Adjust the path if yours is different.
 
 On Linux, run the `build.sh` shell script.
 
@@ -77,15 +76,12 @@ On Linux, run the `build.sh` shell script.
 
 ```
 all = Clean + Build + Test + Package everything
-clean = Clean sim libs, C++ client + Blocks build files
+clean = Clean sim libs + Blocks build files
 
 simlibs_debug = Build + Package sim libs for Debug
 simlibs_release = Build + Package sim libs for Release
 test_simlibs_debug = Test sim libs for Debug
 test_simlibs_release = Test sim libs for Release
-
-cpp_client_debug = Build C++ client artifacts for Debug
-cpp_client_release = Build C++ client artifacts for Release
 
 blocks_debuggame = Build Plugin + Blocks for DebugGame (uses Debug sim libs)
 blocks_development = Build Plugin + Blocks for Development (uses Release sim libs)
@@ -94,8 +90,6 @@ package_plugin = Package Project AirSim UE Plugin for Debug + Release
 package_blocks_debuggame = Package stand-alone Blocks environment executable for DebugGame
 package_blocks_development = Package stand-alone Blocks environment executable for Development
 ```
-
-On Windows, the C++ client build reuses the existing ProjectAirsimClientLib and HelloDrone solution artifacts under `client/cpp/`.
 
 The sim lib components and unit test executables are built in the `projectairsim/build/` folder using CMake, and are automatically copied to the Unreal Blocks environment folder to be ready for building the plugin.
 

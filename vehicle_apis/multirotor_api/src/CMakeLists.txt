@@ -76,7 +76,6 @@ else()
         PRIVATE
         core_sim
         mavlinkcom
-        lvmon
         nng
     )
 endif()

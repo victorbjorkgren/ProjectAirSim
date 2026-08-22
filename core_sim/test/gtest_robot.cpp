@@ -43,73 +43,45 @@ class Scene {
 namespace projectairsim = microsoft::projectairsim;
 
 TEST(Robot, Constructor) {
-  // General description:
-  // Verifies constructor for Robot.
-  // Arrange: prepare context for `EXPECT_FALSE(projectairsim::Scene::MakeRobot("abc").IsLoaded());`.
-  // Act: run `EXPECT_FALSE(projectairsim::Scene::MakeRobot("abc").IsLoaded());`.
-  // Assert: check result from `EXPECT_FALSE(projectairsim::Scene::MakeRobot("abc").IsLoaded());`.
   EXPECT_FALSE(projectairsim::Scene::MakeRobot("abc").IsLoaded());
 }
 
 TEST(Robot, LoadRobot) {
-  // General description:
-  // Verifies load robot for Robot.
-  // Arrange: prepare context for `json json = R"({`.
   json json = R"({
       "links": [ { "name": "Frame" } ]
     })"_json;
   auto robot = projectairsim::Scene::MakeRobot("a");
-  // Act: run `projectairsim::Scene::LoadRobot(robot, json);`.
   projectairsim::Scene::LoadRobot(robot, json);
-  // Assert: check result from `}`.
 }
 
 TEST(Robot, IsLoaded) {
-  // General description:
-  // Verifies is loaded for Robot.
-  // Arrange: prepare context for `json json = R"({`.
   json json = R"({
       "links": [ { "name": "Frame" } ]
     })"_json;
   auto robot = projectairsim::Scene::MakeRobot("a");
-  // Act: run `projectairsim::Scene::LoadRobot(robot, json);`.
   projectairsim::Scene::LoadRobot(robot, json);
-  // Assert: check result from `EXPECT_TRUE(robot.IsLoaded());`.
   EXPECT_TRUE(robot.IsLoaded());
 }
 
 TEST(Robot, GetID) {
-  // General description:
-  // Verifies get id for Robot.
-  // Arrange: prepare context for `json json = R"({`.
   json json = R"({
       "links": [ { "name": "Frame" } ]
     })"_json;
   auto robot = projectairsim::Scene::MakeRobot("a");
-  // Act: run `projectairsim::Scene::LoadRobot(robot, json);`.
   projectairsim::Scene::LoadRobot(robot, json);
-  // Assert: check result from `EXPECT_EQ(robot.GetID(), "a");`.
   EXPECT_EQ(robot.GetID(), "a");
 }
 
 TEST(Robot, GetType) {
-  // General description:
-  // Verifies get type for Robot.
-  // Arrange: prepare context for `json json = R"({`.
   json json = R"({
       "links": [ { "name": "Frame" } ]
     })"_json;
   auto robot = projectairsim::Scene::MakeRobot("a");
-  // Act: run `projectairsim::Scene::LoadRobot(robot, json);`.
   projectairsim::Scene::LoadRobot(robot, json);
-  // Assert: check result from `EXPECT_EQ(robot.GetType(), projectairsim::ActorType::kRobot);`.
   EXPECT_EQ(robot.GetType(), projectairsim::ActorType::kRobot);
 }
 
 TEST(Robot, GetLinks) {
-  // General description:
-  // Verifies get links for Robot.
-  // Arrange: prepare context for `json json = R"({`.
   json json = R"({
         "links": [
           {
@@ -134,8 +106,6 @@ TEST(Robot, GetLinks) {
       })"_json;
 
   auto robot = projectairsim::Scene::MakeRobot("a");
-  // Act: run `projectairsim::Scene::LoadRobot(robot, json);`.
   projectairsim::Scene::LoadRobot(robot, json);
-  // Assert: check result from `EXPECT_EQ(robot.GetLinks().size(), 2);`.
   EXPECT_EQ(robot.GetLinks().size(), 2);
 }

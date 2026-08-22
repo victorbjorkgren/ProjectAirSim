@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  server:
+    build:
+      context: ../../
+      dockerfile: CloudMultiPlayerProject/docker/server/Dockerfile
+    image: projectairsim-server:v1
+    container_name: projectairsim-server
+    # Privileged needed for GPU access? Or runtime: nvidia
+    # runtime: nvidia
+    environment:
+      - SDL_VIDEODRIVER=offscreen
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=graphics,utility,compute,display
+    ports:
+      - "41451:41451"
+      - "41452:41452"
+    networks:
+      - sim-network
+    # Mount settings if needed
+    # volumes:
+    #   - ./config/settings.json:/root/Documents/AirSim/settings.json
+
+  client:
+    build:
+      context: ../../
+      dockerfile: CloudMultiPlayerProject/docker/client/Dockerfile
+    image: projectairsim-client:v1
+    container_name: projectairsim-client
+    depends_on:
+      - server
+    environment:
+      - ROS_DOMAIN_ID=0
+      - PROJECTAIRSIM_HOST=server
+    networks:
+      - sim-network
+    # Command to run a test script
+    # Note: You need to modify the script to connect to 'server' hostname instead of 'localhost'
+    # or use specific env var if the script supports it.
+    command: >
+      bash -c "echo 'Waiting for server...' && 
+      while ! nc -z server 41451; do sleep 1; done && 
+      echo 'Server up! Running test...' && 
+      python3 /app/client/python/example_user_scripts/hello_drone.py"
+
+networks:
+  sim-network:
+    driver: bridge
+

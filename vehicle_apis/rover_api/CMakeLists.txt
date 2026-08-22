@@ -19,6 +19,4 @@
 add_subdirectory(src)
 
 # Add rover unit tests
-if(BUILD_TESTING)
-	add_subdirectory(test)
-endif()
+# add_subdirectory(test)

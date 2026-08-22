@@ -57,12 +57,20 @@ target_include_directories(
         ${TINYGLTF_INCLUDE_DIR}
 )
 
-target_link_libraries(
-    ${TARGET_NAME}
-    PRIVATE
-        core_sim
-        lvmon
-)
+if(WIN32)
+    target_link_libraries(
+        ${TARGET_NAME}
+        PRIVATE
+            core_sim
+            lvmon
+    )
+else()
+    target_link_libraries(
+        ${TARGET_NAME}
+        PRIVATE
+            core_sim
+    )
+endif()
 
 add_custom_command(TARGET ${TARGET_NAME}
     POST_BUILD
