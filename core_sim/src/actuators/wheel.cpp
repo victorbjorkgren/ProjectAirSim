@@ -319,10 +319,23 @@ const float Wheel::Impl::GetPowerConsumption() const { return power_; }
 
 void Wheel::Impl::UpdateActuatorOutput(std::vector<float>&& control_signals,
                                        const TimeNano sim_dt_nanos) {
-  // Getting the control signals necessary for movement
-  auto engine_signal = (engine_connected_) ? control_signals[0] : 0;
-  auto steering_signal = (steering_connected_) ? control_signals[1] : 0;
-  auto brake_signal = (brake_connected_) ? control_signals[2] : 0;
+  // Getting the control signals necessary for movement.
+  //
+  // A controller is free to publish fewer than 3 channels for this actuator
+  // (e.g. ManualControllerApi::GetControlSignals() always returns a single-
+  // element vector -- see manual_controller_api.cpp). engine_connected_/
+  // steering_connected_/brake_connected_ default true and are not wired to
+  // any per-wheel JSON config (only wheel_settings_.*_connected_, a separate,
+  // unread copy, is), so every wheel actuator reads all three indices
+  // regardless of config. Bounds-check against control_signals.size() so a
+  // shorter vector yields 0 for the missing channels instead of an
+  // out-of-bounds read.
+  auto engine_signal =
+      (engine_connected_ && control_signals.size() > 0) ? control_signals[0] : 0;
+  auto steering_signal =
+      (steering_connected_ && control_signals.size() > 1) ? control_signals[1] : 0;
+  auto brake_signal =
+      (brake_connected_ && control_signals.size() > 2) ? control_signals[2] : 0;
   TimeSec dt_sec = sim_dt_nanos / 1.0e9;
 
   if (wheel_settings_.coeff_of_friction == 0) {
