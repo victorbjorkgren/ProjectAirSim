@@ -572,13 +572,23 @@ Kinematics FastPhysicsModel::CalcNextKinematicsWithWheels(
 
     // Forward (chassis) speed is the standard unicycle-model average of the
     // left and right sides, plus the centerline group's average speed when
-    // any centerline wheel is configured. Dividing by 2 rather than by the
-    // number of non-empty groups keeps this bit-identical to the plain
-    // left/right average whenever center_count is 0 (every rover tested so
-    // far, including Cobra Flex).
-    int forward_speed_group_count = 2 + (center_count > 0 ? 1 : 0);
-    rover_speed = (v_left + v_right + v_center) /
-                  static_cast<float>(forward_speed_group_count);
+    // any centerline wheel is configured -- averaged over however many of
+    // those three groups actually have an engine-connected wheel, not a
+    // fixed divisor. A fixed "2, or 3 with a centerline wheel" divisor
+    // under-counts whenever one side is empty (e.g. a centerline wheel
+    // present but no engine-connected wheel on, say, the left): v_left
+    // would be 0 from having no wheels there, not from those wheels
+    // legitimately running at 0 speed, so it must not be averaged in as if
+    // it were a real reading. This is bit-identical to the plain left/right
+    // average whenever every rover tested so far (including Cobra Flex)
+    // has both sides populated and no centerline wheel.
+    int forward_speed_group_count = (left_count > 0 ? 1 : 0) +
+                                     (right_count > 0 ? 1 : 0) +
+                                     (center_count > 0 ? 1 : 0);
+    rover_speed = (forward_speed_group_count > 0)
+                      ? (v_left + v_right + v_center) /
+                            static_cast<float>(forward_speed_group_count)
+                      : 0.f;
 
     // Yaw rate from side-speed asymmetry: w = (v_left - v_right) / track.
     // This body frame is X-forward, Y-right (see dm_per_sec_y below: yaw

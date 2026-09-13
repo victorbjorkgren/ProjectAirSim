@@ -31,6 +31,11 @@
 //   exercising InitializeFastPhysicsBody()'s wheels.size() >= 2 guard
 //   around the wheels[1] read (rover_length_/track_width_ stay at their
 //   0.f defaults instead of reading a second wheel that doesn't exist).
+// - physics_test_diffdrive_rover_centerline_no_left_config: a centerline
+//   wheel plus a right-side wheel but no left-side wheel at all,
+//   exercising CalcNextKinematicsWithWheels()'s forward-speed averaging
+//   over however many of the left/right/center groups actually have a
+//   wheel, not a fixed divisor.
 //
 // The two 4-wheel configs' wheel origins (X = +-0.6, Y = +-0.5) give
 // rover_length_ = 1.2 m and track_width_ = 1.0 m via
@@ -1155,6 +1160,141 @@ constexpr const char* physics_test_diffdrive_rover_centerline_wheel_config = R"(
               "smoothing-tc": 0.0
             }
           },
+          {
+            "name": "Wheel_R_actuator",
+            "type": "wheel",
+            "enabled": true,
+            "parent-link": "Frame",
+            "child-link": "Right",
+            "origin": { "xyz": "-0.6 0.5 -0.3", "rpy-deg": "0 0 0" },
+            "wheel-settings": {
+              "normal-vector": "0.0 -1.0 0.0",
+              "wheel-type": 0.0,
+              "coeff-of-friction": 1.0,
+              "coeff-of-wheel-torque": 0.040164,
+              "engine": true,
+              "steering": false,
+              "brake": false,
+              "smoothing-tc": 0.0
+            }
+          },
+          {
+            "name": "Wheel_C_actuator",
+            "type": "wheel",
+            "enabled": true,
+            "parent-link": "Frame",
+            "child-link": "Center",
+            "origin": { "xyz": "0.0 0.0 -0.3", "rpy-deg": "0 0 0" },
+            "wheel-settings": {
+              "normal-vector": "0.0 -1.0 0.0",
+              "wheel-type": 0.0,
+              "coeff-of-friction": 1.0,
+              "coeff-of-wheel-torque": 0.040164,
+              "engine": true,
+              "steering": false,
+              "brake": false,
+              "smoothing-tc": 0.0
+            }
+          }
+        ],
+        "sensors": []
+      }
+    }
+  ],
+  "clock": {
+    "type": "steppable",
+    "step-ns": 3000000,
+    "real-time-update-rate": 3000000,
+    "pause-on-start": false
+  },
+  "home-geo-point": {
+    "latitude": 47.641468,
+    "longitude": -122.140165,
+    "altitude": 122.0
+  },
+  "segmentation": {
+    "initialize-ids": true,
+    "ignore-existing": false,
+    "use-owner-name": true
+  }
+}
+)";
+
+// Two wheels: one at Y = 0.0 (centerline) and one at Y = +0.5 (right) --
+// deliberately no wheel at all on the left side. Exercises
+// CalcNextKinematicsWithWheels()'s forward-speed averaging when a
+// left/right/center group is legitimately empty (not just momentarily at
+// 0 speed): the average must be over the populated groups only (right +
+// center, divide by 2), not a fixed "2, or 3 with a centerline wheel"
+// divisor that would silently fold in v_left = 0 as if the left side were
+// a real reading.
+constexpr const char* physics_test_diffdrive_rover_centerline_no_left_config = R"(
+{
+  "id": "SceneTestDiffDriveRoverCenterlineNoLeft",
+  "actors": [
+    {
+      "type": "robot",
+      "name": "Rover1",
+      "origin": {
+        "xyz": "0.0 0.0 0.0",
+        "rpy-deg": "0 0 0"
+      },
+      "robot-config": {
+        "physics-type": "fast-physics",
+        "links": [
+          {
+            "name": "Frame",
+            "inertial": {
+              "mass": 5.0,
+              "inertia": {
+                "type": "geometry",
+                "geometry": { "box": { "size": "0.35 0.30 0.15" } }
+              }
+            },
+            "visual": {
+              "geometry": { "type": "unreal_mesh", "name": "/Rover/OffroadCar/SM_Offroad_Body" }
+            }
+          },
+          {
+            "name": "Right",
+            "inertial": {
+              "origin": { "xyz": "-0.6 0.5 -0.3", "rpy-deg": "0 0 0" },
+              "mass": 0.055,
+              "inertia": { "type": "geometry" }
+            },
+            "visual": {
+              "origin": { "xyz": "-0.6 0.5 -0.3", "rpy-deg": "0 0 0" },
+              "geometry": { "type": "unreal_mesh", "name": "/Rover/OffroadCar/SM_Offroad_Tire" }
+            }
+          },
+          {
+            "name": "Center",
+            "inertial": {
+              "origin": { "xyz": "0.0 0.0 -0.3", "rpy-deg": "0 0 0" },
+              "mass": 0.055,
+              "inertia": { "type": "geometry" }
+            },
+            "visual": {
+              "origin": { "xyz": "0.0 0.0 -0.3", "rpy-deg": "0 0 0" },
+              "geometry": { "type": "unreal_mesh", "name": "/Rover/OffroadCar/SM_Offroad_Tire" }
+            }
+          }
+        ],
+        "joints": [
+          { "id": "Frame_Wheel_R", "type": "fixed", "parent-link": "Frame", "child-link": "Right", "axis": "0 0 1" },
+          { "id": "Frame_Wheel_C", "type": "fixed", "parent-link": "Frame", "child-link": "Center", "axis": "0 0 1" }
+        ],
+        "controller": {
+          "id": "Manual_Controller",
+          "type": "manual-controller-api",
+          "manual-controller-api-settings": {
+            "actuator-order": [
+              { "id": "Wheel_R_actuator" },
+              { "id": "Wheel_C_actuator" }
+            ]
+          }
+        },
+        "actuators": [
           {
             "name": "Wheel_R_actuator",
             "type": "wheel",
