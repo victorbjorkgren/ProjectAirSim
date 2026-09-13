@@ -86,42 +86,51 @@ void FastPhysicsBody::InitializeFastPhysicsBody() {
   if (!wheels.empty()) {
     // get first wheel
     auto& wheel_ref = static_cast<Wheel&>(*wheels[0]);
-    // get second wheel
-    auto& wheel_ref2 = static_cast<Wheel&>(*wheels[1]);
-    // get the distance between the two wheels
-    rover_length_ =
-        wheel_ref.GetWheelSettings().origin_setting.translation_.x() -
-        wheel_ref2.GetWheelSettings().origin_setting.translation_.x();
-    if (rover_length_ == 0 && wheels.size() >= 3) {
-      // get distance using the third wheel
-      auto& wheel_ref3 = static_cast<Wheel&>(*wheels[2]);
+
+    // rover_length_ and track_width_ are both derived by comparing wheels[0]
+    // against a second wheel, so both need at least two wheels to exist. A
+    // one-wheel rover leaves them at their 0.f defaults instead of reading
+    // wheels[1] out of bounds.
+    if (wheels.size() >= 2) {
+      // get second wheel
+      auto& wheel_ref2 = static_cast<Wheel&>(*wheels[1]);
+      // get the distance between the two wheels
       rover_length_ =
           wheel_ref.GetWheelSettings().origin_setting.translation_.x() -
-          wheel_ref3.GetWheelSettings().origin_setting.translation_.x();
-    }
+          wheel_ref2.GetWheelSettings().origin_setting.translation_.x();
+      if (rover_length_ == 0 && wheels.size() >= 3) {
+        // get distance using the third wheel
+        auto& wheel_ref3 = static_cast<Wheel&>(*wheels[2]);
+        rover_length_ =
+            wheel_ref.GetWheelSettings().origin_setting.translation_.x() -
+            wheel_ref3.GetWheelSettings().origin_setting.translation_.x();
+      }
 
-    // get the rover's track width (left/right wheel separation), the same
-    // way as rover_length_ above but from the wheels' Y offsets instead of
-    // X. Used by the differential-drive yaw model in
-    // CalcNextKinematicsWithWheels() for non-steering rovers.
-    track_width_ =
-        wheel_ref.GetWheelSettings().origin_setting.translation_.y() -
-        wheel_ref2.GetWheelSettings().origin_setting.translation_.y();
-    if (track_width_ == 0 && wheels.size() >= 3) {
-      // get separation using the third wheel
-      auto& wheel_ref3 = static_cast<Wheel&>(*wheels[2]);
+      // get the rover's track width (left/right wheel separation), the same
+      // way as rover_length_ above but from the wheels' Y offsets instead of
+      // X. Used by the differential-drive yaw model in
+      // CalcNextKinematicsWithWheels() for non-steering rovers.
       track_width_ =
           wheel_ref.GetWheelSettings().origin_setting.translation_.y() -
-          wheel_ref3.GetWheelSettings().origin_setting.translation_.y();
-    }
-    if (track_width_ < 0) {
-      track_width_ = -track_width_;
+          wheel_ref2.GetWheelSettings().origin_setting.translation_.y();
+      if (track_width_ == 0 && wheels.size() >= 3) {
+        // get separation using the third wheel
+        auto& wheel_ref3 = static_cast<Wheel&>(*wheels[2]);
+        track_width_ =
+            wheel_ref.GetWheelSettings().origin_setting.translation_.y() -
+            wheel_ref3.GetWheelSettings().origin_setting.translation_.y();
+      }
+      if (track_width_ < 0) {
+        track_width_ = -track_width_;
+      }
     }
 
     // A rover with no steering-capable wheel takes the differential-drive
     // yaw model in CalcNextKinematicsWithWheels(), which divides by
     // track_width_. Reject a non-positive value here, at setup, instead of
     // letting that division silently produce a zero yaw rate on every tick.
+    // This also catches the one-wheel case above: track_width_ stays 0.f,
+    // which is non-positive.
     //
     // The rejection threshold is not just 0: near-coincident Y offsets (e.g.
     // a config typo producing 1e-6 m of separation) pass a plain "<= 0"
@@ -132,14 +141,14 @@ void FastPhysicsBody::InitializeFastPhysicsBody() {
     // under that floor is degenerate/misconfigured geometry, not a
     // legitimately narrow one.
     constexpr float kMinPlausibleTrackWidthMeters = 0.01f;
-    bool has_steering_wheel = false;
     for (auto wheel : wheels) {
       if (wheel->GetWheelSettings().steering_connected_) {
-        has_steering_wheel = true;
+        has_steering_wheel_ = true;
         break;
       }
     }
-    if (!has_steering_wheel && track_width_ <= kMinPlausibleTrackWidthMeters) {
+    if (!has_steering_wheel_ &&
+        track_width_ <= kMinPlausibleTrackWidthMeters) {
       throw std::runtime_error(
           "FastPhysicsBody '" + GetName() +
           "': non-steering rover has non-positive or implausibly small "
@@ -480,29 +489,20 @@ Kinematics FastPhysicsModel::CalcNextKinematicsWithWheels(
   // A rover with no steering-capable wheel (e.g. a differential-drive base
   // like Cobra Flex, all wheels configured "steering": false) cannot use the
   // Ackermann steering-angle yaw model below -- rover_steering is always 0,
-  // so it would never turn. Detect that case up front so this rover class
-  // gets a real yaw model instead, while a rover with a steering wheel keeps
-  // exactly the existing Ackermann behavior.
+  // so it would never turn. This rover class instead gets a real yaw model
+  // below, while a rover with a steering wheel keeps exactly the existing
+  // Ackermann behavior.
   //
-  // This reads GetWheelSettings().steering_connected_ (the config-loaded
-  // value), not IsSteeringConnected() -- that live per-wheel flag defaults
-  // true in Wheel::Impl's constructor and is never assigned from
-  // wheel_settings_ (see the comment on Wheel::Impl::UpdateActuatorOutput,
-  // core_sim/src/actuators/wheel.cpp), so it returns true for every wheel
-  // regardless of "steering" in the robot config and can't be used to
-  // detect an Ackermann rover. Only this new gate reads
-  // steering_connected_; IsSteeringConnected() and everything it feeds (the
-  // Ackermann branch below, UpdateActuatorOutput's control-signal gating)
-  // are untouched.
-  bool has_steering_wheel = false;
-  for (auto wheel : wheels) {
-    if (wheel->GetWheelSettings().steering_connected_) {
-      has_steering_wheel = true;
-      break;
-    }
-  }
-
-  if (has_steering_wheel) {
+  // has_steering_wheel_ is cached once in InitializeFastPhysicsBody() (it
+  // reads GetWheelSettings().steering_connected_, the config-loaded value --
+  // not IsSteeringConnected(), that live per-wheel flag defaults true in
+  // Wheel::Impl's constructor and is never assigned from wheel_settings_,
+  // see the comment on Wheel::Impl::UpdateActuatorOutput,
+  // core_sim/src/actuators/wheel.cpp), so it can't be used to detect an
+  // Ackermann rover), not rescanned here every tick.
+  // IsSteeringConnected() and everything it feeds (the Ackermann branch
+  // below, UpdateActuatorOutput's control-signal gating) are untouched.
+  if (fp_body->has_steering_wheel_) {
     // get first wheel connected to the engine and get the rotating speed as
     // the rover's speed
     for (auto wheel : wheels) {
