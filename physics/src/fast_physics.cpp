@@ -98,6 +98,24 @@ void FastPhysicsBody::InitializeFastPhysicsBody() {
           wheel_ref.GetWheelSettings().origin_setting.translation_.x() -
           wheel_ref3.GetWheelSettings().origin_setting.translation_.x();
     }
+
+    // get the rover's track width (left/right wheel separation), the same
+    // way as rover_length_ above but from the wheels' Y offsets instead of
+    // X. Used by the differential-drive yaw model in
+    // CalcNextKinematicsWithWheels() for non-steering rovers.
+    track_width_ =
+        wheel_ref.GetWheelSettings().origin_setting.translation_.y() -
+        wheel_ref2.GetWheelSettings().origin_setting.translation_.y();
+    if (track_width_ == 0) {
+      // get separation using the third wheel
+      auto& wheel_ref3 = static_cast<Wheel&>(*wheels[2]);
+      track_width_ =
+          wheel_ref.GetWheelSettings().origin_setting.translation_.y() -
+          wheel_ref3.GetWheelSettings().origin_setting.translation_.y();
+    }
+    if (track_width_ < 0) {
+      track_width_ = -track_width_;
+    }
   }
 }
 
@@ -427,32 +445,105 @@ Kinematics FastPhysicsModel::CalcNextKinematicsWithWheels(
   float rover_speed = 0;
   float rover_steering_speed = 0;
   float rover_steering = 0;
-  // get first wheel connected to the engine and get the rotating speed as the
-  // rover's speed
+  float dradians_yaw = 0;
+
+  // A rover with no steering-capable wheel (e.g. a differential-drive base
+  // like Cobra Flex, all wheels configured "steering": false) cannot use the
+  // Ackermann steering-angle yaw model below -- rover_steering is always 0,
+  // so it would never turn. Detect that case up front so this rover class
+  // gets a real yaw model instead, while a rover with a steering wheel keeps
+  // exactly the existing Ackermann behavior.
+  //
+  // This reads GetWheelSettings().steering_connected_ (the config-loaded
+  // value), not IsSteeringConnected() -- that live per-wheel flag defaults
+  // true in Wheel::Impl's constructor and is never assigned from
+  // wheel_settings_ (see the comment on Wheel::Impl::UpdateActuatorOutput,
+  // core_sim/src/actuators/wheel.cpp), so it returns true for every wheel
+  // regardless of "steering" in the robot config and can't be used to
+  // detect an Ackermann rover. Only this new gate reads
+  // steering_connected_; IsSteeringConnected() and everything it feeds (the
+  // Ackermann branch below, UpdateActuatorOutput's control-signal gating)
+  // are untouched.
+  bool has_steering_wheel = false;
   for (auto wheel : wheels) {
-    if (wheel->IsEngineConnected()) {
-      auto rover_rotating_speed = wheel->GetRotatingSpeed();
-      rover_speed = wheel->GetRadius() * rover_rotating_speed;
+    if (wheel->GetWheelSettings().steering_connected_) {
+      has_steering_wheel = true;
       break;
     }
   }
 
-  // get first wheel connected to the steering and get the steering and steering
-  // speed as the ones for the rover
-  for (auto wheel : wheels) {
-    if (wheel->IsSteeringConnected()) {
-      rover_steering_speed = wheel->GetSteeringSpeed();
-      rover_steering = wheel->GetSteering();
-      break;
+  if (has_steering_wheel) {
+    // get first wheel connected to the engine and get the rotating speed as
+    // the rover's speed
+    for (auto wheel : wheels) {
+      if (wheel->IsEngineConnected()) {
+        auto rover_rotating_speed = wheel->GetRotatingSpeed();
+        rover_speed = wheel->GetRadius() * rover_rotating_speed;
+        break;
+      }
+    }
+
+    // get first wheel connected to the steering and get the steering and
+    // steering speed as the ones for the rover
+    for (auto wheel : wheels) {
+      if (wheel->IsSteeringConnected()) {
+        rover_steering_speed = wheel->GetSteeringSpeed();
+        rover_steering = wheel->GetSteering();
+        break;
+      }
+    }
+    dradians_yaw =
+        atan2(rover_speed * sin(rover_steering) * dt_sec, fp_body->rover_length_);
+  } else {
+    // Differential-drive yaw model: split engine-connected wheels into
+    // left/right groups by the sign of their Y offset (mirrors how
+    // rover_length_ is derived from X offsets in
+    // InitializeFastPhysicsBody()) and average each side's ground speed --
+    // covering all engine-connected wheels on a side, not just one.
+    float left_speed_sum = 0;
+    float right_speed_sum = 0;
+    int left_count = 0;
+    int right_count = 0;
+    for (auto wheel : wheels) {
+      if (!wheel->IsEngineConnected()) continue;
+      float wheel_speed = wheel->GetRadius() * wheel->GetRotatingSpeed();
+      float y_offset = wheel->GetWheelSettings().origin_setting.translation_.y();
+      if (y_offset < 0) {
+        left_speed_sum += wheel_speed;
+        ++left_count;
+      } else if (y_offset > 0) {
+        right_speed_sum += wheel_speed;
+        ++right_count;
+      }
+    }
+    float v_left = (left_count > 0) ? (left_speed_sum / left_count) : 0.f;
+    float v_right = (right_count > 0) ? (right_speed_sum / right_count) : 0.f;
+
+    // Forward (chassis) speed is the standard unicycle-model average of both
+    // sides, not a single wheel's reading.
+    rover_speed = 0.5f * (v_left + v_right);
+
+    // Yaw rate from side-speed asymmetry: w = (v_left - v_right) / track.
+    // This body frame is X-forward, Y-right (see dm_per_sec_y below: yaw
+    // increases from +X toward +Y), so a wheel with a larger Y offset sits
+    // to the physical right. A faster right side must swing the nose toward
+    // -Y (left) -- i.e. the sign is (v_left - v_right), not (v_right -
+    // v_left) -- which is the opposite convention from
+    // Autopilot/cobra_flex/kinematics.py's DiffDriveKinematics (X-forward,
+    // Y-left), where the same physical turn has the opposite yaw-rate sign.
+    // See the fork PR description for the cross-check against that
+    // independent implementation.
+    if (fp_body->track_width_ > 0) {
+      float yaw_rate = (v_left - v_right) / fp_body->track_width_;
+      dradians_yaw = yaw_rate * dt_sec;
     }
   }
+
   Kinematics kin = fp_body->GetKinematics();
   Quaternion orientation = kin.pose.orientation;
   // get orientation yaw
   auto rpy = TransformUtils::ToRPY(orientation);
   float radians_yaw = rpy[2];
-  auto dradians_yaw =
-      atan2(rover_speed * sin(rover_steering) * dt_sec, fp_body->rover_length_);
 
   // set kin.pose.orientation with (0,0,yaw)
   kin.pose.orientation =

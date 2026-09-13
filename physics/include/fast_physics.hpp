@@ -89,6 +89,8 @@ class FastPhysicsBody : public BasePhysicsBody {
   static constexpr float kGroundCollisionAxisTol = 0.01f;
   static constexpr float kCollisionOffset = 0.001f;  // land with 1 mm air gap
   float rover_length_;                               //  for rovers
+  float track_width_ = 0.f;  // left/right wheel separation, for
+                              // differential-drive rovers
 };
 
 // -----------------------------------------------------------------------------
