@@ -10,7 +10,7 @@
 #include "fast_physics.hpp"
 #include "gtest/gtest.h"
 #include "test_data/physics_test_config.hpp"  // defines physics_test_config
-#include "test_data/physics_test_rover_config.hpp"  // defines physics_test_diffdrive_rover_config, physics_test_ackermann_rover_config, physics_test_degenerate_trackwidth_rover_config, physics_test_two_wheel_rover_config, physics_test_diffdrive_rover_engine_disabled_config, physics_test_diffdrive_rover_centerline_wheel_config, physics_test_near_zero_trackwidth_rover_config
+#include "test_data/physics_test_rover_config.hpp"  // defines physics_test_diffdrive_rover_config, physics_test_ackermann_rover_config, physics_test_degenerate_trackwidth_rover_config, physics_test_two_wheel_rover_config, physics_test_diffdrive_rover_engine_disabled_config, physics_test_diffdrive_rover_centerline_wheel_config, physics_test_near_zero_trackwidth_rover_config, physics_test_one_wheel_rover_config
 
 namespace microsoft {
 namespace projectairsim {
@@ -896,6 +896,21 @@ TEST(FastPhysicsBody, InitializeFastPhysicsBodyNearZeroTrackWidthThrows) {
   // is far below any plausible physical wheel separation. Construction
   // must reject it via the epsilon floor, the same as the exactly-zero
   // case above.
+  EXPECT_THROW(projectairsim::TestFastPhysicsBody body(sim_robot),
+               std::runtime_error);
+}
+
+TEST(FastPhysicsBody, InitializeFastPhysicsBodyOneWheelDoesNotReadOutOfBounds) {
+  projectairsim::Simulator simulator;
+  simulator.LoadSceneWithJSON(physics_test_one_wheel_rover_config);
+  auto& sim_robot = GetSoleRobot(simulator);
+
+  // Only one wheel exists (see physics_test_one_wheel_rover_config), so the
+  // wheels[0]-vs-[1] rover_length_/track_width_ derivation must not read
+  // wheels[1] -- there is no second wheel. track_width_ should end up at
+  // its 0.f default, which is non-positive, so construction must still
+  // reject it (this wheel is non-steering) exactly like the multi-wheel
+  // degenerate cases above -- not crash or read out-of-bounds memory.
   EXPECT_THROW(projectairsim::TestFastPhysicsBody body(sim_robot),
                std::runtime_error);
 }

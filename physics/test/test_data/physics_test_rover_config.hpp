@@ -27,6 +27,10 @@
 // - physics_test_near_zero_trackwidth_rover_config: same 4-wheel layout,
 //   but Y offsets differ by only 1e-6 m, exercising the epsilon on the
 //   construction-time track_width_ guard.
+// - physics_test_one_wheel_rover_config: a single non-steering wheel,
+//   exercising InitializeFastPhysicsBody()'s wheels.size() >= 2 guard
+//   around the wheels[1] read (rover_length_/track_width_ stay at their
+//   0.f defaults instead of reading a second wheel that doesn't exist).
 //
 // The two 4-wheel configs' wheel origins (X = +-0.6, Y = +-0.5) give
 // rover_length_ = 1.2 m and track_width_ = 1.0 m via
@@ -714,6 +718,104 @@ constexpr const char* physics_test_two_wheel_rover_config = R"(
             "parent-link": "Frame",
             "child-link": "Right",
             "origin": { "xyz": "-0.6 0.0 -0.3", "rpy-deg": "0 0 0" },
+            "wheel-settings": {
+              "normal-vector": "0.0 -1.0 0.0",
+              "wheel-type": 0.0,
+              "coeff-of-friction": 1.0,
+              "coeff-of-wheel-torque": 0.040164,
+              "engine": true,
+              "steering": false,
+              "brake": false,
+              "smoothing-tc": 0.0
+            }
+          }
+        ],
+        "sensors": []
+      }
+    }
+  ],
+  "clock": {
+    "type": "steppable",
+    "step-ns": 3000000,
+    "real-time-update-rate": 3000000,
+    "pause-on-start": false
+  },
+  "home-geo-point": {
+    "latitude": 47.641468,
+    "longitude": -122.140165,
+    "altitude": 122.0
+  },
+  "segmentation": {
+    "initialize-ids": true,
+    "ignore-existing": false,
+    "use-owner-name": true
+  }
+}
+)";
+
+// A single non-steering wheel -- no second wheel exists for
+// InitializeFastPhysicsBody() to compare wheels[0] against, exercising its
+// wheels.size() >= 2 guard around the wheels[1] read.
+constexpr const char* physics_test_one_wheel_rover_config = R"(
+{
+  "id": "SceneTestOneWheelRover",
+  "actors": [
+    {
+      "type": "robot",
+      "name": "Rover1",
+      "origin": {
+        "xyz": "0.0 0.0 0.0",
+        "rpy-deg": "0 0 0"
+      },
+      "robot-config": {
+        "physics-type": "fast-physics",
+        "links": [
+          {
+            "name": "Frame",
+            "inertial": {
+              "mass": 5.0,
+              "inertia": {
+                "type": "geometry",
+                "geometry": { "box": { "size": "0.35 0.30 0.15" } }
+              }
+            },
+            "visual": {
+              "geometry": { "type": "unreal_mesh", "name": "/Rover/OffroadCar/SM_Offroad_Body" }
+            }
+          },
+          {
+            "name": "Wheel",
+            "inertial": {
+              "origin": { "xyz": "0.0 0.0 -0.3", "rpy-deg": "0 0 0" },
+              "mass": 0.055,
+              "inertia": { "type": "geometry" }
+            },
+            "visual": {
+              "origin": { "xyz": "0.0 0.0 -0.3", "rpy-deg": "0 0 0" },
+              "geometry": { "type": "unreal_mesh", "name": "/Rover/OffroadCar/SM_Offroad_Tire" }
+            }
+          }
+        ],
+        "joints": [
+          { "id": "Frame_Wheel", "type": "fixed", "parent-link": "Frame", "child-link": "Wheel", "axis": "0 0 1" }
+        ],
+        "controller": {
+          "id": "Manual_Controller",
+          "type": "manual-controller-api",
+          "manual-controller-api-settings": {
+            "actuator-order": [
+              { "id": "Wheel_actuator" }
+            ]
+          }
+        },
+        "actuators": [
+          {
+            "name": "Wheel_actuator",
+            "type": "wheel",
+            "enabled": true,
+            "parent-link": "Frame",
+            "child-link": "Wheel",
+            "origin": { "xyz": "0.0 0.0 -0.3", "rpy-deg": "0 0 0" },
             "wheel-settings": {
               "normal-vector": "0.0 -1.0 0.0",
               "wheel-type": 0.0,
