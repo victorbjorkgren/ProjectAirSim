@@ -432,6 +432,10 @@ class Constant {
     // this file), so WheelSetting::steering_connected_ silently kept its
     // true default for every wheel regardless of what a config actually set.
     static constexpr const char* steering_connected = "steering";
+    // Sibling of steering_connected above: robot_config_schema.jsonc's
+    // "wheel-settings" requires "engine" (alongside "steering" and "brake"),
+    // and every config in this repo writes it that way.
+    static constexpr const char* engine_connected = "engine";
     static constexpr const char* first_order_filter_tc =
         "first-order-filter-tc";
     static constexpr const char* controller = "controller";

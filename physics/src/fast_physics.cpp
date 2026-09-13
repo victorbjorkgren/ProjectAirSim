@@ -122,6 +122,16 @@ void FastPhysicsBody::InitializeFastPhysicsBody() {
     // yaw model in CalcNextKinematicsWithWheels(), which divides by
     // track_width_. Reject a non-positive value here, at setup, instead of
     // letting that division silently produce a zero yaw rate on every tick.
+    //
+    // The rejection threshold is not just 0: near-coincident Y offsets (e.g.
+    // a config typo producing 1e-6 m of separation) pass a plain "<= 0"
+    // check but still make (v_left - v_right) / track_width_ blow up to a
+    // huge or inf/nan yaw rate every tick, with no error anywhere. 1 cm is
+    // below any plausible left/right wheel separation for a physical ground
+    // vehicle (Cobra Flex's own track_width_ is 1.0 m), so a rover at or
+    // under that floor is degenerate/misconfigured geometry, not a
+    // legitimately narrow one.
+    constexpr float kMinPlausibleTrackWidthMeters = 0.01f;
     bool has_steering_wheel = false;
     for (auto wheel : wheels) {
       if (wheel->GetWheelSettings().steering_connected_) {
@@ -129,11 +139,12 @@ void FastPhysicsBody::InitializeFastPhysicsBody() {
         break;
       }
     }
-    if (!has_steering_wheel && track_width_ <= 0) {
+    if (!has_steering_wheel && track_width_ <= kMinPlausibleTrackWidthMeters) {
       throw std::runtime_error(
           "FastPhysicsBody '" + GetName() +
-          "': non-steering rover has non-positive track_width_ (wheel Y "
-          "offsets do not differ) -- cannot compute differential-drive yaw");
+          "': non-steering rover has non-positive or implausibly small "
+          "track_width_ (wheel Y offsets do not differ enough) -- cannot "
+          "compute differential-drive yaw");
     }
   }
 }
@@ -519,12 +530,25 @@ Kinematics FastPhysicsModel::CalcNextKinematicsWithWheels(
     // rover_length_ is derived from X offsets in
     // InitializeFastPhysicsBody()) and average each side's ground speed --
     // covering all engine-connected wheels on a side, not just one.
+    //
+    // This reads GetWheelSettings().engine_connected_ (the config-loaded
+    // value), not IsEngineConnected() -- like IsSteeringConnected() above,
+    // that live per-wheel flag defaults true in Wheel::Impl's constructor
+    // and is never assigned from wheel_settings_ (see the comment on
+    // Wheel::Impl::UpdateActuatorOutput, core_sim/src/actuators/wheel.cpp),
+    // so it returns true for every wheel regardless of "engine" in the
+    // robot config. The pre-existing Ackermann branch above still calls
+    // wheel->IsEngineConnected() to pick its one drive wheel, so an
+    // Ackermann rover with "engine": false on that wheel is unaffected by
+    // this fix and keeps reading it as connected.
     float left_speed_sum = 0;
     float right_speed_sum = 0;
+    float center_speed_sum = 0;
     int left_count = 0;
     int right_count = 0;
+    int center_count = 0;
     for (auto wheel : wheels) {
-      if (!wheel->IsEngineConnected()) continue;
+      if (!wheel->GetWheelSettings().engine_connected_) continue;
       float wheel_speed = wheel->GetRadius() * wheel->GetRotatingSpeed();
       float y_offset = wheel->GetWheelSettings().origin_setting.translation_.y();
       if (y_offset < 0) {
@@ -533,14 +557,28 @@ Kinematics FastPhysicsModel::CalcNextKinematicsWithWheels(
       } else if (y_offset > 0) {
         right_speed_sum += wheel_speed;
         ++right_count;
+      } else {
+        // A wheel exactly on the centerline (Y offset 0) carries no
+        // left/right asymmetry information, so it must not enter the
+        // yaw-rate term below, but it is still a configured, engine-
+        // connected wheel and must still contribute to forward speed.
+        center_speed_sum += wheel_speed;
+        ++center_count;
       }
     }
     float v_left = (left_count > 0) ? (left_speed_sum / left_count) : 0.f;
     float v_right = (right_count > 0) ? (right_speed_sum / right_count) : 0.f;
+    float v_center = (center_count > 0) ? (center_speed_sum / center_count) : 0.f;
 
-    // Forward (chassis) speed is the standard unicycle-model average of both
-    // sides, not a single wheel's reading.
-    rover_speed = 0.5f * (v_left + v_right);
+    // Forward (chassis) speed is the standard unicycle-model average of the
+    // left and right sides, plus the centerline group's average speed when
+    // any centerline wheel is configured. Dividing by 2 rather than by the
+    // number of non-empty groups keeps this bit-identical to the plain
+    // left/right average whenever center_count is 0 (every rover tested so
+    // far, including Cobra Flex).
+    int forward_speed_group_count = 2 + (center_count > 0 ? 1 : 0);
+    rover_speed = (v_left + v_right + v_center) /
+                  static_cast<float>(forward_speed_group_count);
 
     // Yaw rate from side-speed asymmetry: w = (v_left - v_right) / track.
     // This body frame is X-forward, Y-right (see dm_per_sec_y below: yaw
@@ -552,8 +590,9 @@ Kinematics FastPhysicsModel::CalcNextKinematicsWithWheels(
     // Y-left), where the same physical turn has the opposite yaw-rate sign.
     // See the fork PR description for the cross-check against that
     // independent implementation.
-    // track_width_ is validated positive for every non-steering rover in
-    // InitializeFastPhysicsBody(), so this division is safe here.
+    // track_width_ is validated above the degenerate-geometry floor for
+    // every non-steering rover in InitializeFastPhysicsBody(), so this
+    // division is safe here.
     float yaw_rate = (v_left - v_right) / fp_body->track_width_;
     dradians_yaw = yaw_rate * dt_sec;
   }
