@@ -323,13 +323,16 @@ void Wheel::Impl::UpdateActuatorOutput(std::vector<float>&& control_signals,
   //
   // A controller is free to publish fewer than 3 channels for this actuator
   // (e.g. ManualControllerApi::GetControlSignals() always returns a single-
-  // element vector -- see manual_controller_api.cpp). engine_connected_/
-  // steering_connected_/brake_connected_ default true and are not wired to
-  // any per-wheel JSON config (only wheel_settings_.*_connected_, a separate,
-  // unread copy, is), so every wheel actuator reads all three indices
-  // regardless of config. Bounds-check against control_signals.size() so a
-  // shorter vector yields 0 for the missing channels instead of an
-  // out-of-bounds read.
+  // element vector -- see manual_controller_api.cpp). This class's own
+  // engine_connected_/steering_connected_/brake_connected_ members default
+  // true and are not wired to any per-wheel JSON config -- that is instead
+  // wheel_settings_.engine_connected_/steering_connected_ (loaded by
+  // Wheel::Loader::LoadWheelSetting() and read by the physics layer via
+  // GetWheelSettings()); wheel_settings_.brake_connected_ is not loaded
+  // either. So every wheel actuator here still reads all three control
+  // signal indices regardless of config. Bounds-check against
+  // control_signals.size() so a shorter vector yields 0 for the missing
+  // channels instead of an out-of-bounds read.
   auto engine_signal =
       (engine_connected_ && control_signals.size() > 0) ? control_signals[0] : 0;
   auto steering_signal =
@@ -458,6 +461,10 @@ void Wheel::Loader::LoadWheelSetting(const json& json) {
     impl_.wheel_settings_.steering_connected_ = JsonUtils::GetBoolean(
         wheel_settings_json, Constant::Config::steering_connected,
         default_wheel_setting.steering_connected_);
+
+    impl_.wheel_settings_.engine_connected_ = JsonUtils::GetBoolean(
+        wheel_settings_json, Constant::Config::engine_connected,
+        default_wheel_setting.engine_connected_);
   }
 
   impl_.wheel_settings_.CalcMaxTorqueAndForce();

@@ -10,7 +10,7 @@
 #include "fast_physics.hpp"
 #include "gtest/gtest.h"
 #include "test_data/physics_test_config.hpp"  // defines physics_test_config
-#include "test_data/physics_test_rover_config.hpp"  // defines physics_test_diffdrive_rover_config, physics_test_ackermann_rover_config, physics_test_degenerate_trackwidth_rover_config, physics_test_two_wheel_rover_config
+#include "test_data/physics_test_rover_config.hpp"  // defines physics_test_diffdrive_rover_config, physics_test_ackermann_rover_config, physics_test_degenerate_trackwidth_rover_config, physics_test_two_wheel_rover_config, physics_test_diffdrive_rover_engine_disabled_config, physics_test_diffdrive_rover_centerline_wheel_config, physics_test_near_zero_trackwidth_rover_config
 
 namespace microsoft {
 namespace projectairsim {
@@ -885,6 +885,21 @@ TEST(FastPhysicsBody, InitializeFastPhysicsBodyTwoWheelsDegenerateThrows) {
                std::runtime_error);
 }
 
+TEST(FastPhysicsBody, InitializeFastPhysicsBodyNearZeroTrackWidthThrows) {
+  projectairsim::Simulator simulator;
+  simulator.LoadSceneWithJSON(physics_test_near_zero_trackwidth_rover_config);
+  auto& sim_robot = GetSoleRobot(simulator);
+
+  // Y offsets differ by only 1e-6 m (see
+  // physics_test_near_zero_trackwidth_rover_config), so track_width_
+  // resolves to a tiny positive value that passes a plain "<= 0" check but
+  // is far below any plausible physical wheel separation. Construction
+  // must reject it via the epsilon floor, the same as the exactly-zero
+  // case above.
+  EXPECT_THROW(projectairsim::TestFastPhysicsBody body(sim_robot),
+               std::runtime_error);
+}
+
 TEST(FastPhysicsModel, CalcNextKinematicsWithWheelsDifferentialDrive) {
   projectairsim::Simulator simulator;
   simulator.LoadSceneWithJSON(physics_test_diffdrive_rover_config);
@@ -946,6 +961,128 @@ TEST(FastPhysicsModel, CalcNextKinematicsWithWheelsDifferentialDrive) {
 
   // Forward speed is the average of both sides (fixing the old
   // first-engine-connected-wheel-only read), not just one wheel's speed.
+  EXPECT_NEAR(kin.pose.position.x(), kExpectedSpeed * kDtSec, 1e-6f);
+  EXPECT_NEAR(kin.pose.position.y(), 0.0f, 1e-6f);  // yaw starts at 0
+}
+
+TEST(FastPhysicsModel,
+    CalcNextKinematicsWithWheelsDifferentialDriveEngineDisabled) {
+  projectairsim::Simulator simulator;
+  simulator.LoadSceneWithJSON(
+      physics_test_diffdrive_rover_engine_disabled_config);
+  auto& sim_robot = GetSoleRobot(simulator);
+
+  auto fp_body = std::make_shared<projectairsim::FastPhysicsBody>(sim_robot);
+  fp_body->ReadRobotData();
+
+  // Wheel_RR_actuator (Y = +0.5, right side) has "engine": false (see
+  // physics_test_diffdrive_rover_engine_disabled_config). Drive it with a
+  // signal far from Wheel_FR_actuator's -- if the differential-drive branch
+  // still folded it into the right-side average (the pre-fix behavior,
+  // reading the always-true Wheel::IsEngineConnected() instead of the
+  // config-loaded GetWheelSettings().engine_connected_), the right-side
+  // speed computed below would reflect that signal too.
+  const TimeNano kDtWheelNanos = 1'000'000;  // 1 ms
+  const float kDtWheelSec = kDtWheelNanos / 1.0e9f;
+  const float kLeftSignal = 0.06f;          // Wheel_FL/Wheel_RL (y = -0.5)
+  const float kRightEngineSignal = 0.02f;   // Wheel_FR (y = +0.5, engine true)
+  const float kRightDisabledSignal = 0.9f;  // Wheel_RR (y = +0.5, engine false)
+
+  auto wheels = sim_robot.GetWheels();
+  ASSERT_EQ(wheels.size(), 4u);
+  for (auto* wheel : wheels) {
+    float y_offset = wheel->GetWheelSettings().origin_setting.translation_.y();
+    float signal;
+    if (y_offset < 0) {
+      signal = kLeftSignal;
+    } else if (wheel->GetWheelSettings().engine_connected_) {
+      signal = kRightEngineSignal;
+    } else {
+      signal = kRightDisabledSignal;
+    }
+    wheel->UpdateActuatorOutput(std::vector<float>{signal}, kDtWheelNanos);
+  }
+
+  const float kWheelRadius = 0.457f;
+  const float kExpectedRotSpeedLeft = 400.0f * kDtWheelSec * kLeftSignal;
+  const float kExpectedRotSpeedRight =
+      400.0f * kDtWheelSec * kRightEngineSignal;
+  const float kExpectedVLeft = kWheelRadius * kExpectedRotSpeedLeft;
+  const float kExpectedVRight = kWheelRadius * kExpectedRotSpeedRight;
+  const float kExpectedSpeed = 0.5f * (kExpectedVLeft + kExpectedVRight);
+  const float kTrackWidth = 1.0f;
+  const float kExpectedYawRate =
+      (kExpectedVLeft - kExpectedVRight) / kTrackWidth;
+
+  projectairsim::FastPhysicsModel model;
+  const TimeSec kDtSec = 0.01f;
+  auto kin = model.CalcNextKinematicsWithWheels(kDtSec, fp_body,
+                                                 projectairsim::Vector3(0, 0, 0));
+
+  // If Wheel_RR's "engine": false were ignored, its large
+  // kRightDisabledSignal would pull v_right -- and therefore both yaw rate
+  // and forward speed -- well away from these expected values, which are
+  // computed from Wheel_FR alone.
+  EXPECT_NEAR(kin.twist.angular.z(), kExpectedYawRate, 1e-4f);
+  EXPECT_NEAR(kin.pose.position.x(), kExpectedSpeed * kDtSec, 1e-6f);
+}
+
+TEST(FastPhysicsModel,
+    CalcNextKinematicsWithWheelsDifferentialDriveCenterlineWheel) {
+  projectairsim::Simulator simulator;
+  simulator.LoadSceneWithJSON(
+      physics_test_diffdrive_rover_centerline_wheel_config);
+  auto& sim_robot = GetSoleRobot(simulator);
+
+  auto fp_body = std::make_shared<projectairsim::FastPhysicsBody>(sim_robot);
+  fp_body->ReadRobotData();
+
+  // Wheel_C_actuator sits at Y = 0.0 (see
+  // physics_test_diffdrive_rover_centerline_wheel_config), matching neither
+  // the "< 0" nor "> 0" grouping. Drive all three wheels with distinct
+  // signals so a dropped or misgrouped centerline wheel changes the result.
+  const TimeNano kDtWheelNanos = 1'000'000;  // 1 ms
+  const float kDtWheelSec = kDtWheelNanos / 1.0e9f;
+  const float kLeftSignal = 0.06f;    // Wheel_L (y = -0.5)
+  const float kRightSignal = 0.02f;   // Wheel_R (y = +0.5)
+  const float kCenterSignal = 0.04f;  // Wheel_C (y = 0.0)
+
+  auto wheels = sim_robot.GetWheels();
+  ASSERT_EQ(wheels.size(), 3u);
+  for (auto* wheel : wheels) {
+    float y_offset = wheel->GetWheelSettings().origin_setting.translation_.y();
+    float signal = (y_offset < 0)   ? kLeftSignal
+                    : (y_offset > 0) ? kRightSignal
+                                     : kCenterSignal;
+    wheel->UpdateActuatorOutput(std::vector<float>{signal}, kDtWheelNanos);
+  }
+
+  const float kWheelRadius = 0.457f;
+  const float kExpectedVLeft =
+      kWheelRadius * (400.0f * kDtWheelSec * kLeftSignal);
+  const float kExpectedVRight =
+      kWheelRadius * (400.0f * kDtWheelSec * kRightSignal);
+  const float kExpectedVCenter =
+      kWheelRadius * (400.0f * kDtWheelSec * kCenterSignal);
+  const float kTrackWidth = 1.0f;
+
+  // Yaw rate must come only from the left/right asymmetry -- the
+  // centerline wheel carries no left/right information and must not shift
+  // it either way.
+  const float kExpectedYawRate =
+      (kExpectedVLeft - kExpectedVRight) / kTrackWidth;
+  // Forward speed folds in all three groups equally (see the fix's comment
+  // in fast_physics.cpp): with a centerline wheel present, this is the mean
+  // of the three groups' average speeds, not just the two sides'.
+  const float kExpectedSpeed =
+      (kExpectedVLeft + kExpectedVRight + kExpectedVCenter) / 3.0f;
+
+  projectairsim::FastPhysicsModel model;
+  const TimeSec kDtSec = 0.01f;
+  auto kin = model.CalcNextKinematicsWithWheels(kDtSec, fp_body,
+                                                 projectairsim::Vector3(0, 0, 0));
+
+  EXPECT_NEAR(kin.twist.angular.z(), kExpectedYawRate, 1e-4f);
   EXPECT_NEAR(kin.pose.position.x(), kExpectedSpeed * kDtSec, 1e-6f);
   EXPECT_NEAR(kin.pose.position.y(), 0.0f, 1e-6f);  // yaw starts at 0
 }
