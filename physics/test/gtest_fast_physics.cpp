@@ -10,7 +10,7 @@
 #include "fast_physics.hpp"
 #include "gtest/gtest.h"
 #include "test_data/physics_test_config.hpp"  // defines physics_test_config
-#include "test_data/physics_test_rover_config.hpp"  // defines physics_test_diffdrive_rover_config, physics_test_ackermann_rover_config
+#include "test_data/physics_test_rover_config.hpp"  // defines physics_test_diffdrive_rover_config, physics_test_ackermann_rover_config, physics_test_degenerate_trackwidth_rover_config, physics_test_two_wheel_rover_config
 
 namespace microsoft {
 namespace projectairsim {
@@ -853,6 +853,36 @@ TEST(FastPhysicsBody, InitializeFastPhysicsBodyTrackWidth) {
   // new Y-offset pattern added for issue #633) is 1.0 m.
   EXPECT_FLOAT_EQ(body.GetRoverLength(), 1.2f);
   EXPECT_FLOAT_EQ(body.GetTrackWidth(), 1.0f);
+}
+
+TEST(FastPhysicsBody, InitializeFastPhysicsBodyDegenerateTrackWidthThrows) {
+  projectairsim::Simulator simulator;
+  simulator.LoadSceneWithJSON(
+      physics_test_degenerate_trackwidth_rover_config);
+  auto& sim_robot = GetSoleRobot(simulator);
+
+  // All four wheels share Y = 0.0 (see
+  // physics_test_degenerate_trackwidth_rover_config), so track_width_
+  // resolves to 0 and this rover has no steering wheel -- the
+  // CalcNextKinematicsWithWheels() differential-drive branch would divide
+  // by that 0 every tick. Construction must reject this loudly instead.
+  EXPECT_THROW(projectairsim::TestFastPhysicsBody body(sim_robot),
+               std::runtime_error);
+}
+
+TEST(FastPhysicsBody, InitializeFastPhysicsBodyTwoWheelsDegenerateThrows) {
+  projectairsim::Simulator simulator;
+  simulator.LoadSceneWithJSON(physics_test_two_wheel_rover_config);
+  auto& sim_robot = GetSoleRobot(simulator);
+
+  // Only two wheels exist (see physics_test_two_wheel_rover_config), both at
+  // Y = 0.0, so the primary wheels[0]-vs-[1] track_width_ difference is 0
+  // and the fallback that reads wheels[2] must not run -- there is no third
+  // wheel. track_width_ should end up 0 exactly like the four-wheel
+  // degenerate case, not read out-of-bounds memory, and construction must
+  // still reject the resulting non-positive track_width_.
+  EXPECT_THROW(projectairsim::TestFastPhysicsBody body(sim_robot),
+               std::runtime_error);
 }
 
 TEST(FastPhysicsModel, CalcNextKinematicsWithWheelsDifferentialDrive) {

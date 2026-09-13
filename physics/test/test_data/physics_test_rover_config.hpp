@@ -409,4 +409,335 @@ constexpr const char* physics_test_ackermann_rover_config = R"(
 }
 )";
 
+// Same rover as physics_test_diffdrive_rover_config (no steering wheels),
+// but all four wheels share Y = 0.0 instead of +-0.5. This makes
+// track_width_ resolve to 0 via both the primary (wheels[0] vs [1]) and
+// fallback (wheels[0] vs [2]) Y-offset differences in
+// FastPhysicsBody::InitializeFastPhysicsBody() -- the misconfigured-geometry
+// case that must throw rather than silently zero the differential-drive
+// yaw rate (issue #633).
+constexpr const char* physics_test_degenerate_trackwidth_rover_config = R"(
+{
+  "id": "SceneTestDegenerateTrackWidthRover",
+  "actors": [
+    {
+      "type": "robot",
+      "name": "Rover1",
+      "origin": {
+        "xyz": "0.0 0.0 0.0",
+        "rpy-deg": "0 0 0"
+      },
+      "robot-config": {
+        "physics-type": "fast-physics",
+        "links": [
+          {
+            "name": "Frame",
+            "inertial": {
+              "mass": 5.0,
+              "inertia": {
+                "type": "geometry",
+                "geometry": { "box": { "size": "0.35 0.30 0.15" } }
+              }
+            },
+            "visual": {
+              "geometry": { "type": "unreal_mesh", "name": "/Rover/OffroadCar/SM_Offroad_Body" }
+            }
+          },
+          {
+            "name": "Front_Left",
+            "inertial": {
+              "origin": { "xyz": "0.6 0.0 -0.3", "rpy-deg": "0 0 0" },
+              "mass": 0.055,
+              "inertia": { "type": "geometry" }
+            },
+            "visual": {
+              "origin": { "xyz": "0.6 0.0 -0.3", "rpy-deg": "0 0 0" },
+              "geometry": { "type": "unreal_mesh", "name": "/Rover/OffroadCar/SM_Offroad_Tire" }
+            }
+          },
+          {
+            "name": "Front_Right",
+            "inertial": {
+              "origin": { "xyz": "0.6 0.0 -0.3", "rpy-deg": "0 0 0" },
+              "mass": 0.055,
+              "inertia": { "type": "geometry" }
+            },
+            "visual": {
+              "origin": { "xyz": "0.6 0.0 -0.3", "rpy-deg": "0 0 0" },
+              "geometry": { "type": "unreal_mesh", "name": "/Rover/OffroadCar/SM_Offroad_Tire" }
+            }
+          },
+          {
+            "name": "Rear_Left",
+            "inertial": {
+              "origin": { "xyz": "-0.6 0.0 -0.3", "rpy-deg": "0 0 0" },
+              "mass": 0.055,
+              "inertia": { "type": "geometry" }
+            },
+            "visual": {
+              "origin": { "xyz": "-0.6 0.0 -0.3", "rpy-deg": "0 0 0" },
+              "geometry": { "type": "unreal_mesh", "name": "/Rover/OffroadCar/SM_Offroad_Tire" }
+            }
+          },
+          {
+            "name": "Rear_Right",
+            "inertial": {
+              "origin": { "xyz": "-0.6 0.0 -0.3", "rpy-deg": "0 0 0" },
+              "mass": 0.055,
+              "inertia": { "type": "geometry" }
+            },
+            "visual": {
+              "origin": { "xyz": "-0.6 0.0 -0.3", "rpy-deg": "0 0 0" },
+              "geometry": { "type": "unreal_mesh", "name": "/Rover/OffroadCar/SM_Offroad_Tire" }
+            }
+          }
+        ],
+        "joints": [
+          { "id": "Frame_Wheel_FL", "type": "fixed", "parent-link": "Frame", "child-link": "Front_Left", "axis": "0 0 1" },
+          { "id": "Frame_Wheel_FR", "type": "fixed", "parent-link": "Frame", "child-link": "Front_Right", "axis": "0 0 1" },
+          { "id": "Frame_Wheel_RL", "type": "fixed", "parent-link": "Frame", "child-link": "Rear_Left", "axis": "0 0 1" },
+          { "id": "Frame_Wheel_RR", "type": "fixed", "parent-link": "Frame", "child-link": "Rear_Right", "axis": "0 0 1" }
+        ],
+        "controller": {
+          "id": "Manual_Controller",
+          "type": "manual-controller-api",
+          "manual-controller-api-settings": {
+            "actuator-order": [
+              { "id": "Wheel_FL_actuator" },
+              { "id": "Wheel_FR_actuator" },
+              { "id": "Wheel_RL_actuator" },
+              { "id": "Wheel_RR_actuator" }
+            ]
+          }
+        },
+        "actuators": [
+          {
+            "name": "Wheel_FL_actuator",
+            "type": "wheel",
+            "enabled": true,
+            "parent-link": "Frame",
+            "child-link": "Front_Left",
+            "origin": { "xyz": "0.6 0.0 -0.3", "rpy-deg": "0 0 0" },
+            "wheel-settings": {
+              "normal-vector": "0.0 -1.0 0.0",
+              "wheel-type": 0.0,
+              "coeff-of-friction": 1.0,
+              "coeff-of-wheel-torque": 0.040164,
+              "engine": true,
+              "steering": false,
+              "brake": false,
+              "smoothing-tc": 0.0
+            }
+          },
+          {
+            "name": "Wheel_FR_actuator",
+            "type": "wheel",
+            "enabled": true,
+            "parent-link": "Frame",
+            "child-link": "Front_Right",
+            "origin": { "xyz": "0.6 0.0 -0.3", "rpy-deg": "0 0 0" },
+            "wheel-settings": {
+              "normal-vector": "0.0 -1.0 0.0",
+              "wheel-type": 0.0,
+              "coeff-of-friction": 1.0,
+              "coeff-of-wheel-torque": 0.040164,
+              "engine": true,
+              "steering": false,
+              "brake": false,
+              "smoothing-tc": 0.0
+            }
+          },
+          {
+            "name": "Wheel_RL_actuator",
+            "type": "wheel",
+            "enabled": true,
+            "parent-link": "Frame",
+            "child-link": "Rear_Left",
+            "origin": { "xyz": "-0.6 0.0 -0.3", "rpy-deg": "0 0 0" },
+            "wheel-settings": {
+              "normal-vector": "0.0 -1.0 0.0",
+              "wheel-type": 0.0,
+              "coeff-of-friction": 1.0,
+              "coeff-of-wheel-torque": 0.040164,
+              "engine": true,
+              "steering": false,
+              "brake": false,
+              "smoothing-tc": 0.0
+            }
+          },
+          {
+            "name": "Wheel_RR_actuator",
+            "type": "wheel",
+            "enabled": true,
+            "parent-link": "Frame",
+            "child-link": "Rear_Right",
+            "origin": { "xyz": "-0.6 0.0 -0.3", "rpy-deg": "0 0 0" },
+            "wheel-settings": {
+              "normal-vector": "0.0 -1.0 0.0",
+              "wheel-type": 0.0,
+              "coeff-of-friction": 1.0,
+              "coeff-of-wheel-torque": 0.040164,
+              "engine": true,
+              "steering": false,
+              "brake": false,
+              "smoothing-tc": 0.0
+            }
+          }
+        ],
+        "sensors": []
+      }
+    }
+  ],
+  "clock": {
+    "type": "steppable",
+    "step-ns": 3000000,
+    "real-time-update-rate": 3000000,
+    "pause-on-start": false
+  },
+  "home-geo-point": {
+    "latitude": 47.641468,
+    "longitude": -122.140165,
+    "altitude": 122.0
+  },
+  "segmentation": {
+    "initialize-ids": true,
+    "ignore-existing": false,
+    "use-owner-name": true
+  }
+}
+)";
+
+// A non-steering rover with only two wheels, sharing Y = 0.0. With fewer
+// than three wheels, FastPhysicsBody::InitializeFastPhysicsBody()'s
+// track_width_ fallback (which reads wheels[2] when the primary wheels[0]
+// vs [1] difference is 0) must not index past the end of the wheels vector.
+// track_width_ should end up 0 same as the four-wheel degenerate case above,
+// not read out-of-bounds memory.
+constexpr const char* physics_test_two_wheel_rover_config = R"(
+{
+  "id": "SceneTestTwoWheelRover",
+  "actors": [
+    {
+      "type": "robot",
+      "name": "Rover1",
+      "origin": {
+        "xyz": "0.0 0.0 0.0",
+        "rpy-deg": "0 0 0"
+      },
+      "robot-config": {
+        "physics-type": "fast-physics",
+        "links": [
+          {
+            "name": "Frame",
+            "inertial": {
+              "mass": 5.0,
+              "inertia": {
+                "type": "geometry",
+                "geometry": { "box": { "size": "0.35 0.30 0.15" } }
+              }
+            },
+            "visual": {
+              "geometry": { "type": "unreal_mesh", "name": "/Rover/OffroadCar/SM_Offroad_Body" }
+            }
+          },
+          {
+            "name": "Left",
+            "inertial": {
+              "origin": { "xyz": "0.6 0.0 -0.3", "rpy-deg": "0 0 0" },
+              "mass": 0.055,
+              "inertia": { "type": "geometry" }
+            },
+            "visual": {
+              "origin": { "xyz": "0.6 0.0 -0.3", "rpy-deg": "0 0 0" },
+              "geometry": { "type": "unreal_mesh", "name": "/Rover/OffroadCar/SM_Offroad_Tire" }
+            }
+          },
+          {
+            "name": "Right",
+            "inertial": {
+              "origin": { "xyz": "-0.6 0.0 -0.3", "rpy-deg": "0 0 0" },
+              "mass": 0.055,
+              "inertia": { "type": "geometry" }
+            },
+            "visual": {
+              "origin": { "xyz": "-0.6 0.0 -0.3", "rpy-deg": "0 0 0" },
+              "geometry": { "type": "unreal_mesh", "name": "/Rover/OffroadCar/SM_Offroad_Tire" }
+            }
+          }
+        ],
+        "joints": [
+          { "id": "Frame_Wheel_L", "type": "fixed", "parent-link": "Frame", "child-link": "Left", "axis": "0 0 1" },
+          { "id": "Frame_Wheel_R", "type": "fixed", "parent-link": "Frame", "child-link": "Right", "axis": "0 0 1" }
+        ],
+        "controller": {
+          "id": "Manual_Controller",
+          "type": "manual-controller-api",
+          "manual-controller-api-settings": {
+            "actuator-order": [
+              { "id": "Wheel_L_actuator" },
+              { "id": "Wheel_R_actuator" }
+            ]
+          }
+        },
+        "actuators": [
+          {
+            "name": "Wheel_L_actuator",
+            "type": "wheel",
+            "enabled": true,
+            "parent-link": "Frame",
+            "child-link": "Left",
+            "origin": { "xyz": "0.6 0.0 -0.3", "rpy-deg": "0 0 0" },
+            "wheel-settings": {
+              "normal-vector": "0.0 -1.0 0.0",
+              "wheel-type": 0.0,
+              "coeff-of-friction": 1.0,
+              "coeff-of-wheel-torque": 0.040164,
+              "engine": true,
+              "steering": false,
+              "brake": false,
+              "smoothing-tc": 0.0
+            }
+          },
+          {
+            "name": "Wheel_R_actuator",
+            "type": "wheel",
+            "enabled": true,
+            "parent-link": "Frame",
+            "child-link": "Right",
+            "origin": { "xyz": "-0.6 0.0 -0.3", "rpy-deg": "0 0 0" },
+            "wheel-settings": {
+              "normal-vector": "0.0 -1.0 0.0",
+              "wheel-type": 0.0,
+              "coeff-of-friction": 1.0,
+              "coeff-of-wheel-torque": 0.040164,
+              "engine": true,
+              "steering": false,
+              "brake": false,
+              "smoothing-tc": 0.0
+            }
+          }
+        ],
+        "sensors": []
+      }
+    }
+  ],
+  "clock": {
+    "type": "steppable",
+    "step-ns": 3000000,
+    "real-time-update-rate": 3000000,
+    "pause-on-start": false
+  },
+  "home-geo-point": {
+    "latitude": 47.641468,
+    "longitude": -122.140165,
+    "altitude": 122.0
+  },
+  "segmentation": {
+    "initialize-ids": true,
+    "ignore-existing": false,
+    "use-owner-name": true
+  }
+}
+)";
+
 #endif  // PHYSICS_TEST_TEST_DATA_PHYSICS_TEST_ROVER_CONFIG_HPP_

@@ -7,6 +7,7 @@
 
 #include <iostream>
 #include <memory>
+#include <stdexcept>
 #include <vector>
 
 #include "core_sim/actuators/actuator.hpp"
@@ -91,7 +92,7 @@ void FastPhysicsBody::InitializeFastPhysicsBody() {
     rover_length_ =
         wheel_ref.GetWheelSettings().origin_setting.translation_.x() -
         wheel_ref2.GetWheelSettings().origin_setting.translation_.x();
-    if (rover_length_ == 0) {
+    if (rover_length_ == 0 && wheels.size() >= 3) {
       // get distance using the third wheel
       auto& wheel_ref3 = static_cast<Wheel&>(*wheels[2]);
       rover_length_ =
@@ -106,7 +107,7 @@ void FastPhysicsBody::InitializeFastPhysicsBody() {
     track_width_ =
         wheel_ref.GetWheelSettings().origin_setting.translation_.y() -
         wheel_ref2.GetWheelSettings().origin_setting.translation_.y();
-    if (track_width_ == 0) {
+    if (track_width_ == 0 && wheels.size() >= 3) {
       // get separation using the third wheel
       auto& wheel_ref3 = static_cast<Wheel&>(*wheels[2]);
       track_width_ =
@@ -115,6 +116,24 @@ void FastPhysicsBody::InitializeFastPhysicsBody() {
     }
     if (track_width_ < 0) {
       track_width_ = -track_width_;
+    }
+
+    // A rover with no steering-capable wheel takes the differential-drive
+    // yaw model in CalcNextKinematicsWithWheels(), which divides by
+    // track_width_. Reject a non-positive value here, at setup, instead of
+    // letting that division silently produce a zero yaw rate on every tick.
+    bool has_steering_wheel = false;
+    for (auto wheel : wheels) {
+      if (wheel->GetWheelSettings().steering_connected_) {
+        has_steering_wheel = true;
+        break;
+      }
+    }
+    if (!has_steering_wheel && track_width_ <= 0) {
+      throw std::runtime_error(
+          "FastPhysicsBody '" + GetName() +
+          "': non-steering rover has non-positive track_width_ (wheel Y "
+          "offsets do not differ) -- cannot compute differential-drive yaw");
     }
   }
 }
@@ -533,10 +552,10 @@ Kinematics FastPhysicsModel::CalcNextKinematicsWithWheels(
     // Y-left), where the same physical turn has the opposite yaw-rate sign.
     // See the fork PR description for the cross-check against that
     // independent implementation.
-    if (fp_body->track_width_ > 0) {
-      float yaw_rate = (v_left - v_right) / fp_body->track_width_;
-      dradians_yaw = yaw_rate * dt_sec;
-    }
+    // track_width_ is validated positive for every non-steering rover in
+    // InitializeFastPhysicsBody(), so this division is safe here.
+    float yaw_rate = (v_left - v_right) / fp_body->track_width_;
+    dradians_yaw = yaw_rate * dt_sec;
   }
 
   Kinematics kin = fp_body->GetKinematics();
