@@ -5,7 +5,10 @@
 
 #include "core_sim/actor/robot.hpp"
 
+#include <chrono>
+#include <future>
 #include <memory>
+#include <thread>
 
 #include "actor_impl.hpp"
 #include "actuators/actuator_impl.hpp"
@@ -28,6 +31,17 @@ namespace microsoft {
 namespace projectairsim {
 
 using json = nlohmann::json;
+
+// Bound on how long Robot::Impl::OnEndUpdate() waits for the robot's
+// controller to finish IController::EndUpdate() before giving up on it.
+// A controller's EndUpdate() commonly joins a per-robot actuator-API thread
+// it owns (e.g. MavLinkApi::EndUpdate() joining its PX4 connect thread), and
+// that thread has no cancellation of its own: if it is stuck (observed with
+// a half-connected MavLinkApi::ConnectThread that never completed a PX4
+// handshake), an unbounded join here wedges the caller -- the sim's RPC
+// thread during a scene stop/reload -- forever, along with every subsequent
+// RPC call. See Robot::Impl::OnEndUpdate() below.
+constexpr std::chrono::milliseconds kControllerEndUpdateTimeout{5000};
 
 // -----------------------------------------------------------------------------
 // Forward declarations
@@ -197,7 +211,11 @@ class Robot::Impl : public ActorImpl {
 
   float total_power_ = 0.0f;
 
-  std::unique_ptr<IController> controller_;
+  // A shared_ptr (not unique_ptr) so that OnEndUpdate() can hand a
+  // reference to a background thread and let that thread keep the
+  // controller alive and finish tearing it down safely even if this Robot
+  // is destroyed first -- see OnEndUpdate() for why.
+  std::shared_ptr<IController> controller_;
 
   std::vector<std::unique_ptr<Actuator>> actuators_;
   std::vector<std::reference_wrapper<Actuator>> actuators_ref_;
@@ -844,7 +862,49 @@ void Robot::Impl::OnEndUpdate() {
   }
 
   if (controller_ != nullptr) {
-    controller_->EndUpdate();
+    // Run EndUpdate() on a background thread and wait for it only up to
+    // kControllerEndUpdateTimeout, instead of joining it inline on this
+    // (the caller's) thread. controller is a separate shared_ptr, captured
+    // by value into the thread, so the controller stays alive for that
+    // thread to finish tearing down even past the timeout below and even if
+    // this Robot is destroyed in the meantime.
+    std::shared_ptr<IController> controller = controller_;
+    auto end_update_done = std::make_shared<std::promise<void>>();
+    std::future<void> end_update_future = end_update_done->get_future();
+    std::thread end_update_thread([controller, end_update_done]() {
+      try {
+        controller->EndUpdate();
+        end_update_done->set_value();
+      } catch (...) {
+        end_update_done->set_exception(std::current_exception());
+      }
+    });
+
+    if (end_update_future.wait_for(kControllerEndUpdateTimeout) ==
+        std::future_status::timeout) {
+      // Proactive signaling already happened inside EndUpdate() itself (for
+      // example MavLinkApi::EndUpdate() closes its PX4 connection before
+      // trying to join its connect thread) -- it just didn't unblock the
+      // thread in time. Don't wait on it any longer: detach it so it can
+      // finish (or leak, but not hang) on its own, and let scene
+      // stop/reload proceed with a clear diagnostic instead of wedging the
+      // caller's thread forever.
+      logger_.LogError(
+          name_,
+          "[%s] Controller did not finish EndUpdate() within %lld ms; a "
+          "per-robot actuator-API thread it owns is likely stuck (for "
+          "example a half-connected MavLinkApi PX4 handshake). Letting its "
+          "teardown continue in the background instead of blocking scene "
+          "stop/reload.",
+          id_.c_str(),
+          static_cast<long long>(kControllerEndUpdateTimeout.count()));
+      end_update_thread.detach();
+    } else {
+      end_update_thread.join();
+      // Propagate any exception EndUpdate() threw, matching the behavior of
+      // calling it directly on this thread.
+      end_update_future.get();
+    }
   }
 
   for (auto& sensor : sensors_) {

@@ -211,7 +211,7 @@ else
 	@echo "UE_ROOT env variable set to: $(UE_ROOT)"
 	$(UE_ROOT)/Engine/Build/BatchFiles/RunUAT.sh BuildCookRun \
 		-project="$(CURDIR)/unreal/Blocks/Blocks.uproject" \
-		-nop4 -nocompile -nocompileeditor -build -cook -compressed -pak -allmaps -stage \
+		-nop4 -nocompile -build -cook -compressed -pak -allmaps -stage \
 		-archive -archivedirectory="$(CURDIR)/packages/Blocks/Shipping" \
 		-clientconfig=Shipping -serverconfig=Shipping -utf8output -installed -prereqs \
 		-unrealexe=$(UE_ROOT)/Engine/Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEditor \
