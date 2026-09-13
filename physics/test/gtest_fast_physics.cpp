@@ -10,6 +10,7 @@
 #include "fast_physics.hpp"
 #include "gtest/gtest.h"
 #include "test_data/physics_test_config.hpp"  // defines physics_test_config
+#include "test_data/physics_test_rover_config.hpp"  // defines physics_test_diffdrive_rover_config, physics_test_ackermann_rover_config, physics_test_degenerate_trackwidth_rover_config, physics_test_two_wheel_rover_config
 
 namespace microsoft {
 namespace projectairsim {
@@ -37,6 +38,8 @@ class TestFastPhysicsBody : public FastPhysicsBody {
   Wrench GetExternalWrench() { return external_wrench_; }
   Vector3 GetEnvGravity() { return env_gravity_; }
   float GetEnvAirDensity() { return env_air_density_; }
+  float GetRoverLength() { return rover_length_; }
+  float GetTrackWidth() { return track_width_; }
 };
 
 }  // namespace projectairsim
@@ -817,6 +820,192 @@ TEST(FastPhysicsModel, StepPhysicsBody) {
       EXPECT_NE(kin_robot.twist.linear.z(), vel_linear_z_robot);
     }
   }
+}
+
+// -----------------------------------------------------------------------------
+// CalcNextKinematicsWithWheels(): differential-drive yaw model (issue #633)
+
+namespace {
+
+// Returns the robot actor in a loaded scene with exactly one robot.
+projectairsim::Robot& GetSoleRobot(projectairsim::Simulator& simulator) {
+  auto& scene = simulator.GetScene();
+  auto actors = scene.GetActors();
+  for (auto actor_ref : actors) {
+    if (actor_ref.get().GetType() == projectairsim::ActorType::kRobot) {
+      return dynamic_cast<projectairsim::Robot&>(actor_ref.get());
+    }
+  }
+  throw std::runtime_error("no robot actor in scene");
+}
+
+}  // namespace
+
+TEST(FastPhysicsBody, InitializeFastPhysicsBodyTrackWidth) {
+  projectairsim::Simulator simulator;
+  simulator.LoadSceneWithJSON(physics_test_diffdrive_rover_config);
+  auto& sim_robot = GetSoleRobot(simulator);
+  projectairsim::TestFastPhysicsBody body(sim_robot);
+
+  // Wheel origins are X = +-0.6, Y = +-0.5 (see
+  // physics_test_rover_config.hpp), so rover_length_ (front-to-rear, via the
+  // existing X-offset pattern) is 1.2 m and track_width_ (left-to-right, the
+  // new Y-offset pattern added for issue #633) is 1.0 m.
+  EXPECT_FLOAT_EQ(body.GetRoverLength(), 1.2f);
+  EXPECT_FLOAT_EQ(body.GetTrackWidth(), 1.0f);
+}
+
+TEST(FastPhysicsBody, InitializeFastPhysicsBodyDegenerateTrackWidthThrows) {
+  projectairsim::Simulator simulator;
+  simulator.LoadSceneWithJSON(
+      physics_test_degenerate_trackwidth_rover_config);
+  auto& sim_robot = GetSoleRobot(simulator);
+
+  // All four wheels share Y = 0.0 (see
+  // physics_test_degenerate_trackwidth_rover_config), so track_width_
+  // resolves to 0 and this rover has no steering wheel -- the
+  // CalcNextKinematicsWithWheels() differential-drive branch would divide
+  // by that 0 every tick. Construction must reject this loudly instead.
+  EXPECT_THROW(projectairsim::TestFastPhysicsBody body(sim_robot),
+               std::runtime_error);
+}
+
+TEST(FastPhysicsBody, InitializeFastPhysicsBodyTwoWheelsDegenerateThrows) {
+  projectairsim::Simulator simulator;
+  simulator.LoadSceneWithJSON(physics_test_two_wheel_rover_config);
+  auto& sim_robot = GetSoleRobot(simulator);
+
+  // Only two wheels exist (see physics_test_two_wheel_rover_config), both at
+  // Y = 0.0, so the primary wheels[0]-vs-[1] track_width_ difference is 0
+  // and the fallback that reads wheels[2] must not run -- there is no third
+  // wheel. track_width_ should end up 0 exactly like the four-wheel
+  // degenerate case, not read out-of-bounds memory, and construction must
+  // still reject the resulting non-positive track_width_.
+  EXPECT_THROW(projectairsim::TestFastPhysicsBody body(sim_robot),
+               std::runtime_error);
+}
+
+TEST(FastPhysicsModel, CalcNextKinematicsWithWheelsDifferentialDrive) {
+  projectairsim::Simulator simulator;
+  simulator.LoadSceneWithJSON(physics_test_diffdrive_rover_config);
+  auto& sim_robot = GetSoleRobot(simulator);
+
+  auto fp_body = std::make_shared<projectairsim::FastPhysicsBody>(sim_robot);
+  fp_body->ReadRobotData();  // load kinematics_ from the robot's spawn pose
+
+  // Drive each side's wheels directly (bypassing the controller) with a
+  // known engine signal for a single Euler step from rest.
+  // Wheel::Impl::UpdateActuatorOutput (core_sim/src/actuators/wheel.cpp),
+  // with this config's "smoothing-tc": 0.0 (instant filter passthrough) and
+  // rotating_speed_ starting at 0 (so the friction term is 0 on this first
+  // call), gives an exact, non-approximated result:
+  //   rotating_speed = dt_wheel_sec * (engine_signal * 100 * 0.5) / 0.125
+  //                  = 400 * dt_wheel_sec * engine_signal
+  const TimeNano kDtWheelNanos = 1'000'000;  // 1 ms
+  const float kDtWheelSec = kDtWheelNanos / 1.0e9f;
+  const float kLeftSignal = 0.06f;   // Wheel_FL/Wheel_RL (y = -0.5)
+  const float kRightSignal = 0.02f;  // Wheel_FR/Wheel_RR (y = +0.5)
+
+  auto wheels = sim_robot.GetWheels();
+  ASSERT_EQ(wheels.size(), 4u);
+  for (auto* wheel : wheels) {
+    float y_offset = wheel->GetWheelSettings().origin_setting.translation_.y();
+    float signal = (y_offset < 0) ? kLeftSignal : kRightSignal;
+    wheel->UpdateActuatorOutput(std::vector<float>{signal}, kDtWheelNanos);
+  }
+
+  const float kWheelRadius = 0.457f;  // WheelSetting::radius_ (core_sim, not
+                                      // configurable -- see wheel.hpp)
+  const float kExpectedRotSpeedLeft = 400.0f * kDtWheelSec * kLeftSignal;
+  const float kExpectedRotSpeedRight = 400.0f * kDtWheelSec * kRightSignal;
+  const float kExpectedVLeft = kWheelRadius * kExpectedRotSpeedLeft;
+  const float kExpectedVRight = kWheelRadius * kExpectedRotSpeedRight;
+  const float kExpectedSpeed = 0.5f * (kExpectedVLeft + kExpectedVRight);
+  const float kTrackWidth = 1.0f;
+  // See fast_physics.cpp's CalcNextKinematicsWithWheels() comment: this
+  // sim's body frame is X-forward/Y-right (NED), so yaw_rate is
+  // (v_left - v_right) / track_width, not (v_right - v_left) / track_width
+  // as in Autopilot/cobra_flex/kinematics.py's X-forward/Y-left convention
+  // -- confirmed against that independent implementation by
+  // crosscheck_diffdrive.py (see the fork PR description).
+  const float kExpectedYawRate =
+      (kExpectedVLeft - kExpectedVRight) / kTrackWidth;
+  ASSERT_GT(std::abs(kExpectedYawRate), 0.0f)
+      << "test wheel signals must be asymmetric";
+
+  projectairsim::FastPhysicsModel model;
+  const TimeSec kDtSec = 0.01f;
+  auto kin = model.CalcNextKinematicsWithWheels(kDtSec, fp_body,
+                                                 projectairsim::Vector3(0, 0, 0));
+
+  // Before this patch, a non-steering rover's yaw never changed (issue
+  // #633's live repro: --phase spin --angular 0.5 held yaw at exactly
+  // 0.000). Confirm it now does, and by the expected amount.
+  EXPECT_NEAR(kin.twist.angular.z(), kExpectedYawRate, 1e-4f);
+  EXPECT_NE(kin.twist.angular.z(), 0.0f);
+
+  // Forward speed is the average of both sides (fixing the old
+  // first-engine-connected-wheel-only read), not just one wheel's speed.
+  EXPECT_NEAR(kin.pose.position.x(), kExpectedSpeed * kDtSec, 1e-6f);
+  EXPECT_NEAR(kin.pose.position.y(), 0.0f, 1e-6f);  // yaw starts at 0
+}
+
+TEST(FastPhysicsModel, CalcNextKinematicsWithWheelsAckermannUnaffected) {
+  projectairsim::Simulator simulator;
+  simulator.LoadSceneWithJSON(physics_test_ackermann_rover_config);
+  auto& sim_robot = GetSoleRobot(simulator);
+
+  auto fp_body = std::make_shared<projectairsim::FastPhysicsBody>(sim_robot);
+  fp_body->ReadRobotData();
+
+  // Wheel_FL_actuator is the only steering-capable wheel in this config (see
+  // physics_test_rover_config.hpp) and is also the first engine-connected
+  // wheel in actuator-order, so it alone determines rover_speed and
+  // rover_steering under the pre-existing Ackermann formula -- the other
+  // three wheels' speeds must be ignored, exactly as before this patch.
+  const TimeNano kDtWheelNanos = 1'000'000;  // 1 ms
+  const float kDtWheelSec = kDtWheelNanos / 1.0e9f;
+  const float kFrontLeftEngineSignal = 0.05f;
+  const float kFrontLeftSteeringSignal = 0.5f;  // -> steering = 0.5 * pi/4
+  const float kOtherWheelsEngineSignal = 0.9f;  // must be ignored
+
+  // Wheel::IsSteeringConnected() can't be used here -- it always returns
+  // true (see fast_physics.cpp's CalcNextKinematicsWithWheels() comment) --
+  // so, like that new gate, this test identifies the steering wheel from
+  // the config-loaded GetWheelSettings().steering_connected_ instead.
+  auto wheels = sim_robot.GetWheels();
+  ASSERT_EQ(wheels.size(), 4u);
+  int steering_wheel_count = 0;
+  for (auto* wheel : wheels) {
+    if (wheel->GetWheelSettings().steering_connected_) {
+      ++steering_wheel_count;
+      wheel->UpdateActuatorOutput(
+          std::vector<float>{kFrontLeftEngineSignal, kFrontLeftSteeringSignal},
+          kDtWheelNanos);
+    } else {
+      wheel->UpdateActuatorOutput(std::vector<float>{kOtherWheelsEngineSignal},
+                                  kDtWheelNanos);
+    }
+  }
+  ASSERT_EQ(steering_wheel_count, 1);
+
+  const float kWheelRadius = 0.457f;
+  const float kExpectedRoverSpeed =
+      kWheelRadius * (400.0f * kDtWheelSec * kFrontLeftEngineSignal);
+  const float kExpectedSteering =
+      kFrontLeftSteeringSignal * static_cast<float>(M_PI) / 4.0f;
+  const float kRoverLength = 1.2f;
+
+  projectairsim::FastPhysicsModel model;
+  const TimeSec kDtSec = 0.01f;
+  auto kin = model.CalcNextKinematicsWithWheels(kDtSec, fp_body,
+                                                 projectairsim::Vector3(0, 0, 0));
+
+  const float kExpectedDYaw =
+      std::atan2(kExpectedRoverSpeed * std::sin(kExpectedSteering) * kDtSec,
+                kRoverLength);
+  EXPECT_NEAR(kin.twist.angular.z(), kExpectedDYaw / kDtSec, 1e-4f);
+  EXPECT_NEAR(kin.pose.position.x(), kExpectedRoverSpeed * kDtSec, 1e-6f);
 }
 
 // TODO TEST(FastPhysicsModel, SetWrenchesOnPhysicsBody) {}

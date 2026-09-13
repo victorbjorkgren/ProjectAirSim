@@ -425,7 +425,13 @@ class Constant {
     static constexpr const char* smoothing_tc = "smoothing-tc";
     static constexpr const char* rotor_settings = "rotor-settings";
     static constexpr const char* wheel_settings = "wheel-settings";
-    static constexpr const char* steering_connected = "steering-connected";
+    // Every "wheel-settings" block in this repo (and Microsoft's own
+    // upstream example_user_scripts/sim_config/robot_rover_fastphysics.jsonc)
+    // writes this key as "steering", not "steering-connected" -- the latter
+    // was never a real config key (repo-wide search finds it nowhere outside
+    // this file), so WheelSetting::steering_connected_ silently kept its
+    // true default for every wheel regardless of what a config actually set.
+    static constexpr const char* steering_connected = "steering";
     static constexpr const char* first_order_filter_tc =
         "first-order-filter-tc";
     static constexpr const char* controller = "controller";
