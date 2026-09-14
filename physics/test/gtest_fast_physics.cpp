@@ -10,7 +10,7 @@
 #include "fast_physics.hpp"
 #include "gtest/gtest.h"
 #include "test_data/physics_test_config.hpp"  // defines physics_test_config
-#include "test_data/physics_test_rover_config.hpp"  // defines physics_test_diffdrive_rover_config, physics_test_ackermann_rover_config, physics_test_degenerate_trackwidth_rover_config, physics_test_two_wheel_rover_config, physics_test_diffdrive_rover_engine_disabled_config, physics_test_diffdrive_rover_centerline_wheel_config, physics_test_near_zero_trackwidth_rover_config, physics_test_one_wheel_rover_config
+#include "test_data/physics_test_rover_config.hpp"  // defines physics_test_diffdrive_rover_config, physics_test_ackermann_rover_config, physics_test_degenerate_trackwidth_rover_config, physics_test_two_wheel_rover_config, physics_test_diffdrive_rover_engine_disabled_config, physics_test_diffdrive_rover_centerline_wheel_config, physics_test_near_zero_trackwidth_rover_config, physics_test_one_wheel_rover_config, physics_test_diffdrive_rover_centerline_no_left_config
 
 namespace microsoft {
 namespace projectairsim {
@@ -1091,6 +1091,57 @@ TEST(FastPhysicsModel,
   // of the three groups' average speeds, not just the two sides'.
   const float kExpectedSpeed =
       (kExpectedVLeft + kExpectedVRight + kExpectedVCenter) / 3.0f;
+
+  projectairsim::FastPhysicsModel model;
+  const TimeSec kDtSec = 0.01f;
+  auto kin = model.CalcNextKinematicsWithWheels(kDtSec, fp_body,
+                                                 projectairsim::Vector3(0, 0, 0));
+
+  EXPECT_NEAR(kin.twist.angular.z(), kExpectedYawRate, 1e-4f);
+  EXPECT_NEAR(kin.pose.position.x(), kExpectedSpeed * kDtSec, 1e-6f);
+  EXPECT_NEAR(kin.pose.position.y(), 0.0f, 1e-6f);  // yaw starts at 0
+}
+
+TEST(FastPhysicsModel,
+     CalcNextKinematicsWithWheelsDifferentialDriveCenterlineNoLeft) {
+  projectairsim::Simulator simulator;
+  simulator.LoadSceneWithJSON(
+      physics_test_diffdrive_rover_centerline_no_left_config);
+  auto& sim_robot = GetSoleRobot(simulator);
+
+  auto fp_body = std::make_shared<projectairsim::FastPhysicsBody>(sim_robot);
+  fp_body->ReadRobotData();
+
+  // No wheel exists at Y < 0 at all (see
+  // physics_test_diffdrive_rover_centerline_no_left_config) -- only a right
+  // wheel (Y = +0.5) and a centerline wheel (Y = 0.0). Forward speed must
+  // average just those two groups' speeds, not divide by a fixed count
+  // that assumes a left group is always present.
+  const TimeNano kDtWheelNanos = 1'000'000;  // 1 ms
+  const float kDtWheelSec = kDtWheelNanos / 1.0e9f;
+  const float kRightSignal = 0.02f;   // Wheel_R (y = +0.5)
+  const float kCenterSignal = 0.04f;  // Wheel_C (y = 0.0)
+
+  auto wheels = sim_robot.GetWheels();
+  ASSERT_EQ(wheels.size(), 2u);
+  for (auto* wheel : wheels) {
+    float y_offset = wheel->GetWheelSettings().origin_setting.translation_.y();
+    float signal = (y_offset > 0) ? kRightSignal : kCenterSignal;
+    wheel->UpdateActuatorOutput(std::vector<float>{signal}, kDtWheelNanos);
+  }
+
+  const float kWheelRadius = 0.457f;
+  const float kExpectedVRight =
+      kWheelRadius * (400.0f * kDtWheelSec * kRightSignal);
+  const float kExpectedVCenter =
+      kWheelRadius * (400.0f * kDtWheelSec * kCenterSignal);
+  const float kTrackWidth = 0.5f;
+
+  // v_left is 0 because there is no left wheel, not because a left wheel
+  // is running at 0 speed -- it must not be folded into the forward-speed
+  // average as if it were a real reading.
+  const float kExpectedYawRate = (0.0f - kExpectedVRight) / kTrackWidth;
+  const float kExpectedSpeed = (kExpectedVRight + kExpectedVCenter) / 2.0f;
 
   projectairsim::FastPhysicsModel model;
   const TimeSec kDtSec = 0.01f;
