@@ -131,12 +131,20 @@ test_simlibs_release: simlibs_release
 # ---------------------------------------------------------------------------------------------------------------------
 
 ifdef UE_ROOT
+# UE 5.8 + Xcode 27: UBT launches the Xcode app-finalization step (ApplePostBuildSync) through its
+# build executor, which hands xcodebuild a closed stdin; xcodebuild then exits 65 with no message.
+# UE_BUILD_FROM_XCODE=1 skips that step inside UBT and UE_FINALIZE_APP runs the same step from a normal stdin.
+export UE_BUILD_FROM_XCODE=1
+UE_FINALIZE_APP = env -u UE_BUILD_FROM_XCODE $(UE_ROOT)/Engine/Build/BatchFiles/Mac/Build.sh \
+	-Mode=ApplePostBuildSync -Input="$$(find $(CURDIR)/unreal/Blocks/Intermediate/Build/Mac -name PostBuildSync_Blocks.json -path '*/$(1)/*' | head -1)" </dev/null
+
 .PHONY: blocks_debuggame
 blocks_debuggame: simlibs_debug
 	@echo "======================================================================="
 	@echo "Building Plugin + Blocks for DebugGame (uses Debug sim libs)..."
 	$(UE_ROOT)/Engine/Build/BatchFiles/Mac/GenerateProjectFiles.sh -project="$(CURDIR)/unreal/Blocks/Blocks.uproject" -game -engine
 	$(UE_ROOT)/Engine/Build/BatchFiles/Mac/Build.sh Blocks Mac DebugGame $(CURDIR)/unreal/Blocks/Blocks.uproject
+	$(call UE_FINALIZE_APP,DebugGame)
 
 .PHONY: blocks_development
 blocks_development: simlibs_release
@@ -144,6 +152,7 @@ blocks_development: simlibs_release
 	@echo "Building Plugin + Blocks for Development (uses Release sim libs)..."
 	$(UE_ROOT)/Engine/Build/BatchFiles/Mac/GenerateProjectFiles.sh -project="$(CURDIR)/unreal/Blocks/Blocks.uproject" -game -engine
 	$(UE_ROOT)/Engine/Build/BatchFiles/Mac/Build.sh Blocks Mac Development $(CURDIR)/unreal/Blocks/Blocks.uproject
+	$(call UE_FINALIZE_APP,Development)
 
 .PHONY: blocks_shipping
 blocks_shipping: simlibs_release
@@ -151,6 +160,7 @@ blocks_shipping: simlibs_release
 	@echo "Building Plugin + Blocks for Shipping (uses Release sim libs)..."
 	$(UE_ROOT)/Engine/Build/BatchFiles/Mac/GenerateProjectFiles.sh -project="$(CURDIR)/unreal/Blocks/Blocks.uproject" -game -engine
 	$(UE_ROOT)/Engine/Build/BatchFiles/Mac/Build.sh Blocks Mac Shipping $(CURDIR)/unreal/Blocks/Blocks.uproject
+	$(call UE_FINALIZE_APP,Shipping)
 
 .PHONY: package_plugin
 package_plugin: blocks_debuggame blocks_development blocks_shipping
