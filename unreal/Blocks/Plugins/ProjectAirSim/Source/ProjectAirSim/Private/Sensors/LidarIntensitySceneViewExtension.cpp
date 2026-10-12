@@ -8,8 +8,8 @@
 #include "Containers/DynamicRHIResourceArray.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
-// Removed SceneRendering.h to avoid MeshDrawCommands.h include chain
-// #include "SceneRendering.h"
+#include "PostProcess/PostProcessInputs.h"  // FPostProcessingInputs (UE 5.8: no longer pulled in by PostProcessing.h)
+#include "SceneRendering.h"                    // FViewInfo
 
 #include "LidarIntensityShader.h"
 #include "PostProcess/SceneFilterRendering.h"
