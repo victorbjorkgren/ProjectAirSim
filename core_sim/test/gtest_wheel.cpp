@@ -48,10 +48,6 @@ namespace {
 constexpr TimeNano kStepNanos = 10 * 1000 * 1000;  // 10 ms
 constexpr int kSteps = 100;
 
-projectairsim::Robot MakeRobot() {
-  return projectairsim::Scene::MakeWheelRobot();
-}
-
 // A null wheel_settings leaves the "wheel-settings" block out so the loader
 // defaults apply.
 json WheelRobotConfig(const json& wheel_settings) {
@@ -97,7 +93,7 @@ void Drive(projectairsim::Wheel& wheel, const std::vector<float>& signals) {
 TEST(Wheel, ConnectedFlagsLoadedFromWheelSettings) {
   for (int mask = 0; mask < 8; ++mask) {
     const bool engine = mask & 1, steering = mask & 2, brake = mask & 4;
-    auto robot = MakeRobot();
+    auto robot = projectairsim::Scene::MakeWheelRobot();
     auto& wheel = LoadWheel(robot, Settings(engine, steering, brake));
     EXPECT_EQ(wheel.IsEngineConnected(), engine) << mask;
     EXPECT_EQ(wheel.IsSteeringConnected(), steering) << mask;
@@ -106,7 +102,7 @@ TEST(Wheel, ConnectedFlagsLoadedFromWheelSettings) {
 }
 
 TEST(Wheel, ConnectedFlagsDefaultTrueWithoutWheelSettings) {
-  auto robot = MakeRobot();
+  auto robot = projectairsim::Scene::MakeWheelRobot();
   auto& wheel = LoadWheel(robot, json());
   EXPECT_TRUE(wheel.IsEngineConnected());
   EXPECT_TRUE(wheel.IsSteeringConnected());
@@ -114,7 +110,7 @@ TEST(Wheel, ConnectedFlagsDefaultTrueWithoutWheelSettings) {
 }
 
 TEST(Wheel, ConnectedChannelsDriveTheWheel) {
-  auto robot = MakeRobot();
+  auto robot = projectairsim::Scene::MakeWheelRobot();
   auto& wheel = LoadWheel(robot, Settings(true, true, true));
   Drive(wheel, {1.0f, 0.5f, 0.0f});
   EXPECT_GT(wheel.GetRotatingSpeed(), 0.0f);
@@ -122,7 +118,7 @@ TEST(Wheel, ConnectedChannelsDriveTheWheel) {
 }
 
 TEST(Wheel, DisconnectedEngineZeroesEngineChannel) {
-  auto robot = MakeRobot();
+  auto robot = projectairsim::Scene::MakeWheelRobot();
   auto& wheel = LoadWheel(robot, Settings(false, true, true));
   Drive(wheel, {1.0f, 0.5f, 0.0f});
   EXPECT_FLOAT_EQ(wheel.GetRotatingSpeed(), 0.0f);
@@ -130,7 +126,7 @@ TEST(Wheel, DisconnectedEngineZeroesEngineChannel) {
 }
 
 TEST(Wheel, DisconnectedSteeringZeroesSteeringChannel) {
-  auto robot = MakeRobot();
+  auto robot = projectairsim::Scene::MakeWheelRobot();
   auto& wheel = LoadWheel(robot, Settings(true, false, true));
   Drive(wheel, {1.0f, 0.5f, 0.0f});
   EXPECT_FLOAT_EQ(wheel.GetSteering(), 0.0f);
@@ -140,9 +136,9 @@ TEST(Wheel, DisconnectedSteeringZeroesSteeringChannel) {
 TEST(Wheel, DisconnectedBrakeZeroesBrakeChannel) {
   // Spin both wheels up, then command full brake and no engine: only the
   // wheel whose brake is connected slows faster than friction alone.
-  auto robot_braked = MakeRobot();
+  auto robot_braked = projectairsim::Scene::MakeWheelRobot();
   auto& braked = LoadWheel(robot_braked, Settings(true, true, true));
-  auto robot_free = MakeRobot();
+  auto robot_free = projectairsim::Scene::MakeWheelRobot();
   auto& free_wheel = LoadWheel(robot_free, Settings(true, true, false));
 
   Drive(braked, {1.0f, 0.0f, 0.0f});
@@ -155,7 +151,7 @@ TEST(Wheel, DisconnectedBrakeZeroesBrakeChannel) {
 }
 
 TEST(Wheel, ShortControlSignalVectorReadsMissingChannelsAsZero) {
-  auto robot = MakeRobot();
+  auto robot = projectairsim::Scene::MakeWheelRobot();
   auto& wheel = LoadWheel(robot, Settings(true, true, true));
   Drive(wheel, {1.0f});
   EXPECT_GT(wheel.GetRotatingSpeed(), 0.0f);
