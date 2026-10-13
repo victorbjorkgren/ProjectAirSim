@@ -143,6 +143,13 @@ class TcpClientPort::TcpSocketImpl {
 
     resolveAddress(localHost, localPort, localaddr);
 
+    // A just-closed connection on this port (the previous PX4 link) lingers
+    // in TIME_WAIT and would otherwise refuse the bind with EADDRINUSE.
+#ifndef _WIN32
+    int reuse = 1;
+    ::setsockopt(accept_sock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+#endif
+
     // bind socket to local address.
     socklen_t addrlen = sizeof(sockaddr_in);
     int rc =
