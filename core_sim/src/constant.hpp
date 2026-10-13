@@ -436,6 +436,7 @@ class Constant {
     // "wheel-settings" requires "engine" (alongside "steering" and "brake"),
     // and every config in this repo writes it that way.
     static constexpr const char* engine_connected = "engine";
+    static constexpr const char* brake_connected = "brake";
     static constexpr const char* first_order_filter_tc =
         "first-order-filter-tc";
     static constexpr const char* controller = "controller";
