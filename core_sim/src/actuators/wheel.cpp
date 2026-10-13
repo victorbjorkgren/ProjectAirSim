@@ -96,9 +96,6 @@ class Wheel::Impl : public ActuatorImpl {
   friend class Wheel::Loader;
 
   float steering_value_;
-  bool engine_connected_;
-  bool steering_connected_;
-  bool brake_connected_;
 
   Wheel::Loader loader_;
   WheelSetting wheel_settings_;
@@ -245,9 +242,6 @@ Wheel::Impl::Impl(const std::string& id, bool is_enabled,
                    topic_manager, parent_topic_path, service_manager,
                    state_manager),
       steering_value_(0.0f),
-      engine_connected_(true),
-      steering_connected_(true),
-      brake_connected_(true),
       loader_(*this),
       wheel_settings_(),
       engine_filter_(),
@@ -301,11 +295,17 @@ float Wheel::Impl::GetRadius() const { return radius_; }
 
 float Wheel::Impl::GetSteering() const { return steering_value_; }
 
-bool Wheel::Impl::IsEngineConnected() const { return engine_connected_; }
+bool Wheel::Impl::IsEngineConnected() const {
+  return wheel_settings_.engine_connected_;
+}
 
-bool Wheel::Impl::IsBrakeConnected() const { return brake_connected_; }
+bool Wheel::Impl::IsBrakeConnected() const {
+  return wheel_settings_.brake_connected_;
+}
 
-bool Wheel::Impl::IsSteeringConnected() const { return steering_connected_; }
+bool Wheel::Impl::IsSteeringConnected() const {
+  return wheel_settings_.steering_connected_;
+}
 
 const ActuatedRotations& Wheel::Impl::GetActuatedRotations() const {
   return actuated_rotations_;
@@ -323,22 +323,20 @@ void Wheel::Impl::UpdateActuatorOutput(std::vector<float>&& control_signals,
   //
   // A controller is free to publish fewer than 3 channels for this actuator
   // (e.g. ManualControllerApi::GetControlSignals() always returns a single-
-  // element vector -- see manual_controller_api.cpp). This class's own
-  // engine_connected_/steering_connected_/brake_connected_ members default
-  // true and are not wired to any per-wheel JSON config -- that is instead
-  // wheel_settings_.engine_connected_/steering_connected_ (loaded by
-  // Wheel::Loader::LoadWheelSetting() and read by the physics layer via
-  // GetWheelSettings()); wheel_settings_.brake_connected_ is not loaded
-  // either. So every wheel actuator here still reads all three control
-  // signal indices regardless of config. Bounds-check against
-  // control_signals.size() so a shorter vector yields 0 for the missing
-  // channels instead of an out-of-bounds read.
-  auto engine_signal =
-      (engine_connected_ && control_signals.size() > 0) ? control_signals[0] : 0;
-  auto steering_signal =
-      (steering_connected_ && control_signals.size() > 1) ? control_signals[1] : 0;
-  auto brake_signal =
-      (brake_connected_ && control_signals.size() > 2) ? control_signals[2] : 0;
+  // element vector). A channel reads as 0 when it is missing or when its
+  // wheel_settings_ *_connected_ flag is false.
+  auto engine_signal = (wheel_settings_.engine_connected_ &&
+                        control_signals.size() > 0)
+                           ? control_signals[0]
+                           : 0;
+  auto steering_signal = (wheel_settings_.steering_connected_ &&
+                          control_signals.size() > 1)
+                             ? control_signals[1]
+                             : 0;
+  auto brake_signal = (wheel_settings_.brake_connected_ &&
+                       control_signals.size() > 2)
+                          ? control_signals[2]
+                          : 0;
   TimeSec dt_sec = sim_dt_nanos / 1.0e9;
 
   if (wheel_settings_.coeff_of_friction == 0) {
@@ -465,6 +463,10 @@ void Wheel::Loader::LoadWheelSetting(const json& json) {
     impl_.wheel_settings_.engine_connected_ = JsonUtils::GetBoolean(
         wheel_settings_json, Constant::Config::engine_connected,
         default_wheel_setting.engine_connected_);
+
+    impl_.wheel_settings_.brake_connected_ = JsonUtils::GetBoolean(
+        wheel_settings_json, Constant::Config::brake_connected,
+        default_wheel_setting.brake_connected_);
   }
 
   impl_.wheel_settings_.CalcMaxTorqueAndForce();

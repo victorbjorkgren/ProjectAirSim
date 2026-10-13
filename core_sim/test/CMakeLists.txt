@@ -42,6 +42,7 @@ add_executable(
     gtest_barometer.cpp
     gtest_magnetometer.cpp
     gtest_actuator.cpp
+    gtest_wheel.cpp
     gtest_clock.cpp
     gtest_message.cpp
     gtest_service_method.cpp
