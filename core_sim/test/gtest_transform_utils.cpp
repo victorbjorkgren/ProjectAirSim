@@ -9,6 +9,9 @@
 namespace projectairsim = microsoft::projectairsim;
 
 TEST(TransformUtils, ToQuaternion) {
+  // The reference values are rounded decimals, so compare within a tolerance.
+  constexpr float kTol = 1e-6f;
+
   // Test basic example case
   constexpr float t0_roll = M_PI / 6.0f;
   constexpr float t0_pitch = M_PI / 3.0f;
@@ -20,10 +23,10 @@ TEST(TransformUtils, ToQuaternion) {
 
   auto q = projectairsim::TransformUtils::ToQuaternion(t0_roll, t0_pitch, t0_yaw);
 
-  EXPECT_FLOAT_EQ(q.w(), a0_w);
-  EXPECT_FLOAT_EQ(q.x(), a0_x);
-  EXPECT_FLOAT_EQ(q.y(), a0_y);
-  EXPECT_FLOAT_EQ(q.z(), a0_z);
+  EXPECT_NEAR(q.w(), a0_w, kTol);
+  EXPECT_NEAR(q.x(), a0_x, kTol);
+  EXPECT_NEAR(q.y(), a0_y, kTol);
+  EXPECT_NEAR(q.z(), a0_z, kTol);
 
   // Test near pitch singularity clip at 89.9 deg
   constexpr float t1_roll = projectairsim::TransformUtils::kEulerSingularityMinor;
@@ -36,10 +39,10 @@ TEST(TransformUtils, ToQuaternion) {
 
   q = projectairsim::TransformUtils::ToQuaternion(t1_roll, t1_pitch, t1_yaw);
 
-  EXPECT_FLOAT_EQ(q.w(), a1_w);
-  EXPECT_FLOAT_EQ(q.x(), a1_x);
-  EXPECT_FLOAT_EQ(q.y(), a1_y);
-  EXPECT_FLOAT_EQ(q.z(), a1_z);
+  EXPECT_NEAR(q.w(), a1_w, kTol);
+  EXPECT_NEAR(q.x(), a1_x, kTol);
+  EXPECT_NEAR(q.y(), a1_y, kTol);
+  EXPECT_NEAR(q.z(), a1_z, kTol);
 
   // Test over pitch singularity clip at 89.9 deg
   constexpr float t2_roll = t1_roll;
@@ -53,10 +56,10 @@ TEST(TransformUtils, ToQuaternion) {
 
   q = projectairsim::TransformUtils::ToQuaternion(t2_roll, t2_pitch, t2_yaw);
 
-  EXPECT_FLOAT_EQ(q.w(), a2_w);
-  EXPECT_FLOAT_EQ(q.x(), a2_x);
-  EXPECT_FLOAT_EQ(q.y(), a2_y);
-  EXPECT_FLOAT_EQ(q.z(), a2_z);
+  EXPECT_NEAR(q.w(), a2_w, kTol);
+  EXPECT_NEAR(q.x(), a2_x, kTol);
+  EXPECT_NEAR(q.y(), a2_y, kTol);
+  EXPECT_NEAR(q.z(), a2_z, kTol);
 
   // Test near pitch singularity clip at 90.1 deg
   constexpr float t1b_roll = projectairsim::TransformUtils::kEulerSingularityMajor;
@@ -69,10 +72,10 @@ TEST(TransformUtils, ToQuaternion) {
 
   q = projectairsim::TransformUtils::ToQuaternion(t1b_roll, t1b_pitch, t1b_yaw);
 
-  EXPECT_FLOAT_EQ(q.w(), a1b_w);
-  EXPECT_FLOAT_EQ(q.x(), a1b_x);
-  EXPECT_FLOAT_EQ(q.y(), a1b_y);
-  EXPECT_FLOAT_EQ(q.z(), a1b_z);
+  EXPECT_NEAR(q.w(), a1b_w, kTol);
+  EXPECT_NEAR(q.x(), a1b_x, kTol);
+  EXPECT_NEAR(q.y(), a1b_y, kTol);
+  EXPECT_NEAR(q.z(), a1b_z, kTol);
 
   // Test over pitch singularity clip at 90.1 deg
   constexpr float t2b_roll = t1b_roll;
@@ -86,10 +89,10 @@ TEST(TransformUtils, ToQuaternion) {
 
   q = projectairsim::TransformUtils::ToQuaternion(t2b_roll, t2b_pitch, t2b_yaw);
 
-  EXPECT_FLOAT_EQ(q.w(), a2b_w);
-  EXPECT_FLOAT_EQ(q.x(), a2b_x);
-  EXPECT_FLOAT_EQ(q.y(), a2b_y);
-  EXPECT_FLOAT_EQ(q.z(), a2b_z);
+  EXPECT_NEAR(q.w(), a2b_w, kTol);
+  EXPECT_NEAR(q.x(), a2b_x, kTol);
+  EXPECT_NEAR(q.y(), a2b_y, kTol);
+  EXPECT_NEAR(q.z(), a2b_z, kTol);
 
   // Test near pitch singularity negative clip at -89.9 deg
   constexpr float t3_roll = -projectairsim::TransformUtils::kEulerSingularityMinor;
@@ -102,10 +105,10 @@ TEST(TransformUtils, ToQuaternion) {
 
   q = projectairsim::TransformUtils::ToQuaternion(t3_roll, t3_pitch, t3_yaw);
 
-  EXPECT_FLOAT_EQ(q.w(), a3_w);
-  EXPECT_FLOAT_EQ(q.x(), a3_x);
-  EXPECT_FLOAT_EQ(q.y(), a3_y);
-  EXPECT_FLOAT_EQ(q.z(), a3_z);
+  EXPECT_NEAR(q.w(), a3_w, kTol);
+  EXPECT_NEAR(q.x(), a3_x, kTol);
+  EXPECT_NEAR(q.y(), a3_y, kTol);
+  EXPECT_NEAR(q.z(), a3_z, kTol);
 
   // Test over pitch singularity negative clip at -89.9 deg
   constexpr float t4_roll = t3_roll;
@@ -118,10 +121,10 @@ TEST(TransformUtils, ToQuaternion) {
 
   q = projectairsim::TransformUtils::ToQuaternion(t4_roll, t4_pitch, t4_yaw);
 
-  EXPECT_FLOAT_EQ(q.w(), a4_w);
-  EXPECT_FLOAT_EQ(q.x(), a4_x);
-  EXPECT_FLOAT_EQ(q.y(), a4_y);
-  EXPECT_FLOAT_EQ(q.z(), a4_z);
+  EXPECT_NEAR(q.w(), a4_w, kTol);
+  EXPECT_NEAR(q.x(), a4_x, kTol);
+  EXPECT_NEAR(q.y(), a4_y, kTol);
+  EXPECT_NEAR(q.z(), a4_z, kTol);
 
   // Test near pitch singularity negative clip at -90.1 deg
   constexpr float t3b_roll = -projectairsim::TransformUtils::kEulerSingularityMajor;
@@ -134,10 +137,10 @@ TEST(TransformUtils, ToQuaternion) {
 
   q = projectairsim::TransformUtils::ToQuaternion(t3b_roll, t3b_pitch, t3b_yaw);
 
-  EXPECT_FLOAT_EQ(q.w(), a3b_w);
-  EXPECT_FLOAT_EQ(q.x(), a3b_x);
-  EXPECT_FLOAT_EQ(q.y(), a3b_y);
-  EXPECT_FLOAT_EQ(q.z(), a3b_z);
+  EXPECT_NEAR(q.w(), a3b_w, kTol);
+  EXPECT_NEAR(q.x(), a3b_x, kTol);
+  EXPECT_NEAR(q.y(), a3b_y, kTol);
+  EXPECT_NEAR(q.z(), a3b_z, kTol);
 
   // Test over pitch singularity negative clip at -90.1 deg
   constexpr float t4b_roll = t3b_roll;
@@ -150,10 +153,10 @@ TEST(TransformUtils, ToQuaternion) {
 
   q = projectairsim::TransformUtils::ToQuaternion(t4b_roll, t4b_pitch, t4b_yaw);
 
-  EXPECT_FLOAT_EQ(q.w(), a4b_w);
-  EXPECT_FLOAT_EQ(q.x(), a4b_x);
-  EXPECT_FLOAT_EQ(q.y(), a4b_y);
-  EXPECT_FLOAT_EQ(q.z(), a4b_z);
+  EXPECT_NEAR(q.w(), a4b_w, kTol);
+  EXPECT_NEAR(q.x(), a4b_x, kTol);
+  EXPECT_NEAR(q.y(), a4b_y, kTol);
+  EXPECT_NEAR(q.z(), a4b_z, kTol);
 
   // Test roll allowed without any clipping
   constexpr float t5_roll = t2_pitch;
@@ -166,10 +169,10 @@ TEST(TransformUtils, ToQuaternion) {
 
   q = projectairsim::TransformUtils::ToQuaternion(t5_roll, t5_pitch, t5_yaw);
 
-  EXPECT_FLOAT_EQ(q.w(), a5_w);
-  EXPECT_FLOAT_EQ(q.x(), a5_x);
-  EXPECT_FLOAT_EQ(q.y(), a5_y);
-  EXPECT_FLOAT_EQ(q.z(), a5_z);
+  EXPECT_NEAR(q.w(), a5_w, kTol);
+  EXPECT_NEAR(q.x(), a5_x, kTol);
+  EXPECT_NEAR(q.y(), a5_y, kTol);
+  EXPECT_NEAR(q.z(), a5_z, kTol);
 
   // a5 would be equal to a1 if roll clipped
   EXPECT_NE(a5_w, a1_w);
@@ -188,10 +191,10 @@ TEST(TransformUtils, ToQuaternion) {
 
   q = projectairsim::TransformUtils::ToQuaternion(t6_roll, t6_pitch, t6_yaw);
 
-  EXPECT_FLOAT_EQ(q.w(), a6_w);
-  EXPECT_FLOAT_EQ(q.x(), a6_x);
-  EXPECT_FLOAT_EQ(q.y(), a6_y);
-  EXPECT_FLOAT_EQ(q.z(), a6_z);
+  EXPECT_NEAR(q.w(), a6_w, kTol);
+  EXPECT_NEAR(q.x(), a6_x, kTol);
+  EXPECT_NEAR(q.y(), a6_y, kTol);
+  EXPECT_NEAR(q.z(), a6_z, kTol);
 
   // a6 would be equal to a1 if yaw clipped
   EXPECT_NE(a6_w, a1_w);
@@ -210,10 +213,10 @@ TEST(TransformUtils, ToQuaternion) {
 
   q = projectairsim::TransformUtils::ToQuaternion(t7_roll, t7_pitch, t7_yaw);
 
-  EXPECT_FLOAT_EQ(q.w(), a7_w);
-  EXPECT_FLOAT_EQ(q.x(), a7_x);
-  EXPECT_FLOAT_EQ(q.y(), a7_y);
-  EXPECT_FLOAT_EQ(q.z(), a7_z);
+  EXPECT_NEAR(q.w(), a7_w, kTol);
+  EXPECT_NEAR(q.x(), a7_x, kTol);
+  EXPECT_NEAR(q.y(), a7_y, kTol);
+  EXPECT_NEAR(q.z(), a7_z, kTol);
 }
 
 TEST(TransformUtils, ToRpy) {
