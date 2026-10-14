@@ -6,6 +6,8 @@
 #ifndef MavLinkCom_MavLinkNodeImpl_hpp
 #define MavLinkCom_MavLinkNodeImpl_hpp
 
+#include <atomic>
+
 #include "MavLinkConnection.hpp"
 #include "MavLinkNode.hpp"
 
@@ -94,7 +96,7 @@ class MavLinkNodeImpl {
   MavLinkAutopilotVersion cap_;
   bool has_cap_ = false;
   bool req_cap_ = false;
-  bool heartbeat_running_ = false;
+  std::atomic<bool> heartbeat_running_ = false;
   std::thread heartbeat_thread_;
   MavLinkHeartbeat heartbeat_;
 };
