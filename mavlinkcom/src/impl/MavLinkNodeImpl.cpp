@@ -21,7 +21,19 @@ MavLinkNodeImpl::MavLinkNodeImpl(int localSystemId, int localComponentId) {
   local_component_id = localComponentId;
 }
 
-MavLinkNodeImpl::~MavLinkNodeImpl() { close(); }
+MavLinkNodeImpl::~MavLinkNodeImpl() {
+  // A destructor must not let an exception escape (that terminates the whole
+  // process); closing a half-dead link can throw.
+  try {
+    close();
+  } catch (const std::exception& e) {
+    Utils::log(Utils::stringf("MavLinkNodeImpl close failed: %s\n", e.what()),
+               Utils::kLogLevelError);
+  } catch (...) {
+    Utils::log("MavLinkNodeImpl close failed with an unknown exception\n",
+               Utils::kLogLevelError);
+  }
+}
 
 // start listening to this connection
 void MavLinkNodeImpl::connect(std::shared_ptr<MavLinkConnection> connection) {

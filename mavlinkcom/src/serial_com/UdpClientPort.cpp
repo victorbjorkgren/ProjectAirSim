@@ -56,6 +56,7 @@ class UdpClientPort::UdpSocketImpl {
   sockaddr_in localaddr;
   sockaddr_in remoteaddr;
   bool hasRemote = false;
+  bool connected_ = false;  // the socket is connect()ed to remoteaddr
   bool closed_ = true;
   int retries_ = 0;
   const int max_retries_ = 10;
@@ -113,6 +114,7 @@ class UdpClientPort::UdpSocketImpl {
   int connect(const std::string& localHost, int localPort,
               const std::string& remoteHost, int remotePort) {
     sock = socket(AF_INET, SOCK_DGRAM, 0);
+    connected_ = false;
 
     resolveAddress(localHost, localPort, localaddr);
 
@@ -157,6 +159,7 @@ class UdpClientPort::UdpSocketImpl {
         throw std::runtime_error(msg);
         return hr;
       }
+      connected_ = true;
     }
     closed_ = false;
     return 0;
@@ -209,7 +212,12 @@ class UdpClientPort::UdpSocketImpl {
 
     socklen_t addrlen = sizeof(sockaddr_in);
 #if defined(__APPLE__)
-    int hr = ::write(sock, reinterpret_cast<const char*>(ptr), count);
+    // macOS refuses write() on an unconnected UDP socket and sendto() on a
+    // connected one.
+    int hr = connected_
+                 ? ::write(sock, reinterpret_cast<const char*>(ptr), count)
+                 : sendto(sock, reinterpret_cast<const char*>(ptr), count, 0,
+                          reinterpret_cast<sockaddr*>(&remoteaddr), addrlen);
 #else
     int hr = sendto(sock, reinterpret_cast<const char*>(ptr), count, 0,
                     reinterpret_cast<sockaddr*>(&remoteaddr), addrlen);
