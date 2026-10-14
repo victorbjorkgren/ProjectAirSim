@@ -1057,22 +1057,21 @@ void MavLinkApi::Disconnect() {
     }
   };
 
-  // The connect thread and the HIL update path can both reach this function.
-  const auto connection = connection_;
-  const auto hil_node = hil_node_;
+  // The connect thread and the HIL update path can both reach this function;
+  // hold a reference to the members it releases.
   const auto vehicle = mav_vehicle_;
   const auto gimbal_node = gimbal_node_;
   const auto qgc_proxy = qgc_proxy_;
 
-  if (connection != nullptr) {
+  if (connection_ != nullptr) {
     if (is_hil_mode_set_ && vehicle != nullptr) {
       close_step("set normal mode", [&] { SetNormalMode(); });
     }
-    close_step("close hil connection", [&] { connection->close(); });
+    close_step("close hil connection", [&] { connection_->close(); });
   }
 
-  if (hil_node != nullptr) {
-    close_step("close hil node", [&] { hil_node->close(); });
+  if (hil_node_ != nullptr) {
+    close_step("close hil node", [&] { hil_node_->close(); });
   }
 
   if (vehicle != nullptr) {
