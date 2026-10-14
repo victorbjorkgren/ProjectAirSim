@@ -97,11 +97,9 @@ void MavLinkNodeImpl::close() {
     connection_->unsubscribe(subscription_);
     subscription_ = 0;
   }
-  if (heartbeat_running_) {
-    heartbeat_running_ = false;
-    if (heartbeat_thread_.joinable()) {
-      heartbeat_thread_.join();
-    }
+  heartbeat_running_ = false;
+  if (heartbeat_thread_.joinable()) {
+    heartbeat_thread_.join();
   }
   if (connection_ != nullptr) {
     connection_->close();

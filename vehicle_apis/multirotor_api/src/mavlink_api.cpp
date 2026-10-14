@@ -1040,44 +1040,59 @@ void MavLinkApi::Disconnect() {
   AddStatusMessage("Disconnecting mavlink vehicle");
   connected_ = false;
   connected_vehicle_ = false;
-  if (connection_ != nullptr) {
-    if (is_hil_mode_set_ && mav_vehicle_ != nullptr) {
-      SetNormalMode();
+
+  // Closing a link whose peer is already gone can throw. Each step is
+  // attempted on its own so one failure cannot leave the remaining
+  // connections open or abort the scene reload that triggered this.
+  auto close_step = [this](const char* what, auto&& step) {
+    try {
+      step();
+    } catch (const std::exception& ex) {
+      GetLogger().LogError(GetControllerName(), "Disconnect: %s failed: %s",
+                           what, ex.what());
+    } catch (...) {
+      GetLogger().LogError(GetControllerName(),
+                           "Disconnect: %s failed with an unknown exception",
+                           what);
     }
+  };
 
-    connection_->close();
+  // The connect thread and the HIL update path can both reach this function.
+  const auto connection = connection_;
+  const auto hil_node = hil_node_;
+  const auto vehicle = mav_vehicle_;
+  const auto gimbal_node = gimbal_node_;
+  const auto qgc_proxy = qgc_proxy_;
+
+  if (connection != nullptr) {
+    if (is_hil_mode_set_ && vehicle != nullptr) {
+      close_step("set normal mode", [&] { SetNormalMode(); });
+    }
+    close_step("close hil connection", [&] { connection->close(); });
   }
 
-  if (hil_node_ != nullptr) {
-    hil_node_->close();
+  if (hil_node != nullptr) {
+    close_step("close hil node", [&] { hil_node->close(); });
   }
 
-  if (mav_vehicle_ != nullptr) {
-    mav_vehicle_->getConnection()->stopLoggingSendMessage();
-    mav_vehicle_->close();
+  if (vehicle != nullptr) {
+    close_step("close vehicle", [&] {
+      vehicle->getConnection()->stopLoggingSendMessage();
+      vehicle->close();
+    });
     mav_vehicle_ = nullptr;
   }
 
-  if (gimbal_node_ != nullptr) {
-    gimbal_node_->getConnection()->stopLoggingSendMessage();
-    gimbal_node_->close();
+  if (gimbal_node != nullptr) {
+    close_step("close gimbal", [&] {
+      gimbal_node->getConnection()->stopLoggingSendMessage();
+      gimbal_node->close();
+    });
     gimbal_node_ = nullptr;
   }
 
-  // if (video_server_ != nullptr) video_server_->close();
-
-  // if (logviewer_proxy_ != nullptr) {
-  //   logviewer_proxy_->close();
-  //   logviewer_proxy_ = nullptr;
-  // }
-
-  // if (logviewer_out_proxy_ != nullptr) {
-  //   logviewer_out_proxy_->close();
-  //   logviewer_out_proxy_ = nullptr;
-  // }
-
-  if (qgc_proxy_ != nullptr) {
-    qgc_proxy_->close();
+  if (qgc_proxy != nullptr) {
+    close_step("close qgc proxy", [&] { qgc_proxy->close(); });
     qgc_proxy_ = nullptr;
   }
 }
@@ -2535,10 +2550,16 @@ bool MavLinkApi::SendTestMessage(
 void MavLinkApi::SendParams() {
   // send any mavlink parameters from drone config through to the connected
   // vehicle.
-  if ((mav_vehicle_ != nullptr) && (connection_info_.params.size() > 0)) {
+  // Disconnect() can release mav_vehicle_ from another thread while this one
+  // is waiting on the vehicle, so hold our own reference.
+  const auto vehicle = mav_vehicle_;
+  if ((vehicle != nullptr) && (connection_info_.params.size() > 0)) {
     GetLogger().LogTrace(GetControllerName(), "Sending params");
     try {
       for (auto iter : connection_info_.params) {
+        if (stop_connecting_) {
+          return;
+        }
         auto key = iter.first;
         auto value = iter.second;
         mavlinkcom::MavLinkParameter p;
@@ -2549,7 +2570,7 @@ void MavLinkApi::SendParams() {
         // one parameter so the rest of the config still lands.
         try {
           bool result = false;
-          mav_vehicle_->setParameter(p).wait(1000, &result);
+          vehicle->setParameter(p).wait(1000, &result);
           if (!result) {
             GetLogger().LogError(GetControllerName(),
                                  "Failed to set mavlink parameter '%s'",
