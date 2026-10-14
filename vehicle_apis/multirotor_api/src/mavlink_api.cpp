@@ -5,6 +5,8 @@
 
 #include "mavlink_api.hpp"
 
+#include <algorithm>
+#include <chrono>
 #include <core_sim/actuators/gimbal.hpp>
 #include <json.hpp>
 
@@ -25,6 +27,7 @@ MavLinkApi::MavLinkApi(const Robot& robot, TransformTree* ptransformtree)
 
 MavLinkApi::~MavLinkApi() {
   // TODO: revisit for reload-scene / RL training
+  stop_connecting_ = true;
   CloseAllConnections();
   if (this->connect_thread_.joinable()) {
     this->connect_thread_.join();
@@ -213,6 +216,7 @@ void MavLinkApi::BeginUpdate() {
 void MavLinkApi::EndUpdate() {
   MultirotorApiBase::EndUpdate();
 
+  stop_connecting_ = true;
   CloseAllConnections();
   if (this->connect_thread_.joinable()) {
     this->connect_thread_.join();
@@ -1023,6 +1027,7 @@ void MavLinkApi::CloseAllConnections() { Disconnect(); }
 void MavLinkApi::Connect() {
   if (!connecting_) {
     connecting_ = true;
+    stop_connecting_ = false;
     if (this->connect_thread_.joinable()) {
       this->connect_thread_.join();
     }
@@ -1035,44 +1040,58 @@ void MavLinkApi::Disconnect() {
   AddStatusMessage("Disconnecting mavlink vehicle");
   connected_ = false;
   connected_vehicle_ = false;
-  if (connection_ != nullptr) {
-    if (is_hil_mode_set_ && mav_vehicle_ != nullptr) {
-      SetNormalMode();
-    }
 
-    connection_->close();
+  // Closing a link whose peer is already gone can throw. Each step is
+  // attempted on its own so one failure cannot leave the remaining
+  // connections open or abort the scene reload that triggered this.
+  auto close_step = [this](const char* what, auto&& step) {
+    try {
+      step();
+    } catch (const std::exception& ex) {
+      GetLogger().LogError(GetControllerName(), "Disconnect: %s failed: %s",
+                           what, ex.what());
+    } catch (...) {
+      GetLogger().LogError(GetControllerName(),
+                           "Disconnect: %s failed with an unknown exception",
+                           what);
+    }
+  };
+
+  // The connect thread and the HIL update path can both reach this function;
+  // hold a reference to the members it releases.
+  const auto vehicle = mav_vehicle_;
+  const auto gimbal_node = gimbal_node_;
+  const auto qgc_proxy = qgc_proxy_;
+
+  if (connection_ != nullptr) {
+    if (is_hil_mode_set_ && vehicle != nullptr) {
+      close_step("set normal mode", [&] { SetNormalMode(); });
+    }
+    close_step("close hil connection", [&] { connection_->close(); });
   }
 
   if (hil_node_ != nullptr) {
-    hil_node_->close();
+    close_step("close hil node", [&] { hil_node_->close(); });
   }
 
-  if (mav_vehicle_ != nullptr) {
-    mav_vehicle_->getConnection()->stopLoggingSendMessage();
-    mav_vehicle_->close();
+  if (vehicle != nullptr) {
+    close_step("close vehicle", [&] {
+      vehicle->getConnection()->stopLoggingSendMessage();
+      vehicle->close();
+    });
     mav_vehicle_ = nullptr;
   }
 
-  if (gimbal_node_ != nullptr) {
-    gimbal_node_->getConnection()->stopLoggingSendMessage();
-    gimbal_node_->close();
+  if (gimbal_node != nullptr) {
+    close_step("close gimbal", [&] {
+      gimbal_node->getConnection()->stopLoggingSendMessage();
+      gimbal_node->close();
+    });
     gimbal_node_ = nullptr;
   }
 
-  // if (video_server_ != nullptr) video_server_->close();
-
-  // if (logviewer_proxy_ != nullptr) {
-  //   logviewer_proxy_->close();
-  //   logviewer_proxy_ = nullptr;
-  // }
-
-  // if (logviewer_out_proxy_ != nullptr) {
-  //   logviewer_out_proxy_->close();
-  //   logviewer_out_proxy_ = nullptr;
-  // }
-
-  if (qgc_proxy_ != nullptr) {
-    qgc_proxy_->close();
+  if (qgc_proxy != nullptr) {
+    close_step("close qgc proxy", [&] { qgc_proxy->close(); });
     qgc_proxy_ = nullptr;
   }
 }
@@ -1236,33 +1255,49 @@ void MavLinkApi::CreateMavEthernetConnection(
         "Waiting for TCP connection on port %d, local IP %s",
         connection_info.tcp_port, connection_info_.local_host_ip.c_str());
     AddStatusMessage(msg);
-    try {
-      connection_ = std::make_shared<mavlinkcom::MavLinkConnection>();
+    // The listening port can still be held by the previous controller's
+    // teardown thread after a scene reload (OnEndUpdate() detaches it on
+    // timeout), so a failed bind is retried with backoff before giving up.
+    constexpr int kBindAttempts = 8;
+    constexpr auto kBindBackoffStart = std::chrono::milliseconds(250);
+    constexpr auto kBindBackoffMax = std::chrono::milliseconds(2000);
+    auto backoff = kBindBackoffStart;
+    for (int attempt = 1;; ++attempt) {
+      try {
+        connection_ = std::make_shared<mavlinkcom::MavLinkConnection>();
 
-      // Attach handler for simulator channel
-      GetLogger().LogTrace(
-          GetControllerName(),
-          "createMavEthernetConnection: Subscribing processMavMessages for "
-          "messages on hil_node_ connection");
-      connection_->subscribe(
-          [=](std::shared_ptr<mavlinkcom::MavLinkConnection> connection,
-              const mavlinkcom::MavLinkMessage& msg) {
-            // unused(connection);
-            ProcessMavMessages(msg);
-          });
+        // Attach handler for simulator channel
+        GetLogger().LogTrace(
+            GetControllerName(),
+            "createMavEthernetConnection: Subscribing processMavMessages for "
+            "messages on hil_node_ connection");
+        connection_->subscribe(
+            [=](std::shared_ptr<mavlinkcom::MavLinkConnection> connection,
+                const mavlinkcom::MavLinkMessage& msg) {
+              // unused(connection);
+              ProcessMavMessages(msg);
+            });
 
-      // Start listening for connections from PX4 on the simulator channel
-      remoteIpAddr = connection_->acceptTcp(
-          "hil", connection_info_.local_host_ip, connection_info.tcp_port);
-    } catch (std::exception& e) {
-      AddStatusMessage(
-          "Accepting TCP socket failed, is another instance running?");
-      AddStatusMessage(e.what());
-      return;
-    } catch (...) {
-      AddStatusMessage(
-          "Accepting TCP socket failed, is another instance running?");
-      return;
+        // Start listening for connections from PX4 on the simulator channel
+        remoteIpAddr = connection_->acceptTcp(
+            "hil", connection_info_.local_host_ip, connection_info.tcp_port);
+        break;
+      } catch (std::exception& e) {
+        AddStatusMessage(
+            "Accepting TCP socket failed, is another instance running?");
+        AddStatusMessage(e.what());
+      } catch (...) {
+        AddStatusMessage(
+            "Accepting TCP socket failed, is another instance running?");
+      }
+      if (attempt >= kBindAttempts || stop_connecting_) {
+        return;
+      }
+      AddStatusMessage(GetLogger().FormatMessage(
+          "Retrying TCP accept on port %d (attempt %d of %d)",
+          connection_info.tcp_port, attempt + 1, kBindAttempts));
+      std::this_thread::sleep_for(backoff);
+      backoff = std::min(backoff * 2, kBindBackoffMax);
     }
   } else if (connection_info.udp_address.size() > 0) {
     if (connection_info.udp_port == 0) {
@@ -2514,21 +2549,36 @@ bool MavLinkApi::SendTestMessage(
 void MavLinkApi::SendParams() {
   // send any mavlink parameters from drone config through to the connected
   // vehicle.
-  if ((mav_vehicle_ != nullptr) && (connection_info_.params.size() > 0)) {
+  // Disconnect() can release mav_vehicle_ from another thread while this one
+  // is waiting on the vehicle, so hold our own reference.
+  const auto vehicle = mav_vehicle_;
+  if ((vehicle != nullptr) && (connection_info_.params.size() > 0)) {
     GetLogger().LogTrace(GetControllerName(), "Sending params");
     try {
       for (auto iter : connection_info_.params) {
+        if (stop_connecting_) {
+          return;
+        }
         auto key = iter.first;
         auto value = iter.second;
         mavlinkcom::MavLinkParameter p;
         p.name = key;
         p.value = value;
-        bool result = false;
-        mav_vehicle_->setParameter(p).wait(1000, &result);
-        if (!result) {
-          GetLogger().LogError(GetControllerName(),
-                               "Failed to set mavlink parameter '%s'",
-                               key.c_str());
+        // setParameter() throws when the vehicle never answers for the name
+        // (e.g. a parameter the firmware version no longer has); skip that
+        // one parameter so the rest of the config still lands.
+        try {
+          bool result = false;
+          vehicle->setParameter(p).wait(1000, &result);
+          if (!result) {
+            GetLogger().LogError(GetControllerName(),
+                                 "Failed to set mavlink parameter '%s'",
+                                 key.c_str());
+          }
+        } catch (std::exception& ex) {
+          GetLogger().LogWarning(GetControllerName(),
+                                 "Skipping mavlink parameter '%s': %s",
+                                 key.c_str(), ex.what());
         }
       }
     } catch (std::exception& ex) {

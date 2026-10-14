@@ -108,21 +108,15 @@ class Semaphore::semaphore_impl {
   }
 
   bool timed_wait(int milliseconds) {
-    // convert to absolute time.
     if (milliseconds < 0) {
       throw std::runtime_error("cannot wait for negative milliseconds");
     }
-    auto absolute = std::chrono::system_clock::now().time_since_epoch() +
-                    std::chrono::milliseconds(milliseconds);
-    auto seconds = std::chrono::duration_cast<std::chrono::seconds>(absolute);
-    absolute = absolute - seconds;
-    auto nanoSecondsRemaining =
-        std::chrono::duration_cast<std::chrono::nanoseconds>(absolute);
 
-    // use mach_timespec
+    // semaphore_timedwait takes a timeout relative to now, not an absolute
+    // time.
     mach_timespec_t mts;
-    mts.tv_nsec = nanoSecondsRemaining.count();  // nanoseconds
-    mts.tv_sec = seconds.count();                // seconds
+    mts.tv_sec = static_cast<unsigned int>(milliseconds / 1000);
+    mts.tv_nsec = static_cast<clock_res_t>((milliseconds % 1000) * 1000000);
 
     kern_return_t rc = semaphore_timedwait(semaphore, mts);
 

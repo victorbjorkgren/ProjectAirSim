@@ -6,6 +6,7 @@
 #ifndef MULTIROTOR_API_INCLUDE_MAVLINK_API_HPP_
 #define MULTIROTOR_API_INCLUDE_MAVLINK_API_HPP_
 
+#include <atomic>
 #include <condition_variable>
 #include <memory>
 #include <mutex>
@@ -406,6 +407,9 @@ class MavLinkApi : public VTOLFWApiBase {
   std::string is_ready_message_;
   Pose mocap_pose_;
   std::thread connect_thread_;
+  std::atomic<bool> stop_connecting_ =
+      false;  // If true, the controller is shutting down: connection
+              // attempts must not be retried
   bool connecting_ = false;  // If true, we're trying to establish a connection
                              // to the controller
   bool connected_ = false;   // If true, we've established a connection to the
