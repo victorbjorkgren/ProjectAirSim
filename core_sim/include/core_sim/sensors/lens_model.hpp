@@ -32,7 +32,9 @@ struct LensSettings {
   // circle. It also bounds the pinhole image rendered for the remap.
   double max_incidence_degrees = 80.0;
   // Rendered pinhole pixels per output pixel at the image centre. Below 1 the
-  // centre is upsampled (softer); above 1 costs render time.
+  // centre is upsampled (softer); above 1 costs render time. For a pinhole it
+  // is 1 or 2; 2 supersamples: the image is rendered at twice the width and
+  // height and each output pixel is the mean of its 2x2 source pixels.
   double source_sampling = 1.0;
 };
 
@@ -64,6 +66,16 @@ struct PinholeSource {
 PinholeSource SourceForKannalaBrandt(const LensSettings& lens,
                                      unsigned int width, unsigned int height,
                                      double fov_degrees);
+
+// Whether the capture renders a different pinhole image than its output and
+// remaps it: a Kannala-Brandt lens, or a supersampled pinhole.
+bool NeedsRemap(const LensSettings& lens);
+
+// The pinhole image to render for a capture that needs a remap, for either
+// model. Throws for a source_sampling that is not > 0, or not 1 or 2 for a
+// pinhole.
+PinholeSource RenderSource(const LensSettings& lens, unsigned int width,
+                           unsigned int height, double fov_degrees);
 
 }  // namespace lens
 }  // namespace projectairsim

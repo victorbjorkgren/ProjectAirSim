@@ -11,16 +11,18 @@
 // Unreal renders pinhole images only. For a Kannala-Brandt (fisheye) capture,
 // the camera renders a wider pinhole image (SourceWidth x SourceHeight at
 // SourceFovDegrees) and every output pixel is looked up in it along its ray.
+// A supersampled pinhole capture renders a larger image of the same view and
+// averages it down the same way.
 // The map is built once per capture; Apply runs per frame on the packing
 // thread.
 class FLensRemap {
  public:
-  // nullptr for a pinhole capture: the rendered image is the output.
+  // nullptr for a plain pinhole capture: the rendered image is the output.
   static TSharedPtr<const FLensRemap> Create(
       const microsoft::projectairsim::CaptureSettings& Setting);
 
   // Size and horizontal field of view of the image Unreal renders for the
-  // capture: the capture's own for a pinhole, the wider source for a lens.
+  // capture: the capture's own for a plain pinhole, else the remap source.
   static FIntPoint RenderSize(
       const microsoft::projectairsim::CaptureSettings& Setting);
   static float RenderFovDegrees(

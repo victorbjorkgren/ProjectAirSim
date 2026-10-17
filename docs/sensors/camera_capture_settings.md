@@ -131,7 +131,7 @@ pixel for depth, segmentation and the other types. The remap is built once per c
 | model                  | pinhole, kannala-brandt | Lens model. |
 | distortion             | [k1, k2, k3, k4]   | Kannala-Brandt coefficients; [0, 0, 0, 0] (default) is an ideal equidistant fisheye. |
 | max-incidence-degrees  | (0, 89), default 80 | Rays further off-axis render black, like the outside of an image circle. It also bounds the rendered pinhole image. |
-| source-sampling        | > 0, default 1     | Rendered pinhole pixels per output pixel at the image centre. The rendered image is capped at 4096 px per side, which lowers this for very wide lenses. |
+| source-sampling        | > 0, default 1     | Rendered pinhole pixels per output pixel at the image centre. The rendered image is capped at 4096 px per side, which lowers this for very wide lenses. For a pinhole only 1 or 2, and 2 supersamples (see below). |
 
 The rendered image is larger than the output, and that costs render time. At 1280x720: 90 deg is 2.0x the output pixels, 110 deg 3.2x, 120 deg 4.6x, and from about 140 deg the
 4096 px cap applies (centre sampling 0.79). Annotations (bounding boxes) are computed for the rendered pinhole image
@@ -144,6 +144,17 @@ and are not remapped. A runtime `fov-degrees` change is ignored for a lens captu
   "lens": {"model": "kannala-brandt", "distortion": [-0.013, 0.021, -0.017, 0.0049]}
 }]
 ```
+
+### Supersampling
+
+Unreal's screen percentage does not apply to scene captures, so a capture cannot be supersampled by
+`r.ScreenPercentage`. `"lens": {"source-sampling": 2}` on a pinhole capture renders the image at twice the width and
+height (same field of view, so `scene_camera_info` is unchanged) and makes each output pixel the mean of its 2x2 source
+pixels. Other values throw: the remap's four taps are an exact box only at 2, and 1.5 came out softer than no
+supersampling. It renders 4x the pixels, and temporal AA runs on the large image. Fine detail of about one output
+pixel (distant window grids, glass glints) aliases less. In CitySample at 1280x720 on an M3 Max it cut the uncapped
+camera rate from 39 to 17 fps and left the turning stability unchanged. A runtime `fov-degrees` change is ignored, as
+for a lens capture.
 
 ## Sample config
 

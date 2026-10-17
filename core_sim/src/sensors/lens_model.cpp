@@ -104,6 +104,37 @@ PinholeSource SourceForKannalaBrandt(const LensSettings& lens,
   return source;
 }
 
+bool NeedsRemap(const LensSettings& lens) {
+  return lens.model != LensModel::kPinhole || lens.source_sampling != 1.0;
+}
+
+PinholeSource RenderSource(const LensSettings& lens, unsigned int width,
+                           unsigned int height, double fov_degrees) {
+  if (!(lens.source_sampling > 0.0)) {
+    throw Error("Lens source-sampling must be > 0.");
+  }
+  if (lens.model != LensModel::kPinhole) {
+    return SourceForKannalaBrandt(lens, width, height, fov_degrees);
+  }
+  // The remap's four taps per output pixel are an exact 2x2 box only at 2;
+  // other factors blur (1.5 measured softer than no supersampling).
+  if (lens.source_sampling != 2.0) {
+    throw Error("A pinhole capture's source-sampling must be 1 or 2.");
+  }
+  if (!(fov_degrees > 0.0)) {
+    throw Error("A supersampled pinhole capture needs the capture's fov-degrees.");
+  }
+  if (2 * std::max(width, height) > kMaxSourceSide) {
+    throw Error("A supersampled pinhole capture is limited to 2048 px per side.");
+  }
+  PinholeSource source;
+  source.width = 2 * width;
+  source.height = 2 * height;
+  source.focal_px = 2 * FocalLengthPx(lens, width, fov_degrees);
+  source.fov_degrees = fov_degrees;
+  return source;
+}
+
 }  // namespace lens
 }  // namespace projectairsim
 }  // namespace microsoft
