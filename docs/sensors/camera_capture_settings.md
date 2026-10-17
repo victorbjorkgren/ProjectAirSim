@@ -98,6 +98,7 @@ A single camera can output multiple capture types. The following parameters desc
 | motion-blur-amount              | [0, 1]                            | Blurs objects based on it's motion determined using velocity maps. A value of 0.25 - 0.5 looks reasonable. Avoid 1.0 |
 | target-gamma                    |                                   | Target gamma to be used by the render target (UTextureRenderTarget2D) |
 | max-depth-meters              | > 0.0                             | Maximum depth for Depth Visualization. Objects beyond the maximum depth will be true white, while close objects will be completely black. |
+| lens                          | json                              | (Optional) Lens model of the capture, see Lens models below. Pinhole by default. |
 
 | Image Type | Description |
 | Scene | The regular camera image. |
@@ -108,6 +109,41 @@ A single camera can output multiple capture types. The following parameters desc
 | DisparityNormalized | Uses the ground truth depth to simulate a stereo disparity image with a single camera. The baseline distance is assumed to be 0.25m. Values are normalized to a 0-1 scale. |
 | SurfaceNormals | Surfaces are colored according to their normals. RGB corresponds to XYZ, and values are normalized to a 0-1 scale. |
 
+
+### Lens models
+
+Unreal renders pinhole images. Without `lens`, or with `"model": "pinhole"`, the capture is an exact pinhole with
+`fov-degrees` horizontal field of view and no distortion. `scene_camera_info` then reports `plumb_bob` with zero
+coefficients, `K = [f 0 cx; 0 f cy; 0 0 1]` with `f = (width/2) / tan(fov/2)`, and the principal point at the image centre,
+`cx = (width-1)/2` and `cy = (height-1)/2` (OpenCV/ROS pixel-centre convention).
+
+`"model": "kannala-brandt"` gives a fisheye: a ray at angle theta from the optical axis lands at radius
+`f * theta_d` from the principal point, with `theta_d = theta (1 + k1 theta^2 + k2 theta^4 + k3 theta^6 + k4 theta^8)`.
+This is OpenCV's `cv::fisheye` model, called `equidistant` in ROS. `f` is chosen so that the left and right image edges
+are `fov-degrees`/2 off-axis, and the principal point is the image centre. The camera renders a wider pinhole image and
+remaps every output pixel along its ray, averaging four bilinear samples for the scene image and taking the nearest
+pixel for depth, segmentation and the other types. The remap is built once per capture. `scene_camera_info` reports
+`distortion_model: "equidistant"`, `D = [k1, k2, k3, k4, 0]` and the `K` above, so a client can rectify keypoints with
+`cv::fisheye::undistortPoints(K, D)`.
+
+| Parameter              | Value-range        | Description & notes |
+| ---------------------- | ------------------ | ------------------- |
+| model                  | pinhole, kannala-brandt | Lens model. |
+| distortion             | [k1, k2, k3, k4]   | Kannala-Brandt coefficients; [0, 0, 0, 0] (default) is an ideal equidistant fisheye. |
+| max-incidence-degrees  | (0, 89), default 80 | Rays further off-axis render black, like the outside of an image circle. It also bounds the rendered pinhole image. |
+| source-sampling        | > 0, default 1     | Rendered pinhole pixels per output pixel at the image centre. The rendered image is capped at 4096 px per side, which lowers this for very wide lenses. |
+
+The rendered image is larger than the output, and that costs render time. At 1280x720: 90 deg is 2.0x the output pixels, 110 deg 3.2x, 120 deg 4.6x, and from about 140 deg the
+4096 px cap applies (centre sampling 0.79). Annotations (bounding boxes) are computed for the rendered pinhole image
+and are not remapped. A runtime `fov-degrees` change is ignored for a lens capture (the remap is built once).
+
+```json
+"capture-settings": [{
+  "image-type": 0, "width": 1280, "height": 720, "fov-degrees": 120,
+  "capture-enabled": true, "compress": false,
+  "lens": {"model": "kannala-brandt", "distortion": [-0.013, 0.021, -0.017, 0.0049]}
+}]
+```
 
 ## Sample config
 

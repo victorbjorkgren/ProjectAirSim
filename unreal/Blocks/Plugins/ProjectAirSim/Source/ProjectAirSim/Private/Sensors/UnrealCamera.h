@@ -14,6 +14,7 @@
 #include "CineCameraComponent.h"
 #include "Components/SceneCaptureComponent2D.h"
 #include "CoreMinimal.h"
+#include "LensRemap.h"
 #include "Materials/Material.h"
 #include "UnrealSensor.h"
 #include "core_sim/clock.hpp"
@@ -38,6 +39,8 @@ struct ImageRequest {
       microsoft::projectairsim::ImageType::kScene;
   bool bPixelsAsFloat = false;
   bool bCompress = true;
+  // Set for a lens capture: the rendered pinhole image is remapped through it.
+  TSharedPtr<const FLensRemap> LensRemap;
 
   ImageRequest() {}
 
@@ -205,6 +208,7 @@ class UUnrealCamera : public UUnrealSensor {
   std::vector<bool> CameraTypeEnabled;
   float CaptureIntervalSec = 0.0f;
   std::vector<ImageRequest> CaptureRequests;
+  TArray<TSharedPtr<const FLensRemap>> LensRemaps;  // per image type
 
   // true when there is a pending image capture
   volatile bool bCapturePending = false;

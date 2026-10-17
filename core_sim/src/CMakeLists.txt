@@ -76,6 +76,7 @@ add_library(
     sensors/airspeed.cpp
     sensors/sensor.cpp
     sensors/camera.cpp
+    sensors/lens_model.cpp
     sensors/distance_sensor.cpp
     sensors/imu.cpp
     sensors/barometer.cpp

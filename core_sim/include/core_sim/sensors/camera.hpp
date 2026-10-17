@@ -18,6 +18,7 @@
 #include "core_sim/math_utils.hpp"
 #include "core_sim/message/camera_info_message.hpp"
 #include "core_sim/message/image_message.hpp"
+#include "core_sim/sensors/lens_model.hpp"
 #include "core_sim/sensors/sensor.hpp"
 #include "core_sim/transforms/transform.hpp"
 
@@ -111,6 +112,7 @@ struct CaptureSettings {
       std::numeric_limits<float>::quiet_NaN();
   float chromatic_aberration_intensity =
       std::numeric_limits<float>::quiet_NaN();
+  LensSettings lens;  // "lens": pinhole (default) or kannala-brandt
 };  // struct CaptureSettings
 
 struct NoiseSettings {

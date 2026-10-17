@@ -292,3 +292,32 @@ TEST(CameraCaptureSettings, EnablesMotionBlurParam) {
   auto actual_capture_settings = actual_camera_settings.capture_settings;
   EXPECT_FLOAT_EQ(actual_capture_settings.at(2).motion_blur_amount, 1.23);
 }
+
+TEST(CameraCaptureSettings, LoadsKannalaBrandtLens) {
+  auto camera = projectairsim::Robot::MakeDefaultCamera();
+  auto camera_settings = projectairsim::Robot::GetDefaultCameraConfig();
+  json capture_settings = R"( [ {
+          "image-type": 0,
+          "lens": {"model": "kannala-brandt", "distortion": [0.1, -0.02, 0.003, -0.0004],
+                   "max-incidence-degrees": 75, "source-sampling": 0.8}
+      } ]
+  )"_json;
+  camera_settings["capture-settings"] = capture_settings;
+  projectairsim::Robot::LoadCamera(camera, camera_settings);
+  const auto& lens = camera.GetCameraSettings().capture_settings.at(0).lens;
+  EXPECT_EQ(lens.model, projectairsim::LensModel::kKannalaBrandt);
+  EXPECT_DOUBLE_EQ(lens.distortion[0], 0.1);
+  EXPECT_DOUBLE_EQ(lens.distortion[3], -0.0004);
+  EXPECT_DOUBLE_EQ(lens.max_incidence_degrees, 75.0);
+  EXPECT_DOUBLE_EQ(lens.source_sampling, 0.8);
+}
+
+TEST(CameraCaptureSettings, DefaultsToPinholeLens) {
+  auto camera = projectairsim::Robot::MakeDefaultCamera();
+  auto camera_settings = projectairsim::Robot::GetDefaultCameraConfig();
+  json capture_settings = R"( [ { "image-type": 0 } ] )"_json;
+  camera_settings["capture-settings"] = capture_settings;
+  projectairsim::Robot::LoadCamera(camera, camera_settings);
+  EXPECT_EQ(camera.GetCameraSettings().capture_settings.at(0).lens.model,
+            projectairsim::LensModel::kPinhole);
+}

@@ -329,6 +329,7 @@ void UUnrealCamera::SetupCameraFromSettings(
   SetRelativePoseFromNed(CameraSetting.origin_setting);
 
   NoiseMaterials.AddZeroed(ImageTypeCount());
+  LensRemaps.Init(nullptr, ImageTypeCount());
   // by default all image types are disabled
   CameraTypeEnabled.assign(ImageTypeCount(), false);
   FrustumData.reserve(ImageTypeCount());
@@ -348,6 +349,7 @@ void UUnrealCamera::SetupCameraFromSettings(
 
     UpdateCaptureComponentSetting(Capture, RenderTargets[ImageType],
                                   CaptureSetting, UnrealWorld);
+    LensRemaps[ImageType] = FLensRemap::Create(CaptureSetting);
 
     SetNoiseMaterial(ImageType, Capture, Capture->PostProcessSettings,
                      NoiseSetting);
@@ -391,7 +393,13 @@ void UUnrealCamera::CopyCameraSettingsToSceneCapture(
     USceneCaptureComponent2D* TargetCaptureComponent,
     const projectairsim::CaptureSettings& CaptureSetting) {
   if (SourceCamComponent && TargetCaptureComponent) {
-    TargetCaptureComponent->FOVAngle = CaptureSetting.fov_degrees;
+    // A lens capture keeps the field of view its remap was built for.
+    const int32 ImageType = Captures.Find(TargetCaptureComponent);
+    const bool bHasRemap = LensRemaps.IsValidIndex(ImageType) &&
+                           LensRemaps[ImageType].IsValid();
+    TargetCaptureComponent->FOVAngle =
+        bHasRemap ? LensRemaps[ImageType]->SourceFovDegrees
+                  : CaptureSetting.fov_degrees;
 
     FMinimalViewInfo ViewInfo;
     SourceCamComponent->GetCameraView(/*DeltaTime =*/0.0f, ViewInfo);
@@ -443,6 +451,7 @@ void UUnrealCamera::UpdateCaptureComponentSetting(
     UWorld* UnrealWorld) {
   if (!CaptureSettings.show_debug_plots)
     HideDebugDrawComponent(Capture, UnrealWorld);
+  const FIntPoint RenderSize = FLensRemap::RenderSize(CaptureSettings);
   if (CaptureSettings.pixels_as_float ||
       CaptureSettings.image_type ==
           projectairsim::MathUtils::ToNumeric(
@@ -458,12 +467,10 @@ void UUnrealCamera::UpdateCaptureComponentSetting(
     // `PF_B8G8R8A8` render target to save the distance in centimeters, and then
     // the client side would unpack and convert these bytes into a float depth
     // in meters to avoid the conversion from a PF_FloatRGBA render target.
-    RenderTarget->InitCustomFormat(CaptureSettings.width,
-                                   CaptureSettings.height,
+    RenderTarget->InitCustomFormat(RenderSize.X, RenderSize.Y,
                                    EPixelFormat::PF_FloatRGBA, true);
   } else {
-    RenderTarget->InitCustomFormat(CaptureSettings.width,
-                                   CaptureSettings.height,
+    RenderTarget->InitCustomFormat(RenderSize.X, RenderSize.Y,
                                    EPixelFormat::PF_B8G8R8A8, true);
   }
 
@@ -474,7 +481,7 @@ void UUnrealCamera::UpdateCaptureComponentSetting(
       static_cast<ECameraProjectionMode::Type>(CaptureSettings.projection_mode);
 
   if (!std::isnan(CaptureSettings.fov_degrees))
-    Capture->FOVAngle = CaptureSettings.fov_degrees;
+    Capture->FOVAngle = FLensRemap::RenderFovDegrees(CaptureSettings);
   // TODO: projection mode
   // if (Capture->ProjectionType == ECameraProjectionMode::Orthographic &&
   // !std::isnan(CaptureSettings.ortho_Width))
@@ -717,6 +724,7 @@ void UUnrealCamera::BeginPlay() {
       CaptureRequests.push_back(ImageRequest(SimCamera.GetId(), ImageTypeEnum,
                                              CaptureSetting.pixels_as_float,
                                              CaptureSetting.compress));
+      CaptureRequests.back().LensRemap = LensRemaps[ImageTypeInt];
       SetCameraTypeEnabled(ImageTypeEnum, true);
       bAnyCaptureEnabled = true;
 
