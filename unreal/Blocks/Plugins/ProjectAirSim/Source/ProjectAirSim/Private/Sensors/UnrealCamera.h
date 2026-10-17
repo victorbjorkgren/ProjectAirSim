@@ -32,6 +32,7 @@
 #define TEST_DEBUG_IMAGE_INTEGRITY 0
 
 class AUnrealScene;
+class FCaptureReadbackPipeline;
 
 struct ImageRequest {
   std::string CameraName;
@@ -156,6 +157,9 @@ class UUnrealCamera : public UUnrealSensor {
       USceneCaptureComponent2D* TargetCaptureComponent,
       const microsoft::projectairsim::CaptureSettings& CaptureSetting);
 
+  // Publish the captures whose pixels have reached the CPU side (render thread).
+  void PollReadbacks();
+
   void OnRendered(
       microsoft::projectairsim::Transform CapturedCameraTransform,
       std::vector<microsoft::projectairsim::Annotation> Annotations);
@@ -210,8 +214,9 @@ class UUnrealCamera : public UUnrealSensor {
   std::vector<ImageRequest> CaptureRequests;
   TArray<TSharedPtr<const FLensRemap>> LensRemaps;  // per image type
 
-  // true when there is a pending image capture
-  volatile bool bCapturePending = false;
+  // Captures whose pixels are still on their way from the GPU. Created in
+  // BeginPlay, used by the game thread (count) and the render thread (queue).
+  TSharedPtr<FCaptureReadbackPipeline, ESPMode::ThreadSafe> ReadbackPipeline;
 
   // Timestamp stored to limit capture rate for enqueuing next capture
   TimeNano CapturedTime = 0;
