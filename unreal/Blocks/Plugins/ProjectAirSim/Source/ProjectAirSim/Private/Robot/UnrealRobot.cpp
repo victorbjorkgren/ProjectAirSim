@@ -241,6 +241,10 @@ USceneCaptureComponent2D* AUnrealRobot::GetActiveStreamingCapture() {
 // Set viewport resolution to match the active streaming camera's render target
 // resolution so that the pixel stream will also update its resolution to match.
 void AUnrealRobot::SetViewportResolution() {
+  // In the editor (PIE) the viewport is an editor panel, not a game window;
+  // applying game resolution settings there makes macOS spin forever waiting
+  // for a fullscreen-state change of the editor window.
+  if (GIsEditor) return;
   if (StreamingCameras.Num() == 0) return;
 
   UUnrealCamera* Camera = StreamingCameras[StreamingCameraActiveIdx];
