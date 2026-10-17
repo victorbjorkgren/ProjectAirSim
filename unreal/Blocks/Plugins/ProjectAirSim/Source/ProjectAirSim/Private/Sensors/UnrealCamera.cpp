@@ -18,6 +18,7 @@
 #include "Engine/TextureRenderTarget2D.h"
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
+#include "HAL/IConsoleManager.h"
 #include "ImagePackingAsyncTask.h"
 #include "ImageUtils.h"
 #include "Materials/MaterialInstanceDynamic.h"
@@ -37,6 +38,36 @@
 #include "UnrealTransforms.h"
 
 namespace projectairsim = microsoft::projectairsim;
+
+// A bare USceneCaptureComponent2D renders without temporal anti-aliasing, global
+// illumination and reflections. The scene (colour) camera turns them back on so it sees what
+// the game view would: the project's r.AntiAliasingMethod, r.DynamicGlobalIlluminationMethod
+// and r.ReflectionMethod. Without temporal AA, thin geometry and texture detail shimmer from
+// frame to frame. Depth, segmentation and the other image types keep the bare defaults.
+static TAutoConsoleVariable<int32> CVarSceneCameraTemporalAA(
+    TEXT("projectairsim.SceneCamera.TemporalAA"), 1,
+    TEXT("Temporal anti-aliasing (TSR or TAA, per r.AntiAliasingMethod) on scene cameras: ")
+    TEXT("1 on (default), 0 off."),
+    ECVF_Default);
+static TAutoConsoleVariable<int32> CVarSceneCameraGIMethod(
+    TEXT("projectairsim.SceneCamera.GIMethod"), -1,
+    TEXT("Global illumination on scene cameras: -1 the project's ")
+    TEXT("r.DynamicGlobalIlluminationMethod (default), 0 none, 1 Lumen, 2 screen space."),
+    ECVF_Default);
+static TAutoConsoleVariable<int32> CVarSceneCameraReflectionMethod(
+    TEXT("projectairsim.SceneCamera.ReflectionMethod"), -1,
+    TEXT("Reflections on scene cameras: -1 the project's r.ReflectionMethod (default), ")
+    TEXT("0 none, 1 Lumen, 2 screen space."),
+    ECVF_Default);
+
+static int32 SceneCameraMethod(const TAutoConsoleVariable<int32>& Override,
+                               const TCHAR* ProjectCVar) {
+  const int32 Value = Override.GetValueOnGameThread();
+  if (Value >= 0) return Value;
+  const IConsoleVariable* Project =
+      IConsoleManager::Get().FindConsoleVariable(ProjectCVar);
+  return Project ? Project->GetInt() : 0;
+}
 
 UUnrealCamera::UUnrealCamera(const FObjectInitializer& ObjectInitializer)
     : UUnrealSensor(ObjectInitializer) {
@@ -182,6 +213,11 @@ void UUnrealCamera::CreateComponents() {
   SceneCaptureComponent->bCaptureEveryFrame = false;
   SceneCaptureComponent->bCaptureOnMovement = false;
   SceneCaptureComponent->bAlwaysPersistRenderingState = true;
+  // Through ShowFlagSettings: registering resets ShowFlags to the class defaults.
+  FEngineShowFlagsSetting TemporalAA;
+  TemporalAA.ShowFlagName = TEXT("TemporalAA");
+  TemporalAA.Enabled = CVarSceneCameraTemporalAA.GetValueOnGameThread() != 0;
+  SceneCaptureComponent->SetShowFlagSettings({TemporalAA});
   SceneCaptureComponent->RegisterComponent();
   Captures[projectairsim::MathUtils::ToNumeric(
       projectairsim::ImageType::kScene)] = SceneCaptureComponent;
@@ -371,6 +407,19 @@ void UUnrealCamera::CopyCameraSettingsToSceneCapture(
     TargetPPSettings = SourcePPSettings;
 
     UpdateCameraPostProcessingSetting(TargetPPSettings, CaptureSetting);
+
+    if (TargetCaptureComponent ==
+        Captures[projectairsim::MathUtils::ToNumeric(
+            projectairsim::ImageType::kScene)]) {
+      TargetPPSettings.bOverride_DynamicGlobalIlluminationMethod = true;
+      TargetPPSettings.DynamicGlobalIlluminationMethod =
+          static_cast<EDynamicGlobalIlluminationMethod::Type>(SceneCameraMethod(
+              CVarSceneCameraGIMethod, TEXT("r.DynamicGlobalIlluminationMethod")));
+      TargetPPSettings.bOverride_ReflectionMethod = true;
+      TargetPPSettings.ReflectionMethod =
+          static_cast<EReflectionMethod::Type>(SceneCameraMethod(
+              CVarSceneCameraReflectionMethod, TEXT("r.ReflectionMethod")));
+    }
 
     //// But restore the original blendables
     TargetPPSettings.WeightedBlendables = TargetWeightedBlendables;
