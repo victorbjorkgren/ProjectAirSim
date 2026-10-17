@@ -18,6 +18,26 @@ void FImagePackingAsyncTask::DoWork() {
   std::map<projectairsim::ImageType, projectairsim::ImageMessage> ImageMessages;
 
   for (auto& [ImageRequest, RenderResult] : CaptureResults) {
+    if (ImageRequest.LensRemap) {
+      const FLensRemap& Remap = *ImageRequest.LensRemap;
+      if (RenderResult.UnrealImage.Num() > 0) {
+        TArray<FColor> Output;
+        if (ImageRequest.ImageType == projectairsim::ImageType::kScene) {
+          Remap.Apply(RenderResult.UnrealImage, Output);
+        } else {
+          Remap.ApplyNearest(RenderResult.UnrealImage, Output);
+        }
+        RenderResult.UnrealImage = MoveTemp(Output);
+      }
+      if (RenderResult.UnrealImageFloat.Num() > 0) {
+        TArray<FFloat16Color> Output;
+        Remap.ApplyNearest(RenderResult.UnrealImageFloat, Output);
+        RenderResult.UnrealImageFloat = MoveTemp(Output);
+      }
+      RenderResult.Width = Remap.Width;
+      RenderResult.Height = Remap.Height;
+    }
+
     // --- Make image response from the image request and render result ---
     ImageResponse ImgResponse;
     ImgResponse.CameraPosition = CapturedCameraTransform.translation_;

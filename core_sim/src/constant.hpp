@@ -205,6 +205,11 @@ class Constant {
     static constexpr const char* chromatic_aberration_intensity = "chromatic-aberration-intensity";
     static constexpr const char* depth_of_field_focal_region = "depth-of-field-focal-region";
     static constexpr const char* depth_of_field_transition_region = "depth-of-field-transition-region";
+    static constexpr const char* lens = "lens";
+    static constexpr const char* lens_model = "model";
+    static constexpr const char* lens_distortion = "distortion";
+    static constexpr const char* lens_max_incidence_degrees = "max-incidence-degrees";
+    static constexpr const char* lens_source_sampling = "source-sampling";
     static constexpr const char* noise_settings = "noise-settings";
     static constexpr const char* rand_contrib = "rand-contrib";
     static constexpr const char* rand_speed = "rand-speed";

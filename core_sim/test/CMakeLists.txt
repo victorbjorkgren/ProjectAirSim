@@ -35,6 +35,7 @@ add_executable(
     gtest_camera.cpp
     gtest_camera_noise_settings.cpp
     gtest_camera_capture_settings.cpp
+    gtest_lens_model.cpp
     gtest_imu.cpp
     gtest_imu_accelerometer.cpp
     gtest_imu_gyroscope.cpp

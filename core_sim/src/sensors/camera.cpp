@@ -959,22 +959,31 @@ void Camera::Impl::OnBeginUpdate() {
     // Only publish info on image types that are capture-enabled
     if (!capture_setting.capture_enabled) continue;
 
-    double focal_length =
-        capture_setting.width / 2 /
-        tan(TransformUtils::ToRadians(capture_setting.fov_degrees) / 2);
+    // OpenCV/ROS pixel-centre convention: pixel (0, 0) is centred at 0, so
+    // the image centre is at (width - 1) / 2.
+    const double focal_length = lens::FocalLengthPx(
+        capture_setting.lens, capture_setting.width, capture_setting.fov_degrees);
+    const double cx = (capture_setting.width - 1) / 2.0;
+    const double cy = (capture_setting.height - 1) / 2.0;
 
+    std::string distortion_model = "plumb_bob";
     std::array<double, 5> distortion_parms = {{0, 0, 0, 0, 0}};
+    if (capture_setting.lens.model == LensModel::kKannalaBrandt) {
+      distortion_model = "equidistant";  // ROS name for Kannala-Brandt k1..k4
+      for (size_t i = 0; i < capture_setting.lens.distortion.size(); ++i) {
+        distortion_parms[i] = capture_setting.lens.distortion[i];
+      }
+    }
     std::array<double, 9> intrinsic_camera_matrix = {
-        {focal_length, 0, static_cast<double>(capture_setting.width) / 2, 0,
-         focal_length, static_cast<double>(capture_setting.height) / 2, 0, 0,
-         1}};
+        {focal_length, 0, cx, 0, focal_length, cy, 0, 0, 1}};
     std::array<double, 9> rectification_matrix = {{1, 0, 0, 0, 1, 0, 0, 0, 1}};
     std::array<double, 12> projection_matrix = {
-        {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0}};
+        {focal_length, 0, cx, 0, 0, focal_length, cy, 0, 0, 0, 1, 0}};
 
-    CameraInfoMessage message(capture_setting.width, capture_setting.height, "",
-                              distortion_parms, intrinsic_camera_matrix,
-                              rectification_matrix, projection_matrix);
+    CameraInfoMessage message(capture_setting.width, capture_setting.height,
+                              distortion_model, distortion_parms,
+                              intrinsic_camera_matrix, rectification_matrix,
+                              projection_matrix);
 
     auto iimage_type = capture_setting.image_type;
     Topic* ptopic;
@@ -1373,7 +1382,28 @@ void Camera::Loader::LoadCaptureSetting(const json& json) {
   setting.chromatic_aberration_intensity = JsonUtils::GetNumber(
       json, Constant::Config::chromatic_aberration_intensity,
       setting.chromatic_aberration_intensity);
-  // TODO: add other settings
+
+  auto lens_json = JsonUtils::GetJsonObject(json, Constant::Config::lens);
+  if (!JsonUtils::IsEmpty(lens_json)) {
+    setting.lens.model = lens::ParseModel(JsonUtils::GetString(
+        lens_json, Constant::Config::lens_model, "pinhole"));
+    auto distortion_json =
+        JsonUtils::GetArray(lens_json, Constant::Config::lens_distortion);
+    if (!JsonUtils::IsEmptyArray(distortion_json)) {
+      if (distortion_json.size() != setting.lens.distortion.size()) {
+        throw Error("Lens 'distortion' needs exactly 4 coefficients (k1..k4).");
+      }
+      for (size_t i = 0; i < setting.lens.distortion.size(); ++i) {
+        setting.lens.distortion[i] = distortion_json[i].get<double>();
+      }
+    }
+    setting.lens.max_incidence_degrees = JsonUtils::GetNumber<double>(
+        lens_json, Constant::Config::lens_max_incidence_degrees,
+        setting.lens.max_incidence_degrees);
+    setting.lens.source_sampling = JsonUtils::GetNumber<double>(
+        lens_json, Constant::Config::lens_source_sampling,
+        setting.lens.source_sampling);
+  }
 
   impl.camera_settings.capture_settings.at(id) = setting;
 }
