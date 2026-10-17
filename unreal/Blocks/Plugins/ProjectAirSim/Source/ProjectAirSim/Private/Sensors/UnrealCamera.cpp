@@ -6,6 +6,8 @@
 
 #include "UnrealCamera.h"
 
+#include <atomic>
+#include <deque>
 #include <string>
 #include <utility>
 #include <vector>
@@ -17,6 +19,7 @@
 #include "DrawDebugHelpers.h"
 #include "Engine/TextureRenderTarget2D.h"
 #include "Engine/World.h"
+#include "RHIGPUReadback.h"
 #include "GameFramework/PlayerController.h"
 #include "HAL/IConsoleManager.h"
 #include "ImagePackingAsyncTask.h"
@@ -708,6 +711,7 @@ void UUnrealCamera::BeginPlay() {
       BeginPlayPose.translation_.z());  // NED
 
   UnrealCameraRenderRequest::OnBeginPlay();
+  ReadbackPipeline = MakeShared<FCaptureReadbackPipeline, ESPMode::ThreadSafe>();
 
   auto& CameraSetting = SimCamera.GetCameraSettings();
   this->CaptureIntervalSec = CameraSetting.capture_interval;
@@ -737,6 +741,130 @@ void UUnrealCamera::BeginPlay() {
   }
 
   UpdateCameraSettings();
+}
+
+// Pixels travel from the GPU to the image publisher without stalling the
+// render thread. After each capture is rendered, OnRendered() queues a copy of
+// its render target into a staging texture (RHIGPUReadback) and records the
+// pose and time the capture was stamped with. The render thread keeps
+// rendering the next cameras while the GPU works; Poll() later turns each
+// finished copy into the image message, in capture order. Every member except
+// InFlight is used on the render thread only.
+class FCaptureReadbackPipeline {
+ public:
+  struct FItem {
+    ImageRequest Request;
+    TUniquePtr<FRHIGPUTextureReadback> Readback;  // null when Result is final
+    UnrealCameraRenderRequest::RenderResult Result;
+    int TypeIndex = 0;
+  };
+  struct FEntry {
+    microsoft::projectairsim::Transform CapturedCameraTransform;
+    std::vector<microsoft::projectairsim::Annotation> Annotations;
+    std::vector<FItem> Items;
+  };
+
+  // Game thread: captures issued and not yet published.
+  std::atomic<int32> InFlight{0};
+
+  // Render thread: take a readback for an image type (reuses a finished one
+  // of the same size and format, so no staging texture is created per frame).
+  TUniquePtr<FRHIGPUTextureReadback> Acquire(int TypeIndex, FRHITexture* Texture) {
+    FPool& Pool = Pools[TypeIndex];
+    if (Pool.Format != Texture->GetFormat() || Pool.X != Texture->GetSizeX() ||
+        Pool.Y != Texture->GetSizeY()) {
+      Pool.Free.Reset();
+      Pool.Format = Texture->GetFormat();
+      Pool.X = Texture->GetSizeX();
+      Pool.Y = Texture->GetSizeY();
+    }
+    if (Pool.Free.Num() > 0) return Pool.Free.Pop();
+    return MakeUnique<FRHIGPUTextureReadback>(TEXT("ProjectAirSimCamera"));
+  }
+
+  void Push(FEntry&& Entry) { Queue.push_back(std::move(Entry)); }
+
+  // Render thread: publish the leading captures whose copies have finished.
+  void Poll(const microsoft::projectairsim::Camera& SimCamera) {
+    while (!Queue.empty()) {
+      FEntry& Front = Queue.front();
+      bool bReady = true;
+      for (const FItem& Item : Front.Items) {
+        if (Item.Readback && !Item.Readback->IsReady()) bReady = false;
+      }
+      if (!bReady) return;
+
+      std::vector<std::pair<ImageRequest,
+                            UnrealCameraRenderRequest::RenderResult>>
+          CaptureResults;
+      for (FItem& Item : Front.Items) {
+        if (Item.Readback) {
+          Fill(Item);
+          FPool& Pool = Pools[Item.TypeIndex];
+          if (Pool.Format == Item.Result.Format &&
+              Pool.X == Item.Result.Width && Pool.Y == Item.Result.Height) {
+            Pool.Free.Add(std::move(Item.Readback));
+          }
+        }
+        CaptureResults.emplace_back(std::move(Item.Request),
+                                    std::move(Item.Result));
+      }
+      (new FAutoDeleteAsyncTask<FImagePackingAsyncTask>(
+              std::move(CaptureResults), Front.CapturedCameraTransform,
+              SimCamera, std::move(Front.Annotations)))
+          ->StartBackgroundTask();
+      Queue.pop_front();
+      --InFlight;
+    }
+  }
+
+ private:
+  struct FPool {
+    TArray<TUniquePtr<FRHIGPUTextureReadback>> Free;
+    EPixelFormat Format = PF_Unknown;
+    int32 X = 0;
+    int32 Y = 0;
+  };
+
+  static void Fill(FItem& Item) {
+    UnrealCameraRenderRequest::RenderResult& R = Item.Result;
+    int32 RowPitchPixels = 0;
+    const uint8* Src = static_cast<const uint8*>(
+        Item.Readback->Lock(RowPitchPixels));
+    check(Src != nullptr);
+    if (R.Format == EPixelFormat::PF_FloatRGBA) {
+      R.UnrealImageFloat.SetNumUninitialized(R.Width * R.Height);
+      CopyRows(Src, RowPitchPixels, R.Width, R.Height,
+               reinterpret_cast<uint8*>(R.UnrealImageFloat.GetData()),
+               sizeof(FFloat16Color));
+    } else {
+      R.UnrealImage.SetNumUninitialized(R.Width * R.Height);
+      CopyRows(Src, RowPitchPixels, R.Width, R.Height,
+               reinterpret_cast<uint8*>(R.UnrealImage.GetData()),
+               sizeof(FColor));
+    }
+    Item.Readback->Unlock();
+  }
+
+  static void CopyRows(const uint8* Src, int32 SrcPitchPixels, int32 Width,
+                       int32 Height, uint8* Dst, size_t BytesPerPixel) {
+    for (int32 Row = 0; Row < Height; ++Row) {
+      FMemory::Memcpy(Dst + (size_t)Row * Width * BytesPerPixel,
+                      Src + (size_t)Row * SrcPitchPixels * BytesPerPixel,
+                      (size_t)Width * BytesPerPixel);
+    }
+  }
+
+  std::deque<FEntry> Queue;
+  FPool Pools[32];
+};
+
+// Whether a render target can be copied straight into the image buffer type
+// the request asks for; any other combination reads synchronously.
+static bool CanReadBackAsync(FRHITexture* Texture, bool bPixelsAsFloat) {
+  const EPixelFormat Format = Texture->GetFormat();
+  return (!bPixelsAsFloat && Format == EPixelFormat::PF_B8G8R8A8) ||
+         (bPixelsAsFloat && Format == EPixelFormat::PF_FloatRGBA);
 }
 
 void UUnrealCamera::TickComponent(
@@ -778,8 +906,14 @@ void UUnrealCamera::TickComponent(
   const TimeSec SimTimeElapsedSec = projectairsim::SimClock::Get()->NanosToSec(
       PoseUpdatedTimeStamp - CapturedTime);
 
+  PollReadbacks();
+
+  // At most kMaxCapturesInFlight captures are on their way from the GPU; the
+  // next one waits for the oldest to be published.
+  constexpr int32 kMaxCapturesInFlight = 3;
   if (SimTimeElapsedSec > CaptureIntervalSec && bHasNewState &&
-      SimCamera.IsUpdating() && !SimCamera.IsCaptureQueueFull()) {
+      SimCamera.IsUpdating() && !SimCamera.IsCaptureQueueFull() &&
+      ReadbackPipeline->InFlight < kMaxCapturesInFlight) {
     bool bCaptureIsActive = false;
 
     for (int ImageTypeInt = 0; ImageTypeInt < ImageTypeCount();
@@ -814,7 +948,7 @@ void UUnrealCamera::TickComponent(
 
     if (bCaptureIsActive) {
       CapturedTime = PoseUpdatedTimeStamp;
-      bCapturePending = true;
+      ReadbackPipeline->InFlight++;
       bHasNewState = false;
 
       // Add time stamp to queue of capture requests in sim camera for later
@@ -849,12 +983,20 @@ void UUnrealCamera::TickComponent(
   if (SimCamera.GetFrustumEnabled()) DrawViewFrustum();
 }
 
+void UUnrealCamera::PollReadbacks() {
+  if (!ReadbackPipeline.IsValid() || ReadbackPipeline->InFlight == 0) return;
+  ENQUEUE_RENDER_COMMAND(PollCameraReadbacks)
+  ([Pipeline = ReadbackPipeline, Camera = SimCamera](
+       FRHICommandListImmediate&) { Pipeline->Poll(Camera); });
+}
+
 void UUnrealCamera::EndPlay(const EEndPlayReason::Type EndPlayReason) {
   if (EEndPlayReason::Type::EndPlayInEditor == EndPlayReason ||
       EEndPlayReason::Type::Quit == EndPlayReason) {
     // This will block game thread and physics engine!!!
-    while (bCapturePending) {
-      FPlatformProcess::Sleep(0.1f);
+    while (ReadbackPipeline.IsValid() && ReadbackPipeline->InFlight > 0) {
+      PollReadbacks();
+      FPlatformProcess::Sleep(0.01f);
     }
   } else {
     // TODO - validate GarbageCollection honors IsReadyForFinishDestroy in all
@@ -868,7 +1010,11 @@ void UUnrealCamera::EndPlay(const EEndPlayReason::Type EndPlayReason) {
 bool UUnrealCamera::IsReadyForFinishDestroy() {
   // tell GC to retry later if the object is still being used by rendering
   // thread
-  return !bCapturePending;
+  if (ReadbackPipeline.IsValid() && ReadbackPipeline->InFlight > 0) {
+    PollReadbacks();
+    return false;
+  }
+  return true;
 }
 
 // static void WritePfmFile(const float* const image_data, int width, int
@@ -953,11 +1099,15 @@ bool UUnrealCamera::IsReadyForFinishDestroy() {
 void UUnrealCamera::OnRendered(
     projectairsim::Transform CapturedCameraTransform,
     std::vector<projectairsim::Annotation> Annotations) {
-  std::vector<std::pair<ImageRequest, UnrealCameraRenderRequest::RenderResult>>
-      CaptureResults;
+  FCaptureReadbackPipeline::FEntry Entry;
+  Entry.CapturedCameraTransform = CapturedCameraTransform;
+  Entry.Annotations = std::move(Annotations);
 
   FString RHIName = GDynamicRHI->GetName();
   if (RHIName != TEXT("NULL")) {  // skip pixel reads if running with '-nullrhi'
+    FRHICommandListImmediate& RHICmdList =
+        GetImmediateCommandList_ForRenderCommand();
+
     // Process each image type requested for this captured frame
     for (const auto& ImageRequest : CaptureRequests) {
       USceneCaptureComponent2D* CaptureComponent =
@@ -976,8 +1126,12 @@ void UUnrealCamera::OnRendered(
             CaptureComponent->TextureTarget->GetRenderTargetResource();
         if (RtResource) {
           FRHITexture* Texture = RtResource->GetRenderTargetTexture();
-          // Copy pixel values out of Unreal's RHI
-          UnrealCameraRenderRequest::RenderResult ImageResult;
+          FCaptureReadbackPipeline::FItem Item;
+          Item.Request = ImageRequest;
+          Item.TypeIndex = projectairsim::MathUtils::ToNumeric(ImageRequest.ImageType);
+          Item.Result.Format = Texture->GetFormat();
+          Item.Result.Width = Texture->GetSizeX();
+          Item.Result.Height = Texture->GetSizeY();
           auto bIsDepthImage =
               (ImageRequest.ImageType ==
                    projectairsim::ImageType::kDepthPerspective ||
@@ -987,23 +1141,16 @@ void UUnrealCamera::OnRendered(
           auto bPixelsAsFloatRequired =
               ImageRequest.bPixelsAsFloat || bIsDepthImage;
 
-          UnrealCameraRenderRequest::ReadPixels(Texture, bPixelsAsFloatRequired,
-                                                &ImageResult);
-
-#if TEST_DEBUG_IMAGE_INTEGRITY
-          // If testing for image pixel integrity through the capture pipeline
-          // to the client, overwrite all pixels in each image to a debug
-          // counter value to check that every image has all matching pixels
-          // when received at the client.
-          for (auto& Pixel : ImageResult.UnrealImage) {
-            Pixel.B = DebugImagePixelValue;
-            Pixel.G = DebugImagePixelValue;
-            Pixel.R = DebugImagePixelValue;
+          if (CanReadBackAsync(Texture, bPixelsAsFloatRequired)) {
+            // The copy is ordered after the capture's own render commands, so
+            // it holds the render target as this capture left it.
+            Item.Readback = ReadbackPipeline->Acquire(Item.TypeIndex, Texture);
+            Item.Readback->EnqueueCopy(RHICmdList, Texture);
+          } else {
+            UnrealCameraRenderRequest::ReadPixels(
+                Texture, bPixelsAsFloatRequired, &Item.Result);
           }
-          DebugImagePixelValue = (DebugImagePixelValue + 1) % 255;
-#endif  // TEST_DEBUG_IMAGE_INTEGRITY
-
-          CaptureResults.emplace_back(ImageRequest, std::move(ImageResult));
+          Entry.Items.push_back(std::move(Item));
         } else {
           UnrealLogger::Log(projectairsim::LogLevel::kWarning,
                             TEXT("[UnrealCamera] Could not get Render Target "
@@ -1011,19 +1158,12 @@ void UUnrealCamera::OnRendered(
         }
       }
     }
+    // Hand the queued work to the GPU now rather than at the end of the frame.
+    RHICmdList.SubmitCommandsHint();
   }
 
-  // Offload image message packing and publishing to a background task.
-  // This passes a copy of the sim Camera, which takes a copy of the
-  // shared_ptr to the sensor impl to use for publishing the image
-  // message.
-  (new FAutoDeleteAsyncTask<FImagePackingAsyncTask>(
-          std::move(CaptureResults), CapturedCameraTransform, SimCamera,
-          std::move(Annotations)))
-          ->StartBackgroundTask();
-
-  // Reset flag to allow next frame capture to start
-  bCapturePending = false;
+  ReadbackPipeline->Push(std::move(Entry));
+  ReadbackPipeline->Poll(SimCamera);
 }
 
 void UUnrealCamera::DrawViewFrustum() {
