@@ -310,33 +310,42 @@ void TopicManager::Impl::Start() {
 }
 
 void TopicManager::Impl::Stop() {
-  std::unique_lock<std::shared_timed_mutex> exclusive_lock(manager_lock_);
+  nng_socket socket_to_close;
+  {
+    std::unique_lock<std::shared_timed_mutex> exclusive_lock(manager_lock_);
 
-  send_dispatcher_.stop();
-  recv_dispatcher_.stop();
+    send_dispatcher_.stop();
+    recv_dispatcher_.stop();
 
-  state_ = false;
+    state_ = false;
 
-  if (recv_thread_.joinable()) {
-    try {
-      recv_thread_.join();
-    } catch (std::exception& exception) {
-      log_.LogError(name_, "recv_thread_.join() failed with '%s'.",
-                    exception.what());
-    } catch (...) {
-      log_.LogError(name_,
-                    "recv_thread_.join() failed with unknown exception.");
+    if (recv_thread_.joinable()) {
+      try {
+        recv_thread_.join();
+      } catch (std::exception& exception) {
+        log_.LogError(name_, "recv_thread_.join() failed with '%s'.",
+                      exception.what());
+      } catch (...) {
+        log_.LogError(name_,
+                      "recv_thread_.join() failed with unknown exception.");
+      }
     }
+
+    socket_to_close = topic_socket_;
+    topic_socket_ = NNG_SOCKET_INITIALIZER;
   }
 
-  int rv = nng_close(topic_socket_);
+  // Closing the socket removes its pipes, and each removal runs
+  // HandleNNGPipeEvent(), which takes manager_lock_. Close without holding the
+  // lock, or a connected client makes the close wait for a lock this thread
+  // holds.
+  int rv = nng_close(socket_to_close);
   if (rv != 0) {
     auto errno_str = nng_strerror(rv);
     log_.LogError(name_, "nng_close failed with '%s'.", errno_str);
   }
 
-  topic_socket_ = NNG_SOCKET_INITIALIZER;
-
+  std::unique_lock<std::shared_timed_mutex> exclusive_lock(manager_lock_);
   enable_topic_published_callback_ = false;
   topic_published_callback_ = nullptr;
 }

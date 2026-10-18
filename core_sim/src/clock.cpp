@@ -160,6 +160,14 @@ void SteppableClock::Step() {
 
 SimClock::SimClock() {}
 
+static std::atomic<bool> sim_clock_is_stopping{false};
+
+void SimClock::SetStopping(bool is_stopping) {
+  sim_clock_is_stopping.store(is_stopping);
+}
+
+bool SimClock::IsStopping() { return sim_clock_is_stopping.load(); }
+
 // Output of this function should not be stored as pointer might change
 ClockBase* SimClock::Get(std::shared_ptr<ClockBase> specified_clock) {
   static std::shared_ptr<ClockBase> clock;

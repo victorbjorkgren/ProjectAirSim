@@ -381,6 +381,7 @@ void Scene::RegisterServiceMethod(const ServiceMethod& method,
 }
 
 void Scene::Start() {
+  SimClock::SetStopping(false);
   pimpl_->RegisterServiceMethods();
   pimpl_->BeginUpdate();     // begin all robot updates (do this before starting
                              // scene tick to make sure it finishes before the
@@ -390,6 +391,9 @@ void Scene::Start() {
 }
 
 void Scene::Stop() {
+  // Flight commands wait on sim time, which stops with the scene tick; end
+  // them first so the service threads running them can finish.
+  SimClock::SetStopping(true);
   pimpl_->EndUpdate();  // stop all robot updates (do this before stopping scene
                         // tick to give robots a chance to unblock any wait
                         // loops like an external Simulink controller connection
