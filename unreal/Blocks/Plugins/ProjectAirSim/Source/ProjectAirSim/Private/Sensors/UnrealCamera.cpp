@@ -216,6 +216,10 @@ void UUnrealCamera::CreateComponents() {
   SceneCaptureComponent->bCaptureEveryFrame = false;
   SceneCaptureComponent->bCaptureOnMovement = false;
   SceneCaptureComponent->bAlwaysPersistRenderingState = true;
+  // A scene capture gets ray tracing only when it opts in. Without it, a project with hardware
+  // ray tracing on and distance fields off renders the camera with Lumen silently off (no GI, no
+  // short-range AO, an unoccluded skylight). A no-op where ray tracing is off.
+  SceneCaptureComponent->bUseRayTracingIfEnabled = true;
   // Through ShowFlagSettings: registering resets ShowFlags to the class defaults.
   FEngineShowFlagsSetting TemporalAA;
   TemporalAA.ShowFlagName = TEXT("TemporalAA");
