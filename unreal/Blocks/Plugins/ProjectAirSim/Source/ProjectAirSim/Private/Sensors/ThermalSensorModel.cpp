@@ -183,7 +183,7 @@ void FThermalSensorModel::ToDisplay(const std::vector<float>& T, std::vector<uin
       const float U = (V - Lo) / (Hi - Lo);
       H[std::clamp(int(U * kLutBins), 0, kLutBins - 1)] += 1.f;
     }
-    const float Plateau = 4.0f * float(N) / kLutBins;
+    const float Plateau = 2.0f * float(N) / kLutBins;
     float Sum = 0;
     for (float& V : H) { V = std::min(V, Plateau); Sum += V; }
     Lut.resize(kLutBins);
@@ -194,7 +194,8 @@ void FThermalSensorModel::ToDisplay(const std::vector<float>& T, std::vector<uin
   Out->resize(N * 3);
   for (size_t I = 0; I < N; ++I) {
     float U = std::clamp((T[I] - Lo) / (Hi - Lo), 0.0f, 1.0f);
-    if (!Lut.empty()) U = Lut[std::min(int(U * Lut.size()), int(Lut.size()) - 1)];
+    // Half equalised, half linear: full equalisation posterises smooth gradients.
+    if (!Lut.empty()) U = 0.5f * U + 0.5f * Lut[std::min(int(U * Lut.size()), int(Lut.size()) - 1)];
     // 8-bit display: the camera outputs a grey level.
     const float G = std::round(U * 255.0f) / 255.0f;
     Rgb C;

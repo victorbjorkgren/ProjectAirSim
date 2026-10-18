@@ -48,7 +48,9 @@ if (ci == 0) {
   snowSusc = 1.0;
 }
 
-float rho = max(dot(Base.rgb, float3(0.2126, 0.7152, 0.0722)), 0.04);
+// The GBuffer holds the base colour in 8 bits: below an albedo of about 0.1 its steps are tens of percent of the
+// value and would print contour bands into the irradiance, so darker surfaces are treated as 0.1.
+float rho = max(dot(Base.rgb, float3(0.2126, 0.7152, 0.0722)), 0.10);
 float Elux = lumW * kPi / rho;
 float fSun = clamp(Elux / (max(SunLux, 1e-3) * 1.15), 0.0, 1.1);
 

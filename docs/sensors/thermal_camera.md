@@ -8,7 +8,7 @@ the type-7 entry; a type-8 entry alone also works). The pinhole lens only.
 ```jsonc
 "capture-settings": [
   {"image-type": 7, "width": 640, "height": 512, "fov-degrees": 56, "capture-enabled": true, "compress": false,
-   "thermal": {"palette": "white-hot", "agc": "histogram-equalization", "seed": 1234, "classes-file": "/path/thermal_classes.json"}},
+   "thermal": {"palette": "white-hot", "agc": "percentile", "seed": 1234, "classes-file": "/path/thermal_classes.json"}},
   {"image-type": 8, "width": 640, "height": 512, "fov-degrees": 56, "capture-enabled": true}
 ]
 ```
@@ -53,6 +53,8 @@ Runs on the packing thread after the readback, so it costs the render thread not
 vignette, optional edge halo, fixed-pattern noise (per-pixel gain and offset, column stripes), temporal noise
 (`netd-kelvin`), 14-bit style quantisation (type 8 is 0.01 K), automatic gain control and palette (type 7).
 
+**Display steadiness**: `percentile` AGC keeps the mapping nearly constant frame to frame (spruce lane on NordicProvingGround, TAA off: still-camera corner repeatability 0.94, a 17 deg/s turn re-finds 43% of corners, like FXAA on the colour camera). `histogram-equalization` looks closer to a drone's processed video but its mapping follows the view: 0.89 and 30% on the same tests. Pick `percentile` for SLAM and `histogram-equalization` for pictures.
+
 **Noise is deterministic**: it derives from `seed` and the camera's frame counter only, so a run with the same seed and
 the same capture count reproduces. `"noise-enabled": false` gives a clean image. Type 8 carries the same noise and
 blur as type 7 (it is what a radiometric camera outputs); set `noise-enabled` false, `psf-sigma-px` 0 and
@@ -67,7 +69,7 @@ blur as type 7 (it is what a radiometric camera outputs); set `noise-enabled` fa
 | `seed` | 1234 | seed of both noises |
 | `netd-kelvin` | 0.05 | temporal noise RMS, K |
 | `fpn-gain-sigma`, `fpn-offset-kelvin`, `fpn-column-kelvin` | 0.004, 0.08, 0.05 | fixed-pattern noise after non-uniformity correction |
-| `agc` | `histogram-equalization` | `histogram-equalization` (plateau), `percentile` or `fixed` |
+| `agc` | `percentile` | `percentile`, `histogram-equalization` (plateau, half blended with linear; richer contrast, less steady) or `fixed` |
 | `agc-low-percent`, `agc-high-percent` | 1, 99.5 | percentiles mapped to black and white |
 | `agc-min-span-kelvin` | 6 | the display never stretches less than this span (keeps a flat scene from becoming noise) |
 | `agc-smoothing` | 0.9 | weight of the previous frame's range: a steady display for SLAM |

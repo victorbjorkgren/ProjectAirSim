@@ -86,7 +86,7 @@ struct ThermalSettings {
   float fpn_offset_kelvin = 0.08f;    // per-pixel offset spread, K
   float fpn_column_kelvin = 0.05f;    // per-column stripe amplitude, K
   // Display
-  Agc agc = Agc::kHistogramEqualization;
+  Agc agc = Agc::kPercentile;
   float agc_low_percent = 1.0f;       // percentile mapped to black
   float agc_high_percent = 99.5f;     // percentile mapped to white
   float agc_min_span_kelvin = 6.0f;   // the display never stretches a smaller span than this
