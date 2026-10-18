@@ -14,9 +14,9 @@ namespace lens = microsoft::projectairsim::lens;
 
 TSharedPtr<const FLensRemap> FLensRemap::Create(
     const projectairsim::CaptureSettings& Setting) {
-  if (Setting.lens.model == projectairsim::LensModel::kPinhole) return nullptr;
+  if (!lens::NeedsRemap(Setting.lens)) return nullptr;
 
-  const auto Source = lens::SourceForKannalaBrandt(
+  const auto Source = lens::RenderSource(
       Setting.lens, Setting.width, Setting.height, Setting.fov_degrees);
   TSharedPtr<FLensRemap> Map = MakeShared<FLensRemap>();
   Map->Width = Setting.width;
@@ -32,10 +32,16 @@ TSharedPtr<const FLensRemap> FLensRemap::Create(
   const double SourceCy = (Map->SourceHeight - 1) / 2.0;
   const double MaxTheta = Setting.lens.max_incidence_degrees * PI / 180.0;
   const auto& K = Setting.lens.distortion;
+  const bool bPinhole = Setting.lens.model == projectairsim::LensModel::kPinhole;
 
   // Output pixel position -> source pinhole position along the same ray.
   auto ToSource = [&](double U, double V) {
     const double X = (U - Cx) / F, Y = (V - Cy) / F;
+    // A supersampled pinhole: the same ray in the larger pinhole image.
+    if (bPinhole) {
+      return FVector2f(SourceCx + X * Source.focal_px,
+                       SourceCy + Y * Source.focal_px);
+    }
     const double ThetaD = std::hypot(X, Y);
     if (ThetaD < 1e-12) return FVector2f(SourceCx, SourceCy);
     const double Theta = lens::KannalaBrandtTheta(ThetaD, K);
@@ -68,21 +74,19 @@ TSharedPtr<const FLensRemap> FLensRemap::Create(
 }
 
 FIntPoint FLensRemap::RenderSize(const projectairsim::CaptureSettings& Setting) {
-  if (Setting.lens.model == projectairsim::LensModel::kPinhole) {
+  if (!lens::NeedsRemap(Setting.lens)) {
     return FIntPoint(Setting.width, Setting.height);
   }
-  const auto Source = lens::SourceForKannalaBrandt(
+  const auto Source = lens::RenderSource(
       Setting.lens, Setting.width, Setting.height, Setting.fov_degrees);
   return FIntPoint(Source.width, Source.height);
 }
 
 float FLensRemap::RenderFovDegrees(
     const projectairsim::CaptureSettings& Setting) {
-  if (Setting.lens.model == projectairsim::LensModel::kPinhole) {
-    return Setting.fov_degrees;
-  }
-  return lens::SourceForKannalaBrandt(Setting.lens, Setting.width,
-                                      Setting.height, Setting.fov_degrees)
+  if (!lens::NeedsRemap(Setting.lens)) return Setting.fov_degrees;
+  return lens::RenderSource(Setting.lens, Setting.width, Setting.height,
+                            Setting.fov_degrees)
       .fov_degrees;
 }
 

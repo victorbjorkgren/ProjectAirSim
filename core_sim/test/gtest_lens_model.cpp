@@ -74,3 +74,25 @@ TEST(LensModel, SourceIsCappedAndIncidenceValidated) {
   EXPECT_THROW(lens::SourceForKannalaBrandt(fisheye, 1280, 720, 120.0),
                projectairsim::Error);
 }
+
+TEST(LensModel, PinholeSupersamplingRendersALargerImageOfTheSameView) {
+  projectairsim::LensSettings pinhole;
+  EXPECT_FALSE(lens::NeedsRemap(pinhole));
+  pinhole.source_sampling = 2.0;
+  EXPECT_TRUE(lens::NeedsRemap(pinhole));
+  const auto source = lens::RenderSource(pinhole, 1280, 720, 90.0);
+  EXPECT_EQ(source.width, 2560u);
+  EXPECT_EQ(source.height, 1440u);
+  EXPECT_DOUBLE_EQ(source.fov_degrees, 90.0);
+  EXPECT_NEAR(source.focal_px, 1280.0, 1e-9);
+
+  EXPECT_THROW(lens::RenderSource(pinhole, 2560, 1440, 90.0),
+               projectairsim::Error);  // over 4096 px per side
+
+  // Only 2 is an exact box filter; anything else throws.
+  for (const double sampling : {0.0, 1.5, 3.0}) {
+    pinhole.source_sampling = sampling;
+    EXPECT_THROW(lens::RenderSource(pinhole, 1280, 720, 90.0),
+                 projectairsim::Error);
+  }
+}
