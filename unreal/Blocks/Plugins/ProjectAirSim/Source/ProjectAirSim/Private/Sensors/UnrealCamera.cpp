@@ -65,6 +65,14 @@ static TAutoConsoleVariable<int32> CVarSceneCameraReflectionMethod(
     TEXT("0 none, 1 Lumen, 2 screen space."),
     ECVF_Default);
 
+// The thermal camera has no jitter of its own: temporal AA on it moves a hot needle against the cold sky
+// by a sub-pixel step every frame, which a still camera should not see. The optics' blur (the sensor
+// model's psf-sigma-px) anti-aliases instead. 1 turns TSR/TAA on (steadier in a turn, noisier when still).
+static TAutoConsoleVariable<int32> CVarThermalCameraTemporalAA(
+    TEXT("projectairsim.ThermalCamera.TemporalAA"), 0,
+    TEXT("Temporal anti-aliasing on thermal cameras: 0 off (default), 1 on."),
+    ECVF_Default);
+
 static int32 SceneCameraMethod(const TAutoConsoleVariable<int32>& Override,
                                const TCHAR* ProjectCVar) {
   const int32 Value = Override.GetValueOnGameThread();
@@ -360,7 +368,7 @@ void UUnrealCamera::CreateComponents() {
   }
   FEngineShowFlagsSetting ThermalTemporalAA;
   ThermalTemporalAA.ShowFlagName = TEXT("TemporalAA");
-  ThermalTemporalAA.Enabled = CVarSceneCameraTemporalAA.GetValueOnGameThread() != 0;
+  ThermalTemporalAA.Enabled = CVarThermalCameraTemporalAA.GetValueOnGameThread() != 0;
   ThermalFlags.Add(ThermalTemporalAA);
   ThermalCaptureComponent->SetShowFlagSettings(ThermalFlags);
   if (ThermalMaterialStatic) {
@@ -432,7 +440,14 @@ void UUnrealCamera::SetupThermal(
   const auto& Thermal = CameraSetting.capture_settings.at(Ir).thermal;
   ThermalSensor = MakeShared<FThermalSensorModel, ESPMode::ThreadSafe>(Thermal);
   if (!Thermal.classes_file.empty()) {
-    FThermalScene::Get().LoadMapping(UTF8_TO_TCHAR(Thermal.classes_file.c_str()));
+    try {
+      FThermalScene::Get().LoadMapping(UTF8_TO_TCHAR(Thermal.classes_file.c_str()));
+    } catch (const std::exception& E) {
+      UnrealLogger::Log(projectairsim::LogLevel::kError,
+                        TEXT("[UnrealCamera] Thermal class mapping '%hs': %hs"),
+                        Thermal.classes_file.c_str(), E.what());
+      throw;
+    }
   }
   // Object classes arrive through the custom stencil.
   if (IConsoleVariable* CustomDepth =
@@ -442,6 +457,8 @@ void UUnrealCamera::SetupThermal(
     }
   }
   if (ThermalMaterial == nullptr) {
+    UnrealLogger::Log(projectairsim::LogLevel::kError,
+                      TEXT("[UnrealCamera] /ProjectAirSim/Sensors/ThermalMaterial is missing"));
     throw std::runtime_error(
         "Thermal camera enabled but /ProjectAirSim/Sensors/ThermalMaterial is missing");
   }
@@ -1418,6 +1435,11 @@ void UUnrealCamera::ComputeFrustumVertices() {
   for (int ImageType = 0; ImageType < ImageTypeCount(); ++ImageType) {
     FrustumInfo Info;
     USceneCaptureComponent2D* CaptureComp = Captures[ImageType];
+    // kTemperature has no capture of its own: it shares kInfrared's frustum.
+    if (CaptureComp == nullptr) {
+      CaptureComp = Captures[projectairsim::MathUtils::ToNumeric(
+          projectairsim::ImageType::kInfrared)];
+    }
 
     float Angle = FMath::DegreesToRadians(CaptureComp->FOVAngle / 2);
     float AspectRatio = float(CaptureComp->TextureTarget->SizeX) /

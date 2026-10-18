@@ -60,7 +60,9 @@ inertia = lerp(inertia, 0.25, snowW);
 
 // Surface energy balance, linearised: absorbed sun - long-wave loss to the sky = convection + radiation to the air.
 float qInst = fSun * SolNow;
-float qSlow = lerp(0.6, fSun, 0.5) * SolSlow;
+// Only a real sun makes the pixel's lit fraction mean sunlight: at night the light is the drones' own.
+float sunUp = saturate(SolNow / 50.0);
+float qSlow = lerp(0.6, fSun, 0.5 * sunUp) * SolSlow;
 float absorbed = alpha * lerp(qInst, qSlow, inertia);
 float fSky = saturate(0.5 * (1.0 + N.z));
 fSky *= fSky;
@@ -146,12 +148,12 @@ def run():
     custom.set_editor_property("description", "Thermal")
     custom.set_editor_property("output_type", unreal.CustomMaterialOutputType.CMOT_FLOAT3)
 
-    inputs = []
-    for name, _ in nodes:
-        inputs.append(unreal.CustomInput(input_name=name))
-    for i, s in enumerate(scalars):
-        inputs.append(unreal.CustomInput(input_name=s))
-    inputs.append(unreal.CustomInput(input_name="Tex"))
+    def custom_input(name):
+        ci = unreal.CustomInput()
+        ci.set_editor_property("input_name", name)
+        return ci
+
+    inputs = [custom_input(name) for name, _ in nodes] + [custom_input(s) for s in scalars] + [custom_input("Tex")]
     custom.set_editor_property("inputs", inputs)
 
     for name, n in nodes:

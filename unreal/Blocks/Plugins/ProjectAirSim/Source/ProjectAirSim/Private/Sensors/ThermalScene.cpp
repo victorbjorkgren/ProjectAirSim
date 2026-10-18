@@ -16,6 +16,8 @@
 #include "EngineUtils.h"
 #include "GameFramework/Actor.h"
 #include "Landscape.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
 #include "LandscapeComponent.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
@@ -160,9 +162,15 @@ void FThermalScene::SetEnvironment(const FThermalEnvironment& NewEnvironment) {
 }
 
 void FThermalScene::LoadMapping(const FString& Path) {
-  std::ifstream File(TCHAR_TO_UTF8(*Path));
-  if (!File) throw std::runtime_error(std::string("Thermal mapping file not found: ") + TCHAR_TO_UTF8(*Path));
-  json Doc = json::parse(File);
+  // A packaged Mac app is sandboxed: a relative path is read from the project's Content
+  // directory, where a file staged as non-UFS lives (DirectoriesToAlwaysStageAsNonUFS).
+  FString Resolved = Path;
+  if (FPaths::IsRelative(Resolved)) Resolved = FPaths::Combine(FPaths::ProjectContentDir(), Resolved);
+  FString Text;
+  if (!FFileHelper::LoadFileToString(Text, *Resolved)) {
+    throw std::runtime_error(std::string("Thermal mapping file not readable: ") + TCHAR_TO_UTF8(*Resolved));
+  }
+  json Doc = json::parse(std::string(TCHAR_TO_UTF8(*Text)));
 
   if (Doc.contains("environment")) {
     const json& E = Doc.at("environment");

@@ -8,7 +8,7 @@ the type-7 entry; a type-8 entry alone also works). The pinhole lens only.
 ```jsonc
 "capture-settings": [
   {"image-type": 7, "width": 640, "height": 512, "fov-degrees": 56, "capture-enabled": true, "compress": false,
-   "thermal": {"palette": "white-hot", "agc": "percentile", "seed": 1234, "classes-file": "/path/thermal_classes.json"}},
+   "thermal": {"palette": "white-hot", "agc": "histogram-equalization", "seed": 1234, "classes-file": "/path/thermal_classes.json"}},
   {"image-type": 8, "width": 640, "height": 512, "fov-degrees": 56, "capture-enabled": true}
 ]
 ```
@@ -67,7 +67,7 @@ blur as type 7 (it is what a radiometric camera outputs); set `noise-enabled` fa
 | `seed` | 1234 | seed of both noises |
 | `netd-kelvin` | 0.05 | temporal noise RMS, K |
 | `fpn-gain-sigma`, `fpn-offset-kelvin`, `fpn-column-kelvin` | 0.004, 0.08, 0.05 | fixed-pattern noise after non-uniformity correction |
-| `agc` | `percentile` | `percentile`, `histogram-equalization` (plateau) or `fixed` |
+| `agc` | `histogram-equalization` | `histogram-equalization` (plateau), `percentile` or `fixed` |
 | `agc-low-percent`, `agc-high-percent` | 1, 99.5 | percentiles mapped to black and white |
 | `agc-min-span-kelvin` | 6 | the display never stretches less than this span (keeps a flat scene from becoming noise) |
 | `agc-smoothing` | 0.9 | weight of the previous frame's range: a steady display for SLAM |

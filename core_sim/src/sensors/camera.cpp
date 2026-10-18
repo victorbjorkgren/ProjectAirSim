@@ -1486,7 +1486,7 @@ void Camera::Loader::LoadThermalSettings(const json& json,
   t.fixed_max_celsius = JsonUtils::GetNumber<float>(thermal_json, C::thermal_fixed_max_celsius, t.fixed_max_celsius);
   t.classes_file = JsonUtils::GetString(thermal_json, C::thermal_classes_file, t.classes_file);
 
-  const std::string agc = JsonUtils::GetString(thermal_json, C::thermal_agc, "percentile");
+  const std::string agc = JsonUtils::GetString(thermal_json, C::thermal_agc, "histogram-equalization");
   if (agc == "percentile") t.agc = ThermalSettings::Agc::kPercentile;
   else if (agc == "histogram-equalization") t.agc = ThermalSettings::Agc::kHistogramEqualization;
   else if (agc == "fixed") t.agc = ThermalSettings::Agc::kFixed;
