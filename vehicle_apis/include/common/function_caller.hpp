@@ -66,6 +66,8 @@ class FunctionCaller {
   bool IsTimeout() const {
     if (IsComplete()) {
       return false;
+    } else if (SimClock::IsStopping()) {
+      return true;
     } else {
       TimeNano now_nanos = Clock()->NowSimNanos();
       auto elapsed_sec = ((now_nanos - command_start_) / 1.0E9);

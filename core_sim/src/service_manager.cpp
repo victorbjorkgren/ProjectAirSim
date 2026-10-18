@@ -62,6 +62,10 @@ class ServiceManager::Impl {
     const ClientAuthorization* client_authorization;
     JobState state;
 
+    // True while a service method runs for this job, on an NNG task thread.
+    // Stop() must not free the job's AIO under it.
+    std::atomic<bool> in_method{false};
+
     // Request data
     int request_id;
     std::string request_method;
@@ -254,20 +258,28 @@ void ServiceManager::Impl::Stop() {
     }
   }
 
-  // Wait for all operations to complete before proceeding
+  // Wait for all operations to complete before proceeding. A job still busy
+  // after the timeout is running a service method that did not return; its AIO
+  // and context are left alone below (freeing them under a running callback
+  // crashes), and the method is reported.
   logger_.LogTrace(name_, "Waiting for all AIO operations to complete");
+  bool job_still_busy[kMaxConcurrentJobs] = {};
+  const auto deadline =
+      std::chrono::steady_clock::now() + std::chrono::seconds(5);
   for (int job_num = 0; job_num < kMaxConcurrentJobs; job_num++) {
-    if (jobs_[job_num].aio != nullptr) {
-      // Add timeout to prevent hanging
-      auto start_time = std::chrono::steady_clock::now();
-      while (nng_aio_busy(jobs_[job_num].aio)) {
-        auto elapsed = std::chrono::steady_clock::now() - start_time;
-        if (elapsed > std::chrono::seconds(5)) {
-          logger_.LogWarning(name_, "Timeout waiting for AIO operation %d to complete", job_num);
-          break;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-      }
+    if (jobs_[job_num].aio == nullptr) continue;
+    while ((nng_aio_busy(jobs_[job_num].aio) || jobs_[job_num].in_method) &&
+           std::chrono::steady_clock::now() < deadline) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    if (jobs_[job_num].in_method) {
+      job_still_busy[job_num] = true;
+      logger_.LogError(
+          name_,
+          "Service job %d is still running '%s' 5 s after the service manager "
+          "was stopped; leaving it to finish.",
+          job_num, jobs_[job_num].request_method.c_str());
+    } else {
       nng_aio_wait(jobs_[job_num].aio);
     }
   }
@@ -284,7 +296,7 @@ void ServiceManager::Impl::Stop() {
   // Close all NNG contexts before freeing AIO objects
   logger_.LogTrace(name_, "Closing all NNG contexts");
   for (int job_num = 0; job_num < kMaxConcurrentJobs; job_num++) {
-    if (jobs_[job_num].aio != nullptr) {  // Only close context if AIO is valid
+    if (jobs_[job_num].aio != nullptr && !job_still_busy[job_num]) {
       int rv = nng_ctx_close(jobs_[job_num].ctx);
       if (rv != 0) {
         auto errno_str = nng_strerror(rv);
@@ -296,7 +308,7 @@ void ServiceManager::Impl::Stop() {
   // Now safely free all AIO objects after all operations are complete
   logger_.LogTrace(name_, "Freeing all AIO objects");
   for (int job_num = 0; job_num < kMaxConcurrentJobs; job_num++) {
-    if (jobs_[job_num].aio != nullptr) {
+    if (jobs_[job_num].aio != nullptr && !job_still_busy[job_num]) {
       nng_aio_free(jobs_[job_num].aio);
       jobs_[job_num].aio = nullptr;
     }
@@ -542,9 +554,12 @@ void ServiceManager::Impl::RunJob(Job* job) {
             job->request_params = request_msg.GetParams();
 
             //! 5. Process requested method and get response
+            job->in_method = true;
             response = ServiceManager::Impl::RequestResponse(
                 service_method_start_time, job);
+            job->in_method = false;
           } catch (...) {
+            job->in_method = false;
             response = "Error: Got bad request message.";
           }
         }

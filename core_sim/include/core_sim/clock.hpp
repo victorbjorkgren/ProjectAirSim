@@ -132,6 +132,13 @@ class SimClock {  // TODO Avoid factory singleton pattern?
   // Output of this function should not be stored as pointer might change
   static ClockBase* Get(std::shared_ptr<ClockBase> specified_clock = nullptr);
 
+  // True from the moment a scene begins to stop until the next scene starts.
+  // The sim clock does not advance while a scene is stopped, so a flight
+  // command that waits on sim time (vehicle_apis::FunctionCaller) must end
+  // when this is set instead of waiting for a time that will not come.
+  static void SetStopping(bool is_stopping);
+  static bool IsStopping();
+
   // Don't allow multiple instances of this class
   SimClock(SimClock const&) = delete;
   void operator=(SimClock const&) = delete;
