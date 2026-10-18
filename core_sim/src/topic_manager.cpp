@@ -5,7 +5,6 @@
 
 #include "topic_manager.hpp"
 
-#include <algorithm>
 #include <array>
 #include <atomic>
 #include <cstdlib>
@@ -264,7 +263,13 @@ void TopicManager::Impl::Start() {
   // as 4K PNG frames on a stepped clock, which can take longer than that to send.
   int send_timeout = 1000 / 60;  // 16.7 ms = 60 FPS
   if (const char* env = std::getenv("PROJECTAIRSIM_TOPIC_SEND_TIMEOUT_MS")) {
-    send_timeout = std::max(1, std::atoi(env));
+    char* end = nullptr;
+    const long value = std::strtol(env, &end, 10);
+    if (end == env || *end != '\0' || value < 1 || value > 60000) {
+      throw Error(std::string("PROJECTAIRSIM_TOPIC_SEND_TIMEOUT_MS must be 1-60000 ms, got '") +
+                  env + "'.");
+    }
+    send_timeout = static_cast<int>(value);
   }
   rv = nng_setopt_ms(topic_socket_, NNG_OPT_SENDTIMEO, send_timeout);
   if (rv != 0) {
