@@ -3,6 +3,7 @@
 //
 // MIT License. All rights reserved.
 
+#include <cmath>
 #include "core_sim/sensors/camera.hpp"
 
 #include <map>
@@ -40,6 +41,7 @@ class Camera::Loader {
   void InitializeCaptureSettings();
   void LoadCaptureSettings(const json& json);
   void LoadCaptureSetting(const json& json);
+  void LoadThermalSettings(const json& json, CaptureSettings& setting);
   void InitializeNoiseSettings();
   void LoadNoiseSettings(const json& json);
   void LoadNoiseSetting(const json& json);
@@ -470,6 +472,18 @@ void Camera::Impl::CreateTopics() {
             MessageType::kImage),
       Topic("surface_normals_camera_info", topic_path_, TopicType::kPublished,
             60, MessageType::kCameraInfo));
+
+  image_entries_[ImageType::kInfrared].Set(
+      Topic("infrared_camera", topic_path_, TopicType::kPublished, 60,
+            MessageType::kImage),
+      Topic("infrared_camera_info", topic_path_, TopicType::kPublished, 60,
+            MessageType::kCameraInfo));
+
+  image_entries_[ImageType::kTemperature].Set(
+      Topic("temperature_camera", topic_path_, TopicType::kPublished, 60,
+            MessageType::kImage),
+      Topic("temperature_camera_info", topic_path_, TopicType::kPublished, 60,
+            MessageType::kCameraInfo));
 
 #ifndef DISABLE_ONNX_RUNTIME
   onnx_.post_process_image_entry.image_topic =
@@ -1305,6 +1319,38 @@ void Camera::Loader::LoadCaptureSettings(const json& json) {
     throw;
   }
 
+  // Image types 7 (display) and 8 (radiometric) are two outputs of one render:
+  // they share size, field of view and sensor model. List either or both; the
+  // one that is not listed takes over the other's settings.
+  {
+    auto& all = impl.camera_settings.capture_settings;
+    auto& ir = all.at(MathUtils::ToNumeric(ImageType::kInfrared));
+    auto& temp = all.at(MathUtils::ToNumeric(ImageType::kTemperature));
+    if (ir.capture_enabled && temp.capture_enabled) {
+      const bool same_fov =
+          ir.fov_degrees == temp.fov_degrees ||
+          (std::isnan(ir.fov_degrees) && std::isnan(temp.fov_degrees));
+      if (ir.width != temp.width || ir.height != temp.height || !same_fov) {
+        throw Error(
+            "Thermal image types 7 and 8 render together: width, height and "
+            "fov-degrees must match.");
+      }
+      // The sensor model is read from the type-7 entry.
+      temp.thermal = ir.thermal;
+    } else if (temp.capture_enabled) {
+      const bool enabled = temp.capture_enabled;
+      ir = temp;
+      ir.image_type = MathUtils::ToNumeric(ImageType::kInfrared);
+      ir.capture_enabled = false;
+      temp.capture_enabled = enabled;
+    } else if (ir.capture_enabled) {
+      const int type = temp.image_type;
+      temp = ir;
+      temp.image_type = type;
+      temp.capture_enabled = false;
+    }
+  }
+
   impl.logger_.LogVerbose(impl.name_, "[%s] 'capture_settings' loaded.",
                           impl.id_.c_str());
 }
@@ -1405,7 +1451,55 @@ void Camera::Loader::LoadCaptureSetting(const json& json) {
         setting.lens.source_sampling);
   }
 
+  if (id == MathUtils::ToNumeric(ImageType::kInfrared) ||
+      id == MathUtils::ToNumeric(ImageType::kTemperature)) {
+    LoadThermalSettings(json, setting);
+  }
+
   impl.camera_settings.capture_settings.at(id) = setting;
+}
+
+void Camera::Loader::LoadThermalSettings(const json& json,
+                                         CaptureSettings& setting) {
+  // The thermal image types are rendered through the pinhole only.
+  if (setting.lens.model != LensModel::kPinhole) {
+    throw Error("Thermal image types (7, 8) support only the pinhole lens.");
+  }
+  auto thermal_json = JsonUtils::GetJsonObject(json, Constant::Config::thermal);
+  ThermalSettings& t = setting.thermal;
+  if (JsonUtils::IsEmpty(thermal_json)) return;
+  using C = Constant::Config;
+  t.psf_sigma_px = JsonUtils::GetNumber<float>(thermal_json, C::thermal_psf_sigma_px, t.psf_sigma_px);
+  t.vignette = JsonUtils::GetNumber<float>(thermal_json, C::thermal_vignette, t.vignette);
+  t.halo = JsonUtils::GetNumber<float>(thermal_json, C::thermal_halo, t.halo);
+  t.noise_enabled = JsonUtils::GetBoolean(thermal_json, C::thermal_noise_enabled, t.noise_enabled);
+  t.seed = static_cast<uint32_t>(JsonUtils::GetInteger(thermal_json, C::thermal_seed, static_cast<int>(t.seed)));
+  t.netd_kelvin = JsonUtils::GetNumber<float>(thermal_json, C::thermal_netd_kelvin, t.netd_kelvin);
+  t.fpn_gain_sigma = JsonUtils::GetNumber<float>(thermal_json, C::thermal_fpn_gain_sigma, t.fpn_gain_sigma);
+  t.fpn_offset_kelvin = JsonUtils::GetNumber<float>(thermal_json, C::thermal_fpn_offset_kelvin, t.fpn_offset_kelvin);
+  t.fpn_column_kelvin = JsonUtils::GetNumber<float>(thermal_json, C::thermal_fpn_column_kelvin, t.fpn_column_kelvin);
+  t.agc_low_percent = JsonUtils::GetNumber<float>(thermal_json, C::thermal_agc_low_percent, t.agc_low_percent);
+  t.agc_high_percent = JsonUtils::GetNumber<float>(thermal_json, C::thermal_agc_high_percent, t.agc_high_percent);
+  t.agc_min_span_kelvin = JsonUtils::GetNumber<float>(thermal_json, C::thermal_agc_min_span_kelvin, t.agc_min_span_kelvin);
+  t.agc_smoothing = JsonUtils::GetNumber<float>(thermal_json, C::thermal_agc_smoothing, t.agc_smoothing);
+  t.fixed_min_celsius = JsonUtils::GetNumber<float>(thermal_json, C::thermal_fixed_min_celsius, t.fixed_min_celsius);
+  t.fixed_max_celsius = JsonUtils::GetNumber<float>(thermal_json, C::thermal_fixed_max_celsius, t.fixed_max_celsius);
+  t.classes_file = JsonUtils::GetString(thermal_json, C::thermal_classes_file, t.classes_file);
+
+  const std::string agc = JsonUtils::GetString(thermal_json, C::thermal_agc, "percentile");
+  if (agc == "percentile") t.agc = ThermalSettings::Agc::kPercentile;
+  else if (agc == "histogram-equalization") t.agc = ThermalSettings::Agc::kHistogramEqualization;
+  else if (agc == "fixed") t.agc = ThermalSettings::Agc::kFixed;
+  else throw Error("Thermal 'agc' must be percentile, histogram-equalization or fixed.");
+
+  const std::string palette = JsonUtils::GetString(thermal_json, C::thermal_palette, "white-hot");
+  if (palette == "white-hot") t.palette = ThermalSettings::Palette::kWhiteHot;
+  else if (palette == "black-hot") t.palette = ThermalSettings::Palette::kBlackHot;
+  else if (palette == "ironbow") t.palette = ThermalSettings::Palette::kIronbow;
+  else throw Error("Thermal 'palette' must be white-hot, black-hot or ironbow.");
+
+  if (t.agc_low_percent < 0 || t.agc_high_percent > 100 || t.agc_low_percent >= t.agc_high_percent)
+    throw Error("Thermal AGC percentiles need 0 <= low < high <= 100.");
 }
 
 void Camera::Loader::InitializeNoiseSettings() {

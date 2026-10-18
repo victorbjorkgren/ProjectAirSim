@@ -92,6 +92,8 @@ class Drone(object):
             4: "depth_vis_camera",
             5: "disparity_normalized_camera",
             6: "surface_normals_camera",
+            7: "infrared_camera",
+            8: "temperature_camera",
         }
 
         for sensor in data["sensors"]:

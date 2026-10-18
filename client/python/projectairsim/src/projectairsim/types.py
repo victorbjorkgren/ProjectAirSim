@@ -64,7 +64,9 @@ class ImageType(IntEnum):
     SEGMENTATION,
     DEPTH_VIS,
     DISPARITY_NORMALIZED,
-    SURFACE_NORMALS
+    SURFACE_NORMALS,
+    INFRARED,
+    TEMPERATURE
     """
 
     SCENE = 0
@@ -74,6 +76,8 @@ class ImageType(IntEnum):
     DEPTH_VIS = 4
     DISPARITY_NORMALIZED = 5
     SURFACE_NORMALS = 6
+    INFRARED = 7  # thermal camera, 8-bit display image
+    TEMPERATURE = 8  # thermal camera, uint16 centikelvin (see utils.unpack_temperature_kelvin)
 
 
 class BoxAlignment(IntEnum):

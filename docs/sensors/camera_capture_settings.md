@@ -79,7 +79,7 @@ A single camera can output multiple capture types. The following parameters desc
 
 | Parameter                       | Value-range                       | Description & notes                                          |
 | ------------------------------- | --------------------------------- | ------------------------------------------------------------ |
-| image-type                      | index 0~6                         | Index for camera type: 0 = RGB Scene, 1 = Depth Planar, 2 = Depth Perspective, 3 = Segmentation, 4 = Depth Visualization, 5 = DisparityNormalized, 6 = SurfaceNormals |
+| image-type                      | index 0~8                         | Index for camera type: 0 = RGB Scene, 1 = Depth Planar, 2 = Depth Perspective, 3 = Segmentation, 4 = Depth Visualization, 5 = DisparityNormalized, 6 = SurfaceNormals, 7 = Infrared (thermal display image), 8 = Temperature (thermal, radiometric) |
 | width                           | > 0                               | Width of the camera image                                    |
 | height                          | > 0                               | Height of the camera image                                   |
 | fov-degrees                     | [5, 170]                          | Field of View of the camera                                  |
@@ -99,6 +99,7 @@ A single camera can output multiple capture types. The following parameters desc
 | target-gamma                    |                                   | Target gamma to be used by the render target (UTextureRenderTarget2D) |
 | max-depth-meters              | > 0.0                             | Maximum depth for Depth Visualization. Objects beyond the maximum depth will be true white, while close objects will be completely black. |
 | lens                          | json                              | (Optional) Lens model of the capture, see Lens models below. Pinhole by default. |
+| thermal                       | json                              | (Optional, image type 7) Sensor model of the thermal camera, see [Thermal camera](thermal_camera.md). |
 
 | Image Type | Description |
 | Scene | The regular camera image. |
@@ -108,6 +109,8 @@ A single camera can output multiple capture types. The following parameters desc
 | Depth Visualization | Image that helps visualize depth. |
 | DisparityNormalized | Uses the ground truth depth to simulate a stereo disparity image with a single camera. The baseline distance is assumed to be 0.25m. Values are normalized to a 0-1 scale. |
 | SurfaceNormals | Surfaces are colored according to their normals. RGB corresponds to XYZ, and values are normalized to a 0-1 scale. |
+| Infrared | Long-wave infrared (thermal) camera: an 8-bit display image (white-hot, black-hot or ironbow) after the camera's optics, noise and automatic gain control. See [Thermal camera](thermal_camera.md). |
+| Temperature | The same thermal render as radiometric `16UC1`: apparent temperature in centikelvin (divide by 100 for kelvin). Types 7 and 8 come from one render and share size, field of view and sensor model. |
 
 
 ### Lens models

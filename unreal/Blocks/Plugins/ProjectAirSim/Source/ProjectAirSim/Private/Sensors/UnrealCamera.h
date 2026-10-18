@@ -33,6 +33,7 @@
 
 class AUnrealScene;
 class FCaptureReadbackPipeline;
+class FThermalSensorModel;
 
 struct ImageRequest {
   std::string CameraName;
@@ -42,6 +43,12 @@ struct ImageRequest {
   bool bCompress = true;
   // Set for a lens capture: the rendered pinhole image is remapped through it.
   TSharedPtr<const FLensRemap> LensRemap;
+  // Set for the thermal render (image types 7 and 8 share it): the sensor model
+  // turns the radiometric render into the display and/or temperature image.
+  TSharedPtr<FThermalSensorModel, ESPMode::ThreadSafe> ThermalSensor;
+  bool bThermalDisplay = false;
+  bool bThermalTemperature = false;
+  uint64 ThermalFrame = 0;
 
   ImageRequest() {}
 
@@ -143,6 +150,9 @@ class UUnrealCamera : public UUnrealSensor {
       UObject* CaptureComponent, FPostProcessSettings& PostProcessSettings,
       const microsoft::projectairsim::CaptureSettings& CaptureSettings);
 
+  void SetupThermal(
+      const microsoft::projectairsim::CameraSettings& CameraSetting);
+
   void UpdateCameraSettings();
 
   static void UpdateCameraPostProcessingSetting(
@@ -200,6 +210,10 @@ class UUnrealCamera : public UUnrealSensor {
   UPROPERTY() UMaterial* DepthVisMaterialStatic;
   UPROPERTY() UMaterial* DisparityNormalizedMaterialStatic;
   UPROPERTY() UMaterial* SurfaceNormalsMaterialStatic;
+  UPROPERTY() UMaterial* ThermalMaterialStatic;
+  UPROPERTY() UMaterialInstanceDynamic* ThermalMaterial = nullptr;
+  TSharedPtr<FThermalSensorModel, ESPMode::ThreadSafe> ThermalSensor;
+  uint64 ThermalFrame = 0;
 
   // capture components
   UCineCameraComponent* CameraComponent;

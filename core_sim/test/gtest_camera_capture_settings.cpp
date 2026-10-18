@@ -321,3 +321,61 @@ TEST(CameraCaptureSettings, DefaultsToPinholeLens) {
   EXPECT_EQ(camera.GetCameraSettings().capture_settings.at(0).lens.model,
             projectairsim::LensModel::kPinhole);
 }
+
+TEST(CameraCaptureSettings, LoadsThermalSettingsAndSharesThemWithTemperature) {
+  auto camera = projectairsim::Robot::MakeDefaultCamera();
+  auto camera_settings = projectairsim::Robot::GetDefaultCameraConfig();
+  json capture_settings = R"( [ {
+          "image-type": 8, "capture-enabled": true, "width": 640, "height": 512, "fov-degrees": 56
+      }, {
+          "image-type": 7, "capture-enabled": true, "width": 640, "height": 512, "fov-degrees": 56,
+          "thermal": {"palette": "ironbow", "agc": "histogram-equalization", "seed": 7,
+                      "netd-kelvin": 0.03, "noise-enabled": false, "classes-file": "c.json"}
+      } ]
+  )"_json;
+  camera_settings["capture-settings"] = capture_settings;
+  projectairsim::Robot::LoadCamera(camera, camera_settings);
+  const auto& all = camera.GetCameraSettings().capture_settings;
+  const auto& t = all.at(7).thermal;
+  EXPECT_EQ(t.palette, projectairsim::ThermalSettings::Palette::kIronbow);
+  EXPECT_EQ(t.agc, projectairsim::ThermalSettings::Agc::kHistogramEqualization);
+  EXPECT_EQ(t.seed, 7u);
+  EXPECT_FLOAT_EQ(t.netd_kelvin, 0.03f);
+  EXPECT_FALSE(t.noise_enabled);
+  EXPECT_EQ(t.classes_file, "c.json");
+  EXPECT_EQ(all.at(8).thermal.seed, 7u);  // the sensor model is shared
+}
+
+TEST(CameraCaptureSettings, TemperatureAloneGivesTheInfraredEntryItsSettings) {
+  auto camera = projectairsim::Robot::MakeDefaultCamera();
+  auto camera_settings = projectairsim::Robot::GetDefaultCameraConfig();
+  json capture_settings = R"( [ {
+          "image-type": 8, "capture-enabled": true, "width": 320, "height": 256, "fov-degrees": 40
+      } ] )"_json;
+  camera_settings["capture-settings"] = capture_settings;
+  projectairsim::Robot::LoadCamera(camera, camera_settings);
+  const auto& all = camera.GetCameraSettings().capture_settings;
+  EXPECT_EQ(all.at(7).width, 320);
+  EXPECT_FALSE(all.at(7).capture_enabled);
+  EXPECT_TRUE(all.at(8).capture_enabled);
+}
+
+TEST(CameraCaptureSettings, ThermalRefusesAFisheyeLens) {
+  auto camera = projectairsim::Robot::MakeDefaultCamera();
+  auto camera_settings = projectairsim::Robot::GetDefaultCameraConfig();
+  json capture_settings = R"( [ {
+          "image-type": 7, "lens": {"model": "kannala-brandt", "distortion": [0, 0, 0, 0]}
+      } ] )"_json;
+  camera_settings["capture-settings"] = capture_settings;
+  EXPECT_ANY_THROW(projectairsim::Robot::LoadCamera(camera, camera_settings));
+}
+
+TEST(CameraCaptureSettings, ThermalRejectsAnUnknownPalette) {
+  auto camera = projectairsim::Robot::MakeDefaultCamera();
+  auto camera_settings = projectairsim::Robot::GetDefaultCameraConfig();
+  json capture_settings = R"( [ {
+          "image-type": 7, "thermal": {"palette": "rainbow"}
+      } ] )"_json;
+  camera_settings["capture-settings"] = capture_settings;
+  EXPECT_ANY_THROW(projectairsim::Robot::LoadCamera(camera, camera_settings));
+}
