@@ -1325,6 +1325,12 @@ void UUnrealCamera::OnRendered(
 
 void UUnrealCamera::DrawViewFrustum() {
   int CaptureType = SimCamera.GetFrustumCaptureType();
+  // kTemperature has no capture of its own: it shares kInfrared's frustum.
+  if (CaptureType ==
+      projectairsim::MathUtils::ToNumeric(projectairsim::ImageType::kTemperature)) {
+    CaptureType = projectairsim::MathUtils::ToNumeric(
+        projectairsim::ImageType::kInfrared);
+  }
   USceneCaptureComponent2D* CaptureComp = Captures[CaptureType];
 
   FVector CamLocation = CaptureComp->GetComponentTransform().GetLocation();

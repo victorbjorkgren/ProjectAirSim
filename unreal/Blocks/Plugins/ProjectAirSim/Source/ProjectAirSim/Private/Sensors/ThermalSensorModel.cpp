@@ -141,7 +141,7 @@ void FThermalSensorModel::ToDisplay(const std::vector<float>& T, std::vector<uin
     Hist[std::clamp(int((V - kBase) / kBin), 0, kBins - 1)]++;
   }
   auto Percentile = [&](float P) {
-    const uint64_t Target = uint64_t(P * 0.01 * N);
+    const uint64_t Target = std::max<uint64_t>(1, uint64_t(P * 0.01 * N));
     uint64_t Acc = 0;
     for (int B = 0; B < kBins; ++B) {
       Acc += Hist[B];

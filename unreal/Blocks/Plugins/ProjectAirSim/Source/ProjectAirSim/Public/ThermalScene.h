@@ -111,6 +111,7 @@ class PROJECTAIRSIM_API FThermalScene {
   TArray<TWeakObjectPtr<AActor>> ScanQueue;
   int32 ScanCursor = 0;
   FDelegateHandle SpawnHandle;
+  TWeakObjectPtr<UWorld> SpawnWorld;
   int32 Classified = 0;
 
   TWeakObjectPtr<UDirectionalLightComponent> Sun;

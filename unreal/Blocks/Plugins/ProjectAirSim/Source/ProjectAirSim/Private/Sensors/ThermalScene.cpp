@@ -294,7 +294,11 @@ void FThermalScene::ScanSome(UWorld* World) {
     for (TActorIterator<AActor> It(World); It; ++It) ScanQueue.Add(*It);
     ScanCursor = 0;
     Classified = 0;
-    if (SpawnHandle.IsValid()) SpawnHandle.Reset();
+    if (SpawnHandle.IsValid()) {
+      if (UWorld* Previous = SpawnWorld.Get()) Previous->RemoveOnActorSpawnedHandler(SpawnHandle);
+      SpawnHandle.Reset();
+    }
+    SpawnWorld = World;
     SpawnHandle = World->AddOnActorSpawnedHandler(FOnActorSpawned::FDelegate::CreateLambda(
         [this](AActor* Actor) { ScanQueue.Add(Actor); }));
   }

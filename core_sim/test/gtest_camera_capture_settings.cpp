@@ -370,6 +370,16 @@ TEST(CameraCaptureSettings, ThermalRefusesAFisheyeLens) {
   EXPECT_ANY_THROW(projectairsim::Robot::LoadCamera(camera, camera_settings));
 }
 
+TEST(CameraCaptureSettings, ThermalRefusesASupersampledPinhole) {
+  auto camera = projectairsim::Robot::MakeDefaultCamera();
+  auto camera_settings = projectairsim::Robot::GetDefaultCameraConfig();
+  json capture_settings = R"( [ {
+          "image-type": 7, "lens": {"model": "pinhole", "source-sampling": 2}
+      } ] )"_json;
+  camera_settings["capture-settings"] = capture_settings;
+  EXPECT_ANY_THROW(projectairsim::Robot::LoadCamera(camera, camera_settings));
+}
+
 TEST(CameraCaptureSettings, ThermalRejectsAnUnknownPalette) {
   auto camera = projectairsim::Robot::MakeDefaultCamera();
   auto camera_settings = projectairsim::Robot::GetDefaultCameraConfig();

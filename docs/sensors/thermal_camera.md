@@ -3,13 +3,15 @@
 Image types `7` (Infrared, an 8-bit display image) and `8` (Temperature, radiometric `16UC1`) model an uncooled
 microbolometer camera (8-14 um) such as the ones on inspection and search drones. Both come from **one render**:
 enable either or both, they share `width`, `height`, `fov-degrees` and the sensor model (the `thermal` object of
-the type-7 entry; a type-8 entry alone also works). The pinhole lens only.
+the type-7 entry; a type-8 entry alone also works). The plain pinhole lens only (no `source-sampling` above 1).
 
 ```jsonc
 "capture-settings": [
-  {"image-type": 7, "width": 640, "height": 512, "fov-degrees": 56, "capture-enabled": true, "compress": false,
+  {"image-type": 7, "width": 640, "height": 512, "fov-degrees": 56, "capture-enabled": true,
+   "pixels-as-float": false, "compress": false,
    "thermal": {"palette": "white-hot", "agc": "percentile", "seed": 1234, "classes-file": "/path/thermal_classes.json"}},
-  {"image-type": 8, "width": 640, "height": 512, "fov-degrees": 56, "capture-enabled": true}
+  {"image-type": 8, "width": 640, "height": 512, "fov-degrees": 56, "capture-enabled": true,
+   "pixels-as-float": false, "compress": false}
 ]
 ```
 
@@ -118,6 +120,11 @@ primitives. The scan of the world is spread over frames (2 ms budget per capture
 seconds after the first thermal capture.
 
 ## Limits
+
+The class is carried in the custom stencil, which the segmentation camera and the lidar's segmentation ids use too. A
+primitive that the thermal scan classifies has its segmentation id overwritten (and the reverse, when ids are set
+after the scan), so do not run segmentation or lidar segmentation on the same scene as a thermal camera unless the
+thermal classes are limited to meshes that carry no segmentation id.
 
 Reflections are analytic (sky versus ground by the reflection direction), not traced: a hot engine is not mirrored in a
 car door. Thermal lag is a per-environment running mean, not a temperature memory per pixel, so the shadow of an object

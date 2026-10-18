@@ -3,9 +3,9 @@
 //
 // MIT License. All rights reserved.
 
-#include <cmath>
 #include "core_sim/sensors/camera.hpp"
 
+#include <cmath>
 #include <map>
 #include <memory>
 #include <queue>
@@ -1461,9 +1461,12 @@ void Camera::Loader::LoadCaptureSetting(const json& json) {
 
 void Camera::Loader::LoadThermalSettings(const json& json,
                                          CaptureSettings& setting) {
-  // The thermal image types are rendered through the pinhole only.
-  if (setting.lens.model != LensModel::kPinhole) {
-    throw Error("Thermal image types (7, 8) support only the pinhole lens.");
+  // The thermal image types are rendered through the plain pinhole only: the
+  // sensor model reads the render as it is, with no lens remap or supersampling.
+  if (lens::NeedsRemap(setting.lens)) {
+    throw Error(
+        "Thermal image types (7, 8) support only the pinhole lens with "
+        "source-sampling 1.");
   }
   auto thermal_json = JsonUtils::GetJsonObject(json, Constant::Config::thermal);
   ThermalSettings& t = setting.thermal;
