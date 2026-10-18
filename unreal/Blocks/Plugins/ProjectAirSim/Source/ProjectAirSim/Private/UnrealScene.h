@@ -117,6 +117,15 @@ class AUnrealScene : public AActor {
   TimeNano unreal_time;
   bool using_unreal_physics;
 
+  // Non-Unreal-physics sync: Unreal world time (ns) at sim time 0, and the
+  // largest backlog Unreal catches up on before it skips ahead instead.
+  TimeNano WorldTimeNanos() const;
+  TimeNano world_time_offset = 0;
+  static constexpr TimeNano kMaxWorldLagNanos = 1000000000LL;
+  TimeNano sync_log_sim_time = 0;
+  TimeNano sync_log_world_time = 0;
+  int world_frames = 0;
+
   std::unique_ptr<class WorldSimApi> world_api;
   std::shared_ptr<TimeOfDay> time_of_day;
   std::vector<std::string> objects_;

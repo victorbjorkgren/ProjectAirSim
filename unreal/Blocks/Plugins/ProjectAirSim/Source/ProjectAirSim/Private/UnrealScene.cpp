@@ -286,6 +286,10 @@ void AUnrealScene::EnableUnrealViewportCamera(bool enable) {
 void AUnrealScene::BeginPlay() {
   Super::BeginPlay();
   unreal_time = 0;
+  world_time_offset = WorldTimeNanos();
+  sync_log_sim_time = 0;
+  sync_log_world_time = world_time_offset;
+  world_frames = 0;
 
   // Set up Unreal loop timing
   if (sim_scene && sim_scene->GetClockSettings().type ==
@@ -401,6 +405,12 @@ void AUnrealScene::BeginPlay() {
   });
 }
 
+// Unreal game time (advances only while unpaused), in nanoseconds. Read as a
+// double: a float loses microseconds after a few minutes.
+TimeNano AUnrealScene::WorldTimeNanos() const {
+  return static_cast<TimeNano>(unreal_world->GetTimeSeconds() * 1.0e9);
+}
+
 // UnrealScene's ticks continue during Unreal pause, bTickEvenWhenPaused =
 // true, in order to be able to pause/resume the Unreal side in sync with the
 // sim clock. Any time-related sim logic should refer to SimClock and not
@@ -461,13 +471,43 @@ void AUnrealScene::Tick(float DeltaTime) {
     //-------------------------------------------------------------------------
     // Non-UnrealPhysics (ex. FastPhysics)
 
-    // Unreal time follows after SimClock so just check if sim time has
-    // advanced to decide if Unreal needs to pause/resume to stay in sync.
+    // Unreal time follows after SimClock: Unreal runs whole frames until its
+    // own world time has caught up with sim time, then pauses. The pause set
+    // here (TG_PostUpdateWork) takes effect from the next frame, so a step of
+    // any length advances the world by that length, whatever DeltaTime is.
     cur_sim_time = projectairsim::SimClock::Get()->NowSimNanos();
-    if (is_unreal_paused && unreal_time < cur_sim_time) {
+    const TimeNano world_now = WorldTimeNanos();
+    TimeNano lag = cur_sim_time - (world_now - world_time_offset);
+    if (lag > kMaxWorldLagNanos) {
+      // A free-running sim clock outruns the renderer: keep Unreal running
+      // but cap the backlog it would replay once the clock pauses.
+      world_time_offset = world_now - cur_sim_time + kMaxWorldLagNanos;
+      lag = kMaxWorldLagNanos;
+    } else if (lag < -kMaxWorldLagNanos) {
+      // Sim time went back (clock reset): restart the sync from here.
+      world_time_offset = world_now - cur_sim_time;
+      lag = 0;
+    }
+    // Run another frame only while at least half a frame is still owed.
+    const TimeNano frame = UnrealHelpers::DeltaTimeToNanos(DeltaTime);
+    const bool behind = lag > frame / 2;
+    if (is_unreal_paused && behind) {
       UGameplayStatics::SetGamePaused(unreal_world, false);
-    } else if (!is_unreal_paused && unreal_time >= cur_sim_time) {
+    } else if (!is_unreal_paused && !behind) {
       UGameplayStatics::SetGamePaused(unreal_world, true);
+    }
+
+    // One line per 10 s of sim time: how far Unreal's world moved meanwhile.
+    if (!is_unreal_paused) ++world_frames;
+    if (cur_sim_time - sync_log_sim_time >= 10000000000LL) {
+      UnrealLogger::Log(
+          projectairsim::LogLevel::kTrace,
+          TEXT("[UnrealScene] sim %.2f s -> Unreal world %.2f s in %d frames"),
+          (cur_sim_time - sync_log_sim_time) / 1.0e9,
+          (world_now - sync_log_world_time) / 1.0e9, world_frames);
+      sync_log_sim_time = cur_sim_time;
+      sync_log_world_time = world_now;
+      world_frames = 0;
     }
   }
 
