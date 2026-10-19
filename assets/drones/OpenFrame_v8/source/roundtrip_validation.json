@@ -1,0 +1,55 @@
+{
+  "status": "passed",
+  "checks": [
+    {
+      "file": "Drone_OpenFrame_v8_LOD0.glb",
+      "mesh_count": 155,
+      "triangles": 19718,
+      "watertight_after_welding_uv_seams": true,
+      "positive_signed_volume": true
+    },
+    {
+      "file": "Drone_OpenFrame_v8_LOD1.glb",
+      "mesh_count": 155,
+      "triangles": 5540,
+      "watertight_after_welding_uv_seams": true,
+      "positive_signed_volume": true
+    },
+    {
+      "file": "Prop_CW.glb",
+      "mesh_count": 1,
+      "triangles": 1000,
+      "watertight_after_welding_uv_seams": true,
+      "positive_signed_volume": true
+    },
+    {
+      "file": "Prop_CCW.glb",
+      "mesh_count": 1,
+      "triangles": 998,
+      "watertight_after_welding_uv_seams": true,
+      "positive_signed_volume": true
+    },
+    {
+      "file": "Collision_Body.glb",
+      "mesh_count": 1,
+      "triangles": 12,
+      "watertight_after_welding_uv_seams": true,
+      "positive_signed_volume": true
+    },
+    {
+      "file": "Beauty_Blur_Discs.glb",
+      "mesh_count": 4,
+      "triangles": 1008,
+      "watertight_after_welding_uv_seams": true,
+      "positive_signed_volume": true
+    },
+    {
+      "file": "ESC.glb",
+      "mesh_count": 1,
+      "triangles": 990,
+      "watertight_after_welding_uv_seams": true,
+      "positive_signed_volume": true
+    }
+  ],
+  "runtime_tested": false
+}
