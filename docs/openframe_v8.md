@@ -49,9 +49,9 @@ configs use the NED body frame, where down is positive, so the hubs are at **z =
 | Prop_RR | -0.145 | 0.145 | 0.006 | `Prop_CW` | clock-wise |
 
 The sim-flight mixer fixes which actuator turns which way (FR and RL counter-clock-wise), so the rotors keep the
-spin directions of the old config and each corner carries the blade handedness that turns that way; the designer's
-HANDOFF lists the opposite assignment (props-in rather than props-out), which only differs in which of two identical
-mirrored meshes sits at a corner. Motor spacing is 0.290 m, prop radius 0.0889 m (7 inch).
+spin directions of the old config and each corner carries the blade handedness that turns that way (measured in a
+running scene: the prop of a `clock-wise` rotor turns clockwise seen from above). The designer's HANDOFF lists the
+opposite assignment (FL counter-clock-wise), which only changes which of the two mirrored meshes sits at a corner. Motor spacing is 0.290 m, prop radius 0.0889 m (7 inch).
 
 The nose camera mount (`Mount_Camera`) is at NED (0.100, 0, 0.024), looking +X.
 
@@ -86,6 +86,16 @@ command (23 N in all, thrust to weight 2.4, hover at 42 % command), and a reacti
 command. The thrust-to-weight is deliberately modest: the simple-flight gains are tuned against the old 1 kg quad
 (1.7 thrust-to-weight, 4.2 N per rotor), and a real 7-inch quad with several times that would need retuned gains.
 The coefficients are stand-ins chosen for that, not measured propeller data.
+
+## Checks
+
+Flown through the client API with `simple-flight` (hover, velocity steps, a yaw-rate step, a fast forward leg), the new
+and the old (`Quadrotor1`, 1.0 kg) default behave alike: hover holds 0.005 m (std) with no tilt or drift; a 4 m/s step
+reaches 90 % in 2-3 s without overshoot (pitch 20 degrees at the peak); a yaw-rate command of 90 deg/s is followed;
+a 12 m/s command settles at 11.5 m/s (old: 11.7) with the 32.7 degree tilt limit reached on the way and no oscillation
+(gyro rms 0.001 rad/s); a 20 m/s command settles at 18.5 m/s at the tilt limit. The packaged NordicProvingGround build
+gives the same numbers. The drone's own nose camera (640x480, 90 degrees, at `Mount_Camera`) sees no blade, arm or
+housing.
 
 ## Regenerating
 

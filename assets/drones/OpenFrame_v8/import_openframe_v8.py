@@ -91,15 +91,19 @@ def _master_flat():
     return m
 
 
-def _master_textured():
-    """Default Lit from a base colour, a roughness and a DirectX normal map; parameters Specular, NormalFlatness."""
+def _master_textured(defaults):
+    """Default Lit from a base colour, a roughness and a DirectX normal map; parameters Specular, NormalFlatness.
+    `defaults` are textures of the right kinds (color, mask, normal): a sampler without one is checked against the
+    engine's colour default texture and the material fails to compile."""
     m = _fresh_material("M_OpenFrame_Textured")
     S = unreal.MaterialExpressionTextureSampleParameter2D
-    bc = _expr(m, S, -800, -300, parameter_name="BaseColorMap")
+    bc = _expr(m, S, -800, -300, parameter_name="BaseColorMap", texture=defaults[0])
     mel.connect_material_property(bc, "RGB", unreal.MaterialProperty.MP_BASE_COLOR)
-    rg = _expr(m, S, -800, 0, parameter_name="RoughnessMap", sampler_type=unreal.MaterialSamplerType.SAMPLERTYPE_MASKS)
+    rg = _expr(m, S, -800, 0, parameter_name="RoughnessMap", sampler_type=unreal.MaterialSamplerType.SAMPLERTYPE_MASKS,
+               texture=defaults[1])
     mel.connect_material_property(rg, "R", unreal.MaterialProperty.MP_ROUGHNESS)
-    nm = _expr(m, S, -800, 300, parameter_name="NormalMap", sampler_type=unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL)
+    nm = _expr(m, S, -800, 300, parameter_name="NormalMap", sampler_type=unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL,
+               texture=defaults[2])
     # Normal strength s: blend the decoded normal toward the flat normal (0, 0, 1) by 1 - s.
     up = _expr(m, unreal.MaterialExpressionConstant3Vector, -700, 440, constant=unreal.LinearColor(0.0, 0.0, 1.0, 1.0))
     fl = _expr(m, unreal.MaterialExpressionScalarParameter, -700, 560, parameter_name="NormalFlatness", default_value=0.4)
@@ -156,7 +160,8 @@ def build_materials():
             eal.make_directory(d)
     with open(_p("source/UNREAL_MATERIAL_SETTINGS.json")) as f:
         spec = json.load(f)["materials"]
-    flat, textured, blur = _master_flat(), _master_textured(), _master_blur()
+    carbon = [_import_texture("Carbon", k) for k in ("color", "mask", "normal")]
+    flat, textured, blur = _master_flat(), _master_textured(carbon), _master_blur()
     out = {}
     for name, s in spec.items():
         full = f"{MAT_DIR}/{name}"
