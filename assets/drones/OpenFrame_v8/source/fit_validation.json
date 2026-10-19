@@ -1,0 +1,58 @@
+{
+  "status": "passed",
+  "surface_contacts": [
+    [
+      "Battery_Positive",
+      "XT60_BatteryHalf"
+    ],
+    [
+      "Battery_Negative",
+      "XT60_BatteryHalf"
+    ],
+    [
+      "ESC_Positive",
+      "XT60_ESCHalf"
+    ],
+    [
+      "ESC_Negative",
+      "XT60_ESCHalf"
+    ],
+    [
+      "Antenna_Mount",
+      "Frame_TopPlate"
+    ]
+  ],
+  "antenna_clear_of_battery": true,
+  "antenna_mount": "directly on upper plate, between screws",
+  "prop_clearance": [
+    {
+      "rotor": "FL",
+      "housing_top_z_m": -0.011500000022351742,
+      "prop_bottom_z_m": -0.009578775614500046,
+      "minimum_vertical_gap_m": 0.001921224407851696,
+      "all_yaw_angles_clear": true
+    },
+    {
+      "rotor": "FR",
+      "housing_top_z_m": -0.011500000022351742,
+      "prop_bottom_z_m": -0.009590654633939266,
+      "minimum_vertical_gap_m": 0.0019093453884124756,
+      "all_yaw_angles_clear": true
+    },
+    {
+      "rotor": "RL",
+      "housing_top_z_m": -0.011500000022351742,
+      "prop_bottom_z_m": -0.009590654633939266,
+      "minimum_vertical_gap_m": 0.0019093453884124756,
+      "all_yaw_angles_clear": true
+    },
+    {
+      "rotor": "RR",
+      "housing_top_z_m": -0.011500000022351742,
+      "prop_bottom_z_m": -0.009578775614500046,
+      "minimum_vertical_gap_m": 0.001921224407851696,
+      "all_yaw_angles_clear": true
+    }
+  ],
+  "shaft_contact": "small shafts intentionally connect motor bearings to prop hubs"
+}

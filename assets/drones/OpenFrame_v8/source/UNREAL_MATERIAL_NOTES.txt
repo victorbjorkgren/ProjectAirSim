@@ -1,0 +1,46 @@
+UNREAL MATERIAL TRANSFER — V8
+
+The primary GLB embeds colour, roughness/metallic and normal textures, UVs,
+named slots, metallic/roughness parameters and optional shading extensions.
+The maps are finished portable assets, not Blender-only procedural nodes.
+Import the GLB with materials first. No replacement model or new texture
+authoring should be needed to reproduce the core appearance.
+
+An identical automatic render is not guaranteed: check the imported material
+graph and lighting/exposure. In particular:
+- Velcro: Default Lit, Metallic 0, Roughness 1, Specular 0, no clearcoat/sheen.
+  Base colour is near-black linear 0.0025–0.007, supplied in the sRGB PNG.
+  Check Specular 0 explicitly if KHR_materials_specular is not honoured.
+- Carbon: the pattern is already scaled in UVs. Additional texture tiling is
+  1, NOT 3: the authored UV change made the weave three times larger.
+  Its normal and roughness maps carry the main weave/reflection variation.
+  The exported anisotropy and slight clearcoat are optional refinements;
+  they may need material-graph/shading-model setup in the target project.
+- Motors: black anodized approximation, Metallic 0.85, Roughness 0.36.
+- Silver hardware: Metallic 1, Roughness 0.28. Do not import as gray plastic.
+
+UNREAL_MATERIAL_SETTINGS.json gives explicit target inputs for each material.
+Textures/ includes both normal conventions: *_NormalGL is OpenGL +Y and
+*_NormalDX is DirectX -Y (green channel reversed). Use DX for a manual Unreal
+normal setup. The standard GLB references the GL maps; avoid a second flip
+if your GLB importer has already performed its conversion.
+
+BaseColor PNGs use sRGB. Normal/Roughness/ORM PNGs are non-colour linear data.
+Optional *_ORM textures pack R=ambient occlusion (1), G=roughness, B=metallic
+(0 for the carbon and cloth). Standalone grayscale roughness maps are also
+included so the agent can wire them without unpacking channels.
+
+The JSON values are targets, not an Unreal-executed material script. This
+package has not been rendered inside Unreal; the receiving agent should
+compare its viewport against Preview.png under comparable lighting.
+
+References:
+https://dev.epicgames.com/documentation/unreal-engine/material-inputs-in-unreal-engine
+https://www.khronos.org/gltf/pbr
+
+V8 BATTERY FINISH
+The blue wrap now has a glossy shrink-film/lacquer-like finish. Use Metallic
+0, Specular 0.5 and Roughness 0.18 for its standard-PBR baseline; the folded
+end uses Roughness 0.22. The exported optional clearcoat is 0.35 with
+roughness 0.10 (end fold: 0.12). The existing blue colour and all geometry
+are preserved. UNREAL_MATERIAL_SETTINGS.json includes the new values.

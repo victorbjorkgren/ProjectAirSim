@@ -1,0 +1,176 @@
+OPEN-FRAME 7-INCH DRONE — V8 — PROJECTAIRSIM HANDOFF
+
+Replaces the previous open-frame revision. Seven-inch propellers retained at the user's
+request; do not use the old nine-inch/0.114 m radius or 0.253 m motor offsets.
+
+WHAT CHANGED
+Reference-inspired revision: shallow plates with a 22.25 mm clear gap,
+compact integrated camera nose, fuller electronics bay with a separate ESC,
+flight controller, video transmitter and receiver. Dark stepped outrunner
+motors have cylindrical bells, tapered tops and cooling-slot detail.
+The taller blue shrink-wrapped battery has a lightly uneven surface, a folded
+end seam, one central strap, connected power leads and a secured balance connector.
+The capped rear mast leans backward about 21.7 degrees from vertical.
+Its narrow boot sits directly on the upper rear plate between the two silver
+screws. The projecting rear bracket has been removed.
+Main power uses two mated connector halves with no exposed contacts. The
+balance/charging plug is secured on the far side beneath the central strap;
+it is not a flight power connection.
+Seven-inch prop diameter, rotor X/Y coordinates, and frame origin remain
+unchanged. Rotor hubs are raised by 4 mm: NEW BODY-FRAME Z = -0.006 m.
+Update the prior -0.010 m rotor Z value in your configuration. Small motor
+shafts bridge the hub gap; the blades clear the motor housings by at least
+1.9 mm for every rotation angle.
+
+LOAD THESE
+Drone_OpenFrame_v8_LOD0.glb — assembled static-blade model for SLAM/normal use.
+Drone_OpenFrame_v8_LOD1.glb — separate lower-detail scene for distance. Switch LOD
+as a whole, or match names after removing the _LOD1 suffix; do not draw both.
+Prop_CW.glb / Prop_CCW.glb — reusable, origin-centered rotor assets.
+ESC.glb — standalone ESC with its PCB-centered origin at zero. The assembled
+ESC node is at source (0,0,-0.026) m / native GLB (0,-0.026,0) m.
+Electronics_Detail.png — close-up of the open stack and wire routing.
+Rear_View.png — reverse view showing the direct upper-plate antenna mount.
+Material_Detail.png — close-up of the strap and carbon-fibre surfaces.
+Textures/ — six standalone PNG PBR maps; also packed into the source Blend
+and embedded into the GLB files. GLB files need no external textures.
+Collision_Body.glb — optional closed box proxy, excluded from visual scenes.
+Beauty_Blur_Discs.glb — optional translucent discs ONLY for beauty shots.
+Hide static props while showing discs. Never include discs in SLAM captures.
+Drone_OpenFrame_v8.blend — editable metric source; proxy/LOD/discs hidden.
+Drone_OpenFrame_v8.fbx — alternate assembled visual export.
+
+UNITS, AXES, AND WINDING — DO NOT CONVERT TWICE
+All glTF numeric positions are METRES; all scales are 1.
+GLBs follow glTF 2.0: right-handed, +Y up, CCW front-face winding.
+This asset faces +X. Its native glTF rotor spin axis is +Y.
+Source Blender axes: right-handed, +X forward, +Y left, +Z up.
+The exporter maps source (x,y,z) to glTF (x,z,-y), a proper rotation.
+Normals and winding have already been exported for this coordinate system.
+
+For the requested Unreal-style Z-up body frame (+X forward, +Y right):
+  source -> requested frame: (x, -y, z)
+  native glTF -> requested frame: (x, z, y)
+  multiply metre coordinates by 100 only when assigning Unreal centimetres.
+The requested-frame conversion includes a handedness reflection. A custom
+mesh loader applying it must also handle normals and reverse triangle winding
+exactly once. If your Unreal glTF importer already converts handedness/units,
+use its result and do not repeat this transform. Keep rotor spin axes local.
+
+ROTOR GEOMETRY IN REQUESTED Z-UP, +Y-RIGHT BODY FRAME (METRES)
+All hubs are at z = -0.006. Rotor radius = 0.0889; diameter = 0.1778 (7 inches).
+
+Name          X        Y        Z       Viewed from above
+Prop_FL_CCW   0.145   -0.145   -0.006   counterclockwise
+Prop_FR_CW    0.145    0.145   -0.006   clockwise
+Prop_RL_CW   -0.145   -0.145   -0.006   clockwise
+Prop_RR_CCW  -0.145    0.145   -0.006   counterclockwise
+
+Motor diagonal = 0.410122 m; adjacent motor spacing = 0.290 m.
+Full swept envelope is 0.4678 x 0.4678 m in plan.
+These are geometry values, not a guessed ProjectAirSim config schema.
+Match your existing rotor ordering, thrust, torque, and inertia definitions
+in your own config. The asset manifest lists both native glTF and source
+positions to make mapping explicit.
+
+ROTATION
+Every Prop_* node origin is at the hub center. The CW and CCW blade shapes
+are mirrored, independent closed meshes. No animation is baked.
+Native GLB: rotate each prop about LOCAL Y.
+After conversion to Z-up: rotate each prop about LOCAL Z.
+Angle per frame in degrees = RPM * 6 * delta_seconds. Choose opposite signs
+for the two handedness groups in your runtime's rotation convention.
+The motor housings are stationary; the hubs and nuts rotate with the blades.
+
+MOUNTS AND ORIGIN
+Root/body origin is the geometric frame center at (0,0,0), not a calculated
+center of mass. Bind the physics origin to this frame or explicitly provide
+your own mass/inertia offset; do not recenter each visual part independently.
+
+Mount_Camera: source/requested body position (0.100, 0, -0.024) m.
+Optical direction +X; pitch/yaw/roll = 0 degrees. Native GLB node position
+is (0.100, -0.024, 0). This is a mount Empty, not a glTF Camera object.
+Mount_LED: source/requested position (0.106, 0, -0.035) m; direction +X.
+Native GLB position (0.106, -0.035, 0). No emissive light is included.
+
+COLLISION
+Separate body box center (0.005,0,0.030) m, size (0.280,0.105,0.180) m
+in source/requested axes. Encloses central frame, battery, and camera area. The slender rear antenna is excluded from collision.
+It is a proxy asset, not automatically configured Unreal collision.
+No rotor collision. Narrow arms extend beyond the central box.
+
+THERMAL / MATERIALS
+Map Battery to your warm battery class; Motor_FL, Motor_FR, Motor_RL,
+Motor_RR to your warm motor class. Names remain identifiable in LOD1.
+ESC is a separate connected closed mesh including its PCB, MOSFETs and
+solder pads. Map the exact node name ESC to the warm ESC class; the separate
+ESC_Capacitor may also be classified warm if desired. FlightController is
+separate. Motor phase leads and other wires should not inherit motor heat
+merely because their names include the motor prefix.
+Battery geometry is nominally 0.145 x 0.058 x 0.093 m, centered at source
+(-0.017, 0, 0.0395) m. The central strap and folded-wrap seam are separate closed meshes.
+Other small hardware remains individually named and editable.
+VideoTransmitter and Receiver identify the extra populated boards.
+Antenna_Mast, Antenna_Cap, Antenna_Mount and
+Antenna_Coax identify the
+single rear antenna assembly. It is a visual element with no RF simulation.
+Most frame/electronics base colours remain subdued. Material-specific
+values for cloth and metals now supersede the original blanket albedo range. The user-requested vivid blue battery is an explicit
+exception: Battery_Blue_Shrinkwrap is (0.006,0.12,0.78), FoldedWrap is
+(0.009,0.10,0.60). Its slightly uneven geometry exceeds its nominal envelope
+by around 1–2 millimeters. Battery wrap now has a glossy shrink-film finish: roughness 0.18 on the
+main wrap and 0.22 on the end fold, with specular 0.5 and a thin clearcoat
+(weight 0.35, roughness 0.10–0.12). Colour and geometry are unchanged.
+Metallic is 1 for the silver hardware, 0.85 for motor casings, and 0 for the
+cloth, carbon and other non-metallic components.
+Beauty discs use alpha 0.13 and are isolated in their own file.
+Visibility at 100 m depends on camera resolution, lighting, and background;
+the model deliberately avoids bright metallic surfaces.
+
+VALIDATION
+See fit_validation.json for measured casing clearance, retained power wire
+contacts, and the direct antenna/upper-plate mount check.
+Source meshes are triangulated and checked for manifold edges, one connected
+component per part, positive volume, and exact LOD0 rotor swept diameter.
+See asset_manifest.json and roundtrip_validation.json for actual counts and
+export checks. LOD0: 19,718 triangles. LOD1: 5,540 triangles (visual geometry only;
+collision proxy and optional blur discs are separate).
+No ProjectAirSim/Unreal runtime test has been performed here.
+
+glTF coordinate-system specification:
+https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coordinate-system-and-units
+
+V8 MATERIAL NOTES
+- Velcro now has near-black linear albedo 0.0025–0.007, roughness 1.0,
+  specular 0 and no sheen or clearcoat. Its loop/fibre normal map is stronger.
+  This deliberately replaces the old 0.05 minimum albedo for the strap.
+- Carbon tow size is now 6 mm, THREE TIMES the prior 2 mm. The tile is 24 mm.
+  Weave is on broad laminate faces; cut edges retain a plain dark finish.
+- Motor_Anodized uses base colour (0.018,0.022,0.028), metallic 0.85,
+  roughness 0.36: a dark anodized-aluminium approximation.
+- Dull_Hardware is now genuinely metallic: base (0.55,0.58,0.62), metallic 1,
+  roughness 0.28. This shared material covers the silver screws, standoffs,
+  shafts, camera bolts and other exposed silver hardware.
+- The battery wrap is now glossy/lacquer-like, as described above.
+  Props, rotor coordinates, clearance, and all other materials are unchanged.
+
+Use UNREAL_MATERIAL_NOTES.txt and UNREAL_MATERIAL_SETTINGS.json for the
+material-check/reconstruction targets. The GLB includes the maps and PBR
+values; advanced shading extensions and lighting should be checked inside
+Unreal. It has not been tested there in this workspace.
+
+Textures/ includes original GL (+Y) normals and helper DX (-Y) normals for
+manual Unreal setup. It also includes optional packed ORM maps, plus the
+original grayscale roughness maps. Never flip normals twice.
+Base-colour PNGs: sRGB. Normal/roughness/ORM data: non-colour linear.
+Do not add a 3x UV multiplier: the larger carbon pattern is already authored
+in the exported UV coordinates; extra tiling should remain 1.
+
+BATTERY FINISH — V8
+For a manual Unreal Default Lit setup, use the existing blue colour, Metallic
+0, Roughness 0.18, Specular 0.5. This standard-PBR baseline carries the glossy
+finish even without the optional clearcoat layer. The end-fold roughness is
+0.22. For an enhanced layered finish, the exported glTF clearcoat weight is
+0.35 and its roughness is 0.10 (fold: 0.12). If using Unreal Clear Coat shading,
+check the imported graph against UNREAL_MATERIAL_SETTINGS.json and the preview.
+The intended surface is glossy blue shrink-wrap, not a metallic blue shell.

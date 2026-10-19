@@ -1,0 +1,2061 @@
+{
+  "units": "metres",
+  "source_axes": "right-handed, +X forward, +Y left, +Z up",
+  "glb_axes": "right-handed, +Y up; front +X; mapping source (x,y,z) to glTF (x,z,-y)",
+  "triangle_winding": "CCW front faces",
+  "rotor_radius_m": 0.0889,
+  "rotor_positions_source_m": {
+    "FL": [
+      0.145,
+      0.145,
+      -0.006
+    ],
+    "FR": [
+      0.145,
+      -0.145,
+      -0.006
+    ],
+    "RL": [
+      -0.145,
+      0.145,
+      -0.006
+    ],
+    "RR": [
+      -0.145,
+      -0.145,
+      -0.006
+    ]
+  },
+  "rotor_positions_glb_m": {
+    "FL": [
+      0.145,
+      -0.006,
+      -0.145
+    ],
+    "FR": [
+      0.145,
+      -0.006,
+      0.145
+    ],
+    "RL": [
+      -0.145,
+      -0.006,
+      -0.145
+    ],
+    "RR": [
+      -0.145,
+      -0.006,
+      0.145
+    ]
+  },
+  "rotor_positions_requested_Zup_Yright_m": {
+    "FL": [
+      0.145,
+      -0.145,
+      -0.006
+    ],
+    "FR": [
+      0.145,
+      0.145,
+      -0.006
+    ],
+    "RL": [
+      -0.145,
+      -0.145,
+      -0.006
+    ],
+    "RR": [
+      -0.145,
+      0.145,
+      -0.006
+    ]
+  },
+  "rotor_labels": "physical front/left/right; +Y is left in RH source and right in requested LH simulation frame",
+  "spin_axis_source": [
+    0,
+    0,
+    1
+  ],
+  "spin_axis_glb": [
+    0,
+    1,
+    0
+  ],
+  "camera_mount_m": [
+    0.1,
+    0,
+    -0.024
+  ],
+  "camera_optical_axis_source": [
+    1,
+    0,
+    0
+  ],
+  "camera_angle_degrees": 0,
+  "led_mount_m": [
+    0.106,
+    0,
+    -0.035
+  ],
+  "body_origin": "frame center; not a mass-derived COM",
+  "collision_box_source": {
+    "center_m": [
+      0.005,
+      0,
+      0.03
+    ],
+    "size_m": [
+      0.28,
+      0.105,
+      0.18
+    ]
+  },
+  "lod0_triangles": 19718,
+  "lod1_triangles": 5540,
+  "parts": [
+    {
+      "name": "Frame_LowerPlate",
+      "triangles": 108,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Frame_TopPlate",
+      "triangles": 108,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Frame_Standoff",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Deck_Bolt",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Frame_Standoff.001",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Deck_Bolt.001",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Frame_Standoff.002",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Deck_Bolt.002",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Frame_Standoff.003",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Deck_Bolt.003",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Frame_Arm_FL",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_Foot_FL",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FL",
+      "triangles": 700,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FL_Vent_0",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FL_Vent_1",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FL_Vent_2",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FL_Vent_3",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FL_Vent_4",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FL_Vent_5",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FL_Vent_6",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FL_Vent_7",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FL_Screw_0",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FL_Screw_1",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FL_PhaseLead_0",
+      "triangles": 80,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FL_PhaseLead_1",
+      "triangles": 80,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FL_PhaseLead_2",
+      "triangles": 80,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Arm_ZipTie_FL",
+      "triangles": 160,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Arm_ZipTie_FL.001",
+      "triangles": 160,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Frame_Arm_FR",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_Foot_FR",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FR",
+      "triangles": 700,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FR_Vent_0",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FR_Vent_1",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FR_Vent_2",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FR_Vent_3",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FR_Vent_4",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FR_Vent_5",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FR_Vent_6",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FR_Vent_7",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FR_Screw_0",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FR_Screw_1",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FR_PhaseLead_0",
+      "triangles": 80,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FR_PhaseLead_1",
+      "triangles": 80,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FR_PhaseLead_2",
+      "triangles": 80,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Arm_ZipTie_FR",
+      "triangles": 160,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Arm_ZipTie_FR.001",
+      "triangles": 160,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Frame_Arm_RL",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_Foot_RL",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RL",
+      "triangles": 700,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RL_Vent_0",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RL_Vent_1",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RL_Vent_2",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RL_Vent_3",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RL_Vent_4",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RL_Vent_5",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RL_Vent_6",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RL_Vent_7",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RL_Screw_0",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RL_Screw_1",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RL_PhaseLead_0",
+      "triangles": 80,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RL_PhaseLead_1",
+      "triangles": 80,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RL_PhaseLead_2",
+      "triangles": 80,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Arm_ZipTie_RL",
+      "triangles": 160,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Arm_ZipTie_RL.001",
+      "triangles": 160,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Frame_Arm_RR",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_Foot_RR",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RR",
+      "triangles": 700,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RR_Vent_0",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RR_Vent_1",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RR_Vent_2",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RR_Vent_3",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RR_Vent_4",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RR_Vent_5",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RR_Vent_6",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RR_Vent_7",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RR_Screw_0",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RR_Screw_1",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RR_PhaseLead_0",
+      "triangles": 80,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RR_PhaseLead_1",
+      "triangles": 80,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RR_PhaseLead_2",
+      "triangles": 80,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Arm_ZipTie_RR",
+      "triangles": 160,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Arm_ZipTie_RR.001",
+      "triangles": 160,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Battery",
+      "triangles": 1728,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Battery_WrapFold",
+      "triangles": 160,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Battery_MainStrap",
+      "triangles": 256,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Battery_Buckle",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Battery_StrapTail",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "ESC",
+      "triangles": 990,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "FlightController",
+      "triangles": 102,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "FC_USB_Port",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "USB_Opening",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Stack_Damper",
+      "triangles": 36,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Stack_Screw",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Stack_Damper.001",
+      "triangles": 36,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Stack_Screw.001",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Stack_Damper.002",
+      "triangles": 36,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Stack_Screw.002",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Stack_Damper.003",
+      "triangles": 36,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Stack_Screw.003",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "ESC_Capacitor",
+      "triangles": 76,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Capacitor_End",
+      "triangles": 76,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "ESC_Capacitor_Lead_A",
+      "triangles": 80,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "ESC_Capacitor_Lead_B",
+      "triangles": 80,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "XT60_BatteryHalf",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "XT60_ESCHalf",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Battery_Positive",
+      "triangles": 152,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Battery_Negative",
+      "triangles": 152,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "ESC_Positive",
+      "triangles": 152,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "ESC_Negative",
+      "triangles": 152,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Balance_Lead_0",
+      "triangles": 152,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Balance_Lead_1",
+      "triangles": 152,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Balance_Lead_2",
+      "triangles": 152,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Balance_Lead_3",
+      "triangles": 152,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Battery_BalancePlug",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Signal_Harness_0",
+      "triangles": 116,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Signal_Harness_1",
+      "triangles": 116,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Signal_Harness_2",
+      "triangles": 116,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "BalancePlug_RetainingLoop",
+      "triangles": 160,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "VideoTransmitter",
+      "triangles": 100,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Receiver",
+      "triangles": 262,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Peripheral_Spacer",
+      "triangles": 28,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Peripheral_Spacer.001",
+      "triangles": 28,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Peripheral_Spacer.002",
+      "triangles": 28,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Peripheral_Spacer.003",
+      "triangles": 28,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Receiver_Capacitor",
+      "triangles": 36,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Receiver_Capacitor.001",
+      "triangles": 36,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Receiver_Capacitor.002",
+      "triangles": 36,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Peripheral_Harness_0",
+      "triangles": 152,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Peripheral_Harness_1",
+      "triangles": 152,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Peripheral_Harness_2",
+      "triangles": 152,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Receiver_Signal",
+      "triangles": 116,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Camera_Housing",
+      "triangles": 108,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Camera_Lens",
+      "triangles": 92,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Camera_IntegratedCheek",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Camera_PivotBolt",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Camera_IntegratedCheek.001",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Camera_PivotBolt.001",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Camera_Signal_Lead",
+      "triangles": 116,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "LED_Clip",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Antenna_BracketBolt",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Antenna_BracketBolt.001",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Antenna_Mount",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Antenna_Mast",
+      "triangles": 60,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Antenna_Ferrule",
+      "triangles": 60,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Antenna_Cap",
+      "triangles": 236,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Antenna_CapCrown",
+      "triangles": 76,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Antenna_Coax",
+      "triangles": 152,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FL_Shaft",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FR_Shaft",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RL_Shaft",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RR_Shaft",
+      "triangles": 44,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Prop_FL_CCW",
+      "triangles": 998,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Prop_FR_CW",
+      "triangles": 1000,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Prop_RL_CW",
+      "triangles": 1000,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Prop_RR_CCW",
+      "triangles": 998,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Frame_LowerPlate_LOD1",
+      "triangles": 38,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Frame_TopPlate_LOD1",
+      "triangles": 38,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Frame_Standoff_LOD1",
+      "triangles": 10,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Deck_Bolt_LOD1",
+      "triangles": 4,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Frame_Standoff.001_LOD1",
+      "triangles": 10,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Deck_Bolt.001_LOD1",
+      "triangles": 4,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Frame_Standoff.002_LOD1",
+      "triangles": 10,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Deck_Bolt.002_LOD1",
+      "triangles": 4,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Frame_Standoff.003_LOD1",
+      "triangles": 10,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Deck_Bolt.003_LOD1",
+      "triangles": 4,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Frame_Arm_FL_LOD1",
+      "triangles": 10,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_Foot_FL_LOD1",
+      "triangles": 10,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FL_LOD1",
+      "triangles": 174,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FL_Vent_0_LOD1",
+      "triangles": 32,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FL_Vent_1_LOD1",
+      "triangles": 32,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FL_Vent_2_LOD1",
+      "triangles": 32,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FL_Vent_3_LOD1",
+      "triangles": 32,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FL_Vent_4_LOD1",
+      "triangles": 32,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FL_Vent_5_LOD1",
+      "triangles": 32,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FL_Vent_6_LOD1",
+      "triangles": 32,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FL_Vent_7_LOD1",
+      "triangles": 32,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FL_Screw_0_LOD1",
+      "triangles": 4,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FL_Screw_1_LOD1",
+      "triangles": 4,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FL_PhaseLead_0_LOD1",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FL_PhaseLead_1_LOD1",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FL_PhaseLead_2_LOD1",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Arm_ZipTie_FL_LOD1",
+      "triangles": 40,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Arm_ZipTie_FL.001_LOD1",
+      "triangles": 40,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Frame_Arm_FR_LOD1",
+      "triangles": 10,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_Foot_FR_LOD1",
+      "triangles": 10,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FR_LOD1",
+      "triangles": 174,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FR_Vent_0_LOD1",
+      "triangles": 32,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FR_Vent_1_LOD1",
+      "triangles": 32,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FR_Vent_2_LOD1",
+      "triangles": 32,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FR_Vent_3_LOD1",
+      "triangles": 32,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FR_Vent_4_LOD1",
+      "triangles": 32,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FR_Vent_5_LOD1",
+      "triangles": 32,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FR_Vent_6_LOD1",
+      "triangles": 32,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FR_Vent_7_LOD1",
+      "triangles": 32,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FR_Screw_0_LOD1",
+      "triangles": 4,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FR_Screw_1_LOD1",
+      "triangles": 4,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FR_PhaseLead_0_LOD1",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FR_PhaseLead_1_LOD1",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FR_PhaseLead_2_LOD1",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Arm_ZipTie_FR_LOD1",
+      "triangles": 40,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Arm_ZipTie_FR.001_LOD1",
+      "triangles": 40,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Frame_Arm_RL_LOD1",
+      "triangles": 10,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_Foot_RL_LOD1",
+      "triangles": 10,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RL_LOD1",
+      "triangles": 174,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RL_Vent_0_LOD1",
+      "triangles": 32,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RL_Vent_1_LOD1",
+      "triangles": 32,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RL_Vent_2_LOD1",
+      "triangles": 32,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RL_Vent_3_LOD1",
+      "triangles": 32,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RL_Vent_4_LOD1",
+      "triangles": 32,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RL_Vent_5_LOD1",
+      "triangles": 32,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RL_Vent_6_LOD1",
+      "triangles": 32,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RL_Vent_7_LOD1",
+      "triangles": 32,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RL_Screw_0_LOD1",
+      "triangles": 4,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RL_Screw_1_LOD1",
+      "triangles": 4,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RL_PhaseLead_0_LOD1",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RL_PhaseLead_1_LOD1",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RL_PhaseLead_2_LOD1",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Arm_ZipTie_RL_LOD1",
+      "triangles": 40,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Arm_ZipTie_RL.001_LOD1",
+      "triangles": 40,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Frame_Arm_RR_LOD1",
+      "triangles": 10,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_Foot_RR_LOD1",
+      "triangles": 10,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RR_LOD1",
+      "triangles": 174,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RR_Vent_0_LOD1",
+      "triangles": 32,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RR_Vent_1_LOD1",
+      "triangles": 32,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RR_Vent_2_LOD1",
+      "triangles": 32,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RR_Vent_3_LOD1",
+      "triangles": 32,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RR_Vent_4_LOD1",
+      "triangles": 32,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RR_Vent_5_LOD1",
+      "triangles": 32,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RR_Vent_6_LOD1",
+      "triangles": 32,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RR_Vent_7_LOD1",
+      "triangles": 32,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RR_Screw_0_LOD1",
+      "triangles": 4,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RR_Screw_1_LOD1",
+      "triangles": 4,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RR_PhaseLead_0_LOD1",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RR_PhaseLead_1_LOD1",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RR_PhaseLead_2_LOD1",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Arm_ZipTie_RR_LOD1",
+      "triangles": 40,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Arm_ZipTie_RR.001_LOD1",
+      "triangles": 40,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Battery_LOD1",
+      "triangles": 432,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Battery_WrapFold_LOD1",
+      "triangles": 40,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Battery_MainStrap_LOD1",
+      "triangles": 64,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Battery_Buckle_LOD1",
+      "triangles": 10,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Battery_StrapTail_LOD1",
+      "triangles": 10,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "ESC_LOD1",
+      "triangles": 246,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "FlightController_LOD1",
+      "triangles": 24,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "FC_USB_Port_LOD1",
+      "triangles": 10,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "USB_Opening_LOD1",
+      "triangles": 10,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Stack_Damper_LOD1",
+      "triangles": 8,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Stack_Screw_LOD1",
+      "triangles": 4,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Stack_Damper.001_LOD1",
+      "triangles": 8,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Stack_Screw.001_LOD1",
+      "triangles": 4,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Stack_Damper.002_LOD1",
+      "triangles": 8,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Stack_Screw.002_LOD1",
+      "triangles": 4,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Stack_Damper.003_LOD1",
+      "triangles": 8,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Stack_Screw.003_LOD1",
+      "triangles": 4,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "ESC_Capacitor_LOD1",
+      "triangles": 18,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Capacitor_End_LOD1",
+      "triangles": 18,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "ESC_Capacitor_Lead_A_LOD1",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "ESC_Capacitor_Lead_B_LOD1",
+      "triangles": 20,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "XT60_BatteryHalf_LOD1",
+      "triangles": 10,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "XT60_ESCHalf_LOD1",
+      "triangles": 10,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Battery_Positive_LOD1",
+      "triangles": 38,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Battery_Negative_LOD1",
+      "triangles": 38,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "ESC_Positive_LOD1",
+      "triangles": 38,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "ESC_Negative_LOD1",
+      "triangles": 38,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Balance_Lead_0_LOD1",
+      "triangles": 38,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Balance_Lead_1_LOD1",
+      "triangles": 38,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Balance_Lead_2_LOD1",
+      "triangles": 38,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Balance_Lead_3_LOD1",
+      "triangles": 38,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Battery_BalancePlug_LOD1",
+      "triangles": 10,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Signal_Harness_0_LOD1",
+      "triangles": 28,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Signal_Harness_1_LOD1",
+      "triangles": 28,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Signal_Harness_2_LOD1",
+      "triangles": 28,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "BalancePlug_RetainingLoop_LOD1",
+      "triangles": 40,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "VideoTransmitter_LOD1",
+      "triangles": 24,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Receiver_LOD1",
+      "triangles": 64,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Peripheral_Spacer_LOD1",
+      "triangles": 6,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Peripheral_Spacer.001_LOD1",
+      "triangles": 6,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Peripheral_Spacer.002_LOD1",
+      "triangles": 6,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Peripheral_Spacer.003_LOD1",
+      "triangles": 6,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Receiver_Capacitor_LOD1",
+      "triangles": 8,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Receiver_Capacitor.001_LOD1",
+      "triangles": 8,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Receiver_Capacitor.002_LOD1",
+      "triangles": 8,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Peripheral_Harness_0_LOD1",
+      "triangles": 38,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Peripheral_Harness_1_LOD1",
+      "triangles": 38,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Peripheral_Harness_2_LOD1",
+      "triangles": 38,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Receiver_Signal_LOD1",
+      "triangles": 28,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Camera_Housing_LOD1",
+      "triangles": 26,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Camera_Lens_LOD1",
+      "triangles": 22,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Camera_IntegratedCheek_LOD1",
+      "triangles": 10,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Camera_PivotBolt_LOD1",
+      "triangles": 4,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Camera_IntegratedCheek.001_LOD1",
+      "triangles": 10,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Camera_PivotBolt.001_LOD1",
+      "triangles": 4,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Camera_Signal_Lead_LOD1",
+      "triangles": 28,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "LED_Clip_LOD1",
+      "triangles": 10,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Antenna_BracketBolt_LOD1",
+      "triangles": 4,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Antenna_BracketBolt.001_LOD1",
+      "triangles": 4,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Antenna_Mount_LOD1",
+      "triangles": 10,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Antenna_Mast_LOD1",
+      "triangles": 14,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Antenna_Ferrule_LOD1",
+      "triangles": 14,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Antenna_Cap_LOD1",
+      "triangles": 58,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Antenna_CapCrown_LOD1",
+      "triangles": 18,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Antenna_Coax_LOD1",
+      "triangles": 38,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FL_Shaft_LOD1",
+      "triangles": 10,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_FR_Shaft_LOD1",
+      "triangles": 10,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RL_Shaft_LOD1",
+      "triangles": 10,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Motor_RR_Shaft_LOD1",
+      "triangles": 10,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Prop_FL_CCW_LOD1",
+      "triangles": 248,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Prop_FR_CW_LOD1",
+      "triangles": 250,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Prop_RL_CW_LOD1",
+      "triangles": 250,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Prop_RR_CCW_LOD1",
+      "triangles": 248,
+      "manifold": true,
+      "connected_components": 1
+    },
+    {
+      "name": "Collision_Body",
+      "triangles": 12,
+      "manifold": true,
+      "connected_components": 1
+    }
+  ],
+  "tested_in_unreal": false,
+  "thermal_mapping": {
+    "Battery": "battery",
+    "ESC": "esc",
+    "Motor_FL": "motor",
+    "Motor_FR": "motor",
+    "Motor_RL": "motor",
+    "Motor_RR": "motor"
+  },
+  "frame_plate_clear_gap_m": 0.02225,
+  "rear_antenna": {
+    "base_source_m": [
+      -0.101,
+      0,
+      -0.006
+    ],
+    "mount": "directly on Frame_TopPlate between screws",
+    "projecting_bracket": false,
+    "mast_length_m": 0.145
+  },
+  "prop_vertical_lift_m": 0.004,
+  "minimum_casing_clearance_m": 0.0019093453884124756,
+  "materials": {
+    "carbon": {
+      "tile_m": 0.024,
+      "tow_width_m": 0.006,
+      "weave_scale_vs_v6": 3,
+      "normal_convention": "OpenGL +Y in GLB; DirectX helpers also provided"
+    },
+    "velcro": {
+      "albedo_linear_range": [
+        0.0025,
+        0.007
+      ],
+      "roughness": 1,
+      "specular": 0,
+      "metallic": 0,
+      "sheen": 0,
+      "wall_thickness_m": 0.0022
+    },
+    "motors": {
+      "metallic": 0.85,
+      "roughness": 0.36,
+      "base_color_linear": [
+        0.018,
+        0.022,
+        0.028
+      ]
+    },
+    "silver_hardware": {
+      "metallic": 1,
+      "roughness": 0.28,
+      "base_color_linear": [
+        0.55,
+        0.58,
+        0.62
+      ]
+    },
+    "embedded_glb_images": 6,
+    "unreal_recipes": "UNREAL_MATERIAL_SETTINGS.json"
+  },
+  "battery_finish": {
+    "Battery_Blue_Shrinkwrap": {
+      "roughness": 0.18000000715255737,
+      "clearcoat": {
+        "clearcoatFactor": 0.3499999940395355,
+        "clearcoatRoughnessFactor": 0.10000000149011612
+      }
+    },
+    "Battery_FoldedWrap": {
+      "roughness": 0.2199999988079071,
+      "clearcoat": {
+        "clearcoatFactor": 0.3499999940395355,
+        "clearcoatRoughnessFactor": 0.11999999731779099
+      }
+    },
+    "geometry_and_colour": "unchanged from v7"
+  }
+}

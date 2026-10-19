@@ -9,7 +9,7 @@
       "visual": {
         "geometry": {
           "type": "unreal_mesh",
-          "name": "/Drone/Quadrotor1"
+          "name": "/Drone/OpenFrame_v8/SM_OpenFrame_v8_Body"
         }
       }
     },
@@ -18,7 +18,7 @@
       "visual": {
         "geometry": {
           "type": "unreal_mesh",
-          "name": "/Drone/Propeller"
+          "name": "/Drone/OpenFrame_v8/SM_OpenFrame_v8_Prop_CW"
         }
       }
     },
@@ -27,7 +27,7 @@
       "visual": {
         "geometry": {
           "type": "unreal_mesh",
-          "name": "/Drone/Propeller"
+          "name": "/Drone/OpenFrame_v8/SM_OpenFrame_v8_Prop_CCW"
         }
       }
     },
@@ -36,7 +36,7 @@
       "visual": {
         "geometry": {
           "type": "unreal_mesh",
-          "name": "/Drone/Propeller"
+          "name": "/Drone/OpenFrame_v8/SM_OpenFrame_v8_Prop_CCW"
         }
       }
     },
@@ -45,8 +45,44 @@
       "visual": {
         "geometry": {
           "type": "unreal_mesh",
-          "name": "/Drone/Propeller"
+          "name": "/Drone/OpenFrame_v8/SM_OpenFrame_v8_Prop_CW"
         }
+      }
+    },
+    {
+      "name": "Battery",
+      "visual": {
+        "geometry": {
+          "type": "unreal_mesh",
+          "name": "/Drone/OpenFrame_v8/SM_OpenFrame_v8_Battery"
+        }
+      },
+      "collision": {
+        "enabled": false
+      }
+    },
+    {
+      "name": "Motors",
+      "visual": {
+        "geometry": {
+          "type": "unreal_mesh",
+          "name": "/Drone/OpenFrame_v8/SM_OpenFrame_v8_Motors"
+        }
+      },
+      "collision": {
+        "enabled": false
+      }
+    },
+    {
+      "name": "ESC",
+      "visual": {
+        "geometry": {
+          "type": "unreal_mesh",
+          "name": "/Drone/OpenFrame_v8/SM_OpenFrame_v8_ESC"
+        }
+      },
+      "collision": {
+        "enabled": false
       }
     }
   ],
@@ -54,7 +90,7 @@
     {
       "id": "Frame_Prop_FL",
       "origin": {
-        "xyz": "0.253 -0.253 -0.01",
+        "xyz": "0.145 -0.145 0.006",
         "rpy-deg": "0 0 0"
       },
       "type": "fixed",
@@ -65,7 +101,7 @@
     {
       "id": "Frame_Prop_FR",
       "origin": {
-        "xyz": "0.253 0.253 -0.01",
+        "xyz": "0.145 0.145 0.006",
         "rpy-deg": "0 0 0"
       },
       "type": "fixed",
@@ -76,7 +112,7 @@
     {
       "id": "Frame_Prop_RL",
       "origin": {
-        "xyz": "-0.253 -0.253 -0.01",
+        "xyz": "-0.145 -0.145 0.006",
         "rpy-deg": "0 0 0"
       },
       "type": "fixed",
@@ -87,12 +123,33 @@
     {
       "id": "Frame_Prop_RR",
       "origin": {
-        "xyz": "-0.253 0.253 -0.01",
+        "xyz": "-0.145 0.145 0.006",
         "rpy-deg": "0 0 0"
       },
       "type": "fixed",
       "parent-link": "Frame",
       "child-link": "Prop_RR",
+      "axis": "0 0 1"
+    },
+    {
+      "id": "Frame_Battery",
+      "type": "fixed",
+      "parent-link": "Frame",
+      "child-link": "Battery",
+      "axis": "0 0 1"
+    },
+    {
+      "id": "Frame_Motors",
+      "type": "fixed",
+      "parent-link": "Frame",
+      "child-link": "Motors",
+      "axis": "0 0 1"
+    },
+    {
+      "id": "Frame_ESC",
+      "type": "fixed",
+      "parent-link": "Frame",
+      "child-link": "ESC",
       "axis": "0 0 1"
     }
   ],

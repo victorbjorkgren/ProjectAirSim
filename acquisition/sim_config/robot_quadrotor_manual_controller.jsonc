@@ -30,7 +30,7 @@
       "visual": {
         "geometry": {
           "type": "unreal_mesh",
-          "name": "/Drone/Quadrotor1"
+          "name": "/Drone/OpenFrame_v8/SM_OpenFrame_v8_Body"
         }
       }
     },
@@ -38,10 +38,10 @@
       "name": "Prop_FL",
       "inertial": {
         "origin": {
-          "xyz": "0.253 -0.253 -0.01",
+          "xyz": "0.145 -0.145 0.006",
           "rpy-deg": "0 0 0"
         },
-        "mass": 0.055,
+        "mass": 0.051,
         "inertia": {
           "type": "point-mass"
         },
@@ -50,7 +50,7 @@
           "type": "geometry",
           "geometry": {
             "cylinder": {
-              "radius": 0.1143,
+              "radius": 0.0889,
               "length": 0.01
             }
           }
@@ -58,12 +58,12 @@
       },
       "visual": {
         "origin": {
-          "xyz": "0.253 -0.253 -0.01",
+          "xyz": "0.145 -0.145 0.006",
           "rpy-deg": "0 0 0"
         },
         "geometry": {
           "type": "unreal_mesh",
-          "name": "/Drone/PropellerRed"
+          "name": "/Drone/OpenFrame_v8/SM_OpenFrame_v8_Prop_CW"
         }
       }
     },
@@ -71,10 +71,10 @@
       "name": "Prop_FR",
       "inertial": {
         "origin": {
-          "xyz": "0.253 0.253 -0.01",
+          "xyz": "0.145 0.145 0.006",
           "rpy-deg": "0 0 0"
         },
-        "mass": 0.055,
+        "mass": 0.051,
         "inertia": {
           "type": "point-mass"
         },
@@ -83,7 +83,7 @@
           "type": "geometry",
           "geometry": {
             "cylinder": {
-              "radius": 0.1143,
+              "radius": 0.0889,
               "length": 0.01
             }
           }
@@ -91,12 +91,12 @@
       },
       "visual": {
         "origin": {
-          "xyz": "0.253 0.253 -0.01",
+          "xyz": "0.145 0.145 0.006",
           "rpy-deg": "0 0 0"
         },
         "geometry": {
           "type": "unreal_mesh",
-          "name": "/Drone/PropellerRed"
+          "name": "/Drone/OpenFrame_v8/SM_OpenFrame_v8_Prop_CCW"
         }
       }
     },
@@ -104,10 +104,10 @@
       "name": "Prop_RL",
       "inertial": {
         "origin": {
-          "xyz": "-0.253 -0.253 -0.01",
+          "xyz": "-0.145 -0.145 0.006",
           "rpy-deg": "0 0 0"
         },
-        "mass": 0.055,
+        "mass": 0.051,
         "inertia": {
           "type": "point-mass"
         },
@@ -116,7 +116,7 @@
           "type": "geometry",
           "geometry": {
             "cylinder": {
-              "radius": 0.1143,
+              "radius": 0.0889,
               "length": 0.01
             }
           }
@@ -124,12 +124,12 @@
       },
       "visual": {
         "origin": {
-          "xyz": "-0.253 -0.253 -0.01",
+          "xyz": "-0.145 -0.145 0.006",
           "rpy-deg": "0 0 0"
         },
         "geometry": {
           "type": "unreal_mesh",
-          "name": "/Drone/PropellerWhite"
+          "name": "/Drone/OpenFrame_v8/SM_OpenFrame_v8_Prop_CCW"
         }
       }
     },
@@ -137,10 +137,10 @@
       "name": "Prop_RR",
       "inertial": {
         "origin": {
-          "xyz": "-0.253 0.253 -0.01",
+          "xyz": "-0.145 0.145 0.006",
           "rpy-deg": "0 0 0"
         },
-        "mass": 0.055,
+        "mass": 0.051,
         "inertia": {
           "type": "point-mass"
         },
@@ -149,7 +149,7 @@
           "type": "geometry",
           "geometry": {
             "cylinder": {
-              "radius": 0.1143,
+              "radius": 0.0889,
               "length": 0.01
             }
           }
@@ -157,13 +157,49 @@
       },
       "visual": {
         "origin": {
-          "xyz": "-0.253 0.253 -0.01",
+          "xyz": "-0.145 0.145 0.006",
           "rpy-deg": "0 0 0"
         },
         "geometry": {
           "type": "unreal_mesh",
-          "name": "/Drone/PropellerWhite"
+          "name": "/Drone/OpenFrame_v8/SM_OpenFrame_v8_Prop_CW"
         }
+      }
+    },
+    {
+      "name": "Battery",
+      "visual": {
+        "geometry": {
+          "type": "unreal_mesh",
+          "name": "/Drone/OpenFrame_v8/SM_OpenFrame_v8_Battery"
+        }
+      },
+      "collision": {
+        "enabled": false
+      }
+    },
+    {
+      "name": "Motors",
+      "visual": {
+        "geometry": {
+          "type": "unreal_mesh",
+          "name": "/Drone/OpenFrame_v8/SM_OpenFrame_v8_Motors"
+        }
+      },
+      "collision": {
+        "enabled": false
+      }
+    },
+    {
+      "name": "ESC",
+      "visual": {
+        "geometry": {
+          "type": "unreal_mesh",
+          "name": "/Drone/OpenFrame_v8/SM_OpenFrame_v8_ESC"
+        }
+      },
+      "collision": {
+        "enabled": false
       }
     }
   ],
@@ -194,6 +230,27 @@
       "type": "fixed",
       "parent-link": "Frame",
       "child-link": "Prop_RR",
+      "axis": "0 0 1"
+    },
+    {
+      "id": "Frame_Battery",
+      "type": "fixed",
+      "parent-link": "Frame",
+      "child-link": "Battery",
+      "axis": "0 0 1"
+    },
+    {
+      "id": "Frame_Motors",
+      "type": "fixed",
+      "parent-link": "Frame",
+      "child-link": "Motors",
+      "axis": "0 0 1"
+    },
+    {
+      "id": "Frame_ESC",
+      "type": "fixed",
+      "parent-link": "Frame",
+      "child-link": "ESC",
       "axis": "0 0 1"
     }
   ],
@@ -229,16 +286,16 @@
       "parent-link": "Frame",
       "child-link": "Prop_FL",
       "origin": {
-        "xyz": "0.253 -0.253 -0.01",
+        "xyz": "0.145 -0.145 0.006",
         "rpy-deg": "0 0 0"
       },
       "rotor-settings": {
         "turning-direction": "clock-wise",
         "normal-vector": "0.0 0.0 -1.0",
-        "coeff-of-thrust": 0.109919,
-        "coeff-of-torque": 0.040164,
-        "max-rpm": 200,
-        "propeller-diameter": 0.2286,
+        "coeff-of-thrust": 0.06,
+        "coeff-of-torque": 0.015,
+        "max-rpm": 16800.0,
+        "propeller-diameter": 0.1778,
         "smoothing-tc": 0.005
       }
     },
@@ -249,16 +306,16 @@
       "parent-link": "Frame",
       "child-link": "Prop_FR",
       "origin": {
-        "xyz": "0.253 0.253 -0.01",
+        "xyz": "0.145 0.145 0.006",
         "rpy-deg": "0 0 0"
       },
       "rotor-settings": {
         "turning-direction": "counter-clock-wise",
         "normal-vector": "0.0 0.0 -1.0",
-        "coeff-of-thrust": 0.109919,
-        "coeff-of-torque": 0.040164,
-        "max-rpm": 200,
-        "propeller-diameter": 0.2286,
+        "coeff-of-thrust": 0.06,
+        "coeff-of-torque": 0.015,
+        "max-rpm": 16800.0,
+        "propeller-diameter": 0.1778,
         "smoothing-tc": 0.005
       }
     },
@@ -269,16 +326,16 @@
       "parent-link": "Frame",
       "child-link": "Prop_RL",
       "origin": {
-        "xyz": "-0.253 -0.253 -0.01",
+        "xyz": "-0.145 -0.145 0.006",
         "rpy-deg": "0 0 0"
       },
       "rotor-settings": {
         "turning-direction": "counter-clock-wise",
         "normal-vector": "0.0 0.0 -1.0",
-        "coeff-of-thrust": 0.109919,
-        "coeff-of-torque": 0.040164,
-        "max-rpm": 200,
-        "propeller-diameter": 0.2286,
+        "coeff-of-thrust": 0.06,
+        "coeff-of-torque": 0.015,
+        "max-rpm": 16800.0,
+        "propeller-diameter": 0.1778,
         "smoothing-tc": 0.005
       }
     },
@@ -289,16 +346,16 @@
       "parent-link": "Frame",
       "child-link": "Prop_RR",
       "origin": {
-        "xyz": "-0.253 0.253 -0.01",
+        "xyz": "-0.145 0.145 0.006",
         "rpy-deg": "0 0 0"
       },
       "rotor-settings": {
         "turning-direction": "clock-wise",
         "normal-vector": "0.0 0.0 -1.0",
-        "coeff-of-thrust": 0.109919,
-        "coeff-of-torque": 0.040164,
-        "max-rpm": 200,
-        "propeller-diameter": 0.2286,
+        "coeff-of-thrust": 0.06,
+        "coeff-of-torque": 0.015,
+        "max-rpm": 16800.0,
+        "propeller-diameter": 0.1778,
         "smoothing-tc": 0.005
       }
     }
