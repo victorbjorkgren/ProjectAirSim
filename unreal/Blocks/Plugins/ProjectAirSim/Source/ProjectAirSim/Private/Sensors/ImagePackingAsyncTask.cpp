@@ -8,6 +8,7 @@
 #include <map>
 
 #include "UnrealCamera.h"
+#include "ThermalSensorModel.h"
 #include "UnrealLogger.h"
 #include "core_sim/message/image_message.hpp"
 #include "UnrealLogger.h"
@@ -18,6 +19,62 @@ void FImagePackingAsyncTask::DoWork() {
   std::map<projectairsim::ImageType, projectairsim::ImageMessage> ImageMessages;
 
   for (auto& [ImageRequest, RenderResult] : CaptureResults) {
+    if (ImageRequest.ThermalSensor) {
+      // One radiometric render becomes the display image and/or the
+      // temperature image through the camera's sensor model.
+      const int32 Count = RenderResult.Width * RenderResult.Height;
+      std::vector<float> TemperatureK(Count);
+      for (int32 I = 0; I < Count; ++I) {
+        TemperatureK[I] = RenderResult.UnrealImageFloat32[I].R;
+      }
+      std::vector<uint8_t> Display, CentiKelvin;
+      ImageRequest.ThermalSensor->Process(
+          TemperatureK.data(), RenderResult.Width, RenderResult.Height,
+          ImageRequest.ThermalFrame,
+          ImageRequest.bThermalDisplay ? &Display : nullptr,
+          ImageRequest.bThermalTemperature ? &CentiKelvin : nullptr);
+
+      auto Add = [&](projectairsim::ImageType Type, const char* Encoding,
+                     std::vector<uint8_t>&& Data) {
+        ImageMessages.emplace(
+            Type,
+            projectairsim::ImageMessage(
+                CapturedCameraTransform.timestamp_, RenderResult.Height,
+                RenderResult.Width, Encoding, false, 1, std::move(Data),
+                CapturedCameraTransform.translation_.x(),
+                CapturedCameraTransform.translation_.y(),
+                CapturedCameraTransform.translation_.z(),
+                CapturedCameraTransform.rotation_.w(),
+                CapturedCameraTransform.rotation_.x(),
+                CapturedCameraTransform.rotation_.y(),
+                CapturedCameraTransform.rotation_.z(), Annotations));
+      };
+      if (ImageRequest.bThermalDisplay) {
+        if (ImageRequest.bCompress) {
+          TArray<FColor> Pixels;
+          Pixels.SetNumUninitialized(Count);
+          for (int32 I = 0; I < Count; ++I) {
+            Pixels[I] = FColor(Display[I * 3 + 2], Display[I * 3 + 1],
+                               Display[I * 3], 255);
+          }
+          TArray<uint8> Compressed;
+          UnrealCameraRenderRequest::CompressUsingImageWrapper(
+              Pixels, RenderResult.Width, RenderResult.Height, Compressed);
+          Add(projectairsim::ImageType::kInfrared, "PNG",
+              std::vector<uint8_t>(Compressed.GetData(),
+                                   Compressed.GetData() + Compressed.Num()));
+        } else {
+          Add(projectairsim::ImageType::kInfrared, "BGR", std::move(Display));
+        }
+      }
+      if (ImageRequest.bThermalTemperature) {
+        // uint16 centikelvin, little endian: 0.01 K steps up to 655 K.
+        Add(projectairsim::ImageType::kTemperature, "16UC1",
+            std::move(CentiKelvin));
+      }
+      continue;
+    }
+
     if (ImageRequest.LensRemap) {
       const FLensRemap& Remap = *ImageRequest.LensRemap;
       if (RenderResult.UnrealImage.Num() > 0) {

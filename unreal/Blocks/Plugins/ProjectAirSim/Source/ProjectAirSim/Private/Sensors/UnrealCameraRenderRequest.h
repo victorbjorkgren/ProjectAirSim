@@ -16,6 +16,7 @@ struct RenderResult {
 
   TArray<FColor> UnrealImage;
   TArray<FFloat16Color> UnrealImageFloat;
+  TArray<FLinearColor> UnrealImageFloat32;  // PF_A32B32G32R32F targets
 
   int Width;
   int Height;

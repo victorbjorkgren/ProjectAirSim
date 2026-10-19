@@ -389,6 +389,13 @@ def convert_string_with_spaces_to_float_list(data: str) -> List[float]:
     return floats
 
 
+def unpack_temperature_kelvin(image):
+    """Converts a TEMPERATURE image message (16UC1, centikelvin) to a float32 array of kelvin."""
+    if image["encoding"] != "16UC1":
+        raise ValueError("A temperature image is 16UC1, not " + str(image["encoding"]))
+    return unpack_image(image).astype(np.float32) / 100.0
+
+
 def unpack_image(image):
     """Takes a Project AirSim image message and converts it into a format usable by openCV
 

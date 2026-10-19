@@ -26,6 +26,8 @@
 #include "ImageUtils.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "ProjectAirSim.h"
+#include "ThermalScene.h"
+#include "ThermalSensorModel.h"
 #include "RenderingThread.h"
 #include "Runtime/Engine/Classes/Kismet/KismetMathLibrary.h"
 #include "UObject/ConstructorHelpers.h"
@@ -61,6 +63,14 @@ static TAutoConsoleVariable<int32> CVarSceneCameraReflectionMethod(
     TEXT("projectairsim.SceneCamera.ReflectionMethod"), -1,
     TEXT("Reflections on scene cameras: -1 the project's r.ReflectionMethod (default), ")
     TEXT("0 none, 1 Lumen, 2 screen space."),
+    ECVF_Default);
+
+// The thermal camera has no jitter of its own: temporal AA on it moves a hot needle against the cold sky
+// by a sub-pixel step every frame, which a still camera should not see. The optics' blur (the sensor
+// model's psf-sigma-px) anti-aliases instead. 1 turns TSR/TAA on (steadier in a turn, noisier when still).
+static TAutoConsoleVariable<int32> CVarThermalCameraTemporalAA(
+    TEXT("projectairsim.ThermalCamera.TemporalAA"), 0,
+    TEXT("Temporal anti-aliasing on thermal cameras: 0 off (default), 1 on."),
     ECVF_Default);
 
 static int32 SceneCameraMethod(const TAutoConsoleVariable<int32>& Override,
@@ -179,6 +189,16 @@ void UUnrealCamera::LoadCameraMaterials() {
     UnrealLogger::Log(
         projectairsim::LogLevel::kError,
         TEXT("[UnrealCamera] Cannot create surface normals material"));
+  }
+
+  static ConstructorHelpers::FObjectFinder<UMaterial> ThermalMat(
+      TEXT("Material'/ProjectAirSim/Sensors/"
+           "ThermalMaterial.ThermalMaterial'"));
+  if (ThermalMat.Succeeded()) {
+    ThermalMaterialStatic = ThermalMat.Object;
+  } else {
+    UnrealLogger::Log(projectairsim::LogLevel::kError,
+                      TEXT("[UnrealCamera] Cannot create thermal material"));
   }
 }
 
@@ -321,6 +341,45 @@ void UUnrealCamera::CreateComponents() {
   Captures[projectairsim::MathUtils::ToNumeric(
       projectairsim::ImageType::kSurfaceNormals)] =
       SurfaceNormalsCaptureComponent;
+
+  // Thermal: the radiometric render. Image types kInfrared and kTemperature
+  // both come from this one capture; kTemperature has no component of its own.
+  // Everything that would put visible-light effects into the temperature is off.
+  USceneCaptureComponent2D* ThermalCaptureComponent =
+      NewObject<USceneCaptureComponent2D>(this,
+                                          TEXT("ThermalCaptureComponent"));
+  ThermalCaptureComponent->SetupAttachment(this);
+  ThermalCaptureComponent->CaptureSource =
+      ESceneCaptureSource::SCS_FinalColorLDR;
+  ThermalCaptureComponent->bAutoActivate = false;
+  ThermalCaptureComponent->bCaptureEveryFrame = false;
+  ThermalCaptureComponent->bCaptureOnMovement = false;
+  ThermalCaptureComponent->bAlwaysPersistRenderingState = true;
+  TArray<FEngineShowFlagsSetting> ThermalFlags;
+  for (const TCHAR* Name :
+       {TEXT("Fog"), TEXT("VolumetricFog"), TEXT("Atmosphere"), TEXT("Bloom"),
+        TEXT("LensFlares"), TEXT("MotionBlur"), TEXT("Vignette"),
+        TEXT("Grain"), TEXT("EyeAdaptation"), TEXT("DepthOfField"),
+        TEXT("SceneColorFringe"), TEXT("LocalExposure")}) {
+    FEngineShowFlagsSetting Flag;
+    Flag.ShowFlagName = Name;
+    Flag.Enabled = false;
+    ThermalFlags.Add(Flag);
+  }
+  FEngineShowFlagsSetting ThermalTemporalAA;
+  ThermalTemporalAA.ShowFlagName = TEXT("TemporalAA");
+  ThermalTemporalAA.Enabled = CVarThermalCameraTemporalAA.GetValueOnGameThread() != 0;
+  ThermalFlags.Add(ThermalTemporalAA);
+  ThermalCaptureComponent->SetShowFlagSettings(ThermalFlags);
+  if (ThermalMaterialStatic) {
+    ThermalMaterial =
+        UMaterialInstanceDynamic::Create(ThermalMaterialStatic, this);
+    ThermalCaptureComponent->AddOrUpdateBlendable(ThermalMaterial, 1.0);
+  }
+  ThermalCaptureComponent->RegisterComponent();
+  Captures[projectairsim::MathUtils::ToNumeric(
+      projectairsim::ImageType::kInfrared)] = ThermalCaptureComponent;
+  // Captures[kTemperature] stays null.
 }
 
 int UUnrealCamera::ImageTypeCount() {
@@ -342,6 +401,7 @@ void UUnrealCamera::SetupCameraFromSettings(
 
   for (int ImageType = 0; ImageType < ImageTypeCount(); ++ImageType) {
     auto& Capture = Captures[ImageType];
+    if (Capture == nullptr) continue;  // kTemperature shares kInfrared's render
     RenderTargets[ImageType] = NewObject<UTextureRenderTarget2D>();
     const auto& CaptureSetting = CameraSetting.capture_settings.at(ImageType);
     const auto& NoiseSetting = CameraSetting.noise_settings.at(ImageType);
@@ -365,7 +425,43 @@ void UUnrealCamera::SetupCameraFromSettings(
 
     Capture->TextureTarget = RenderTargets[ImageType];
   }
+  SetupThermal(CameraSetting);
   UpdateCameraSettings();
+}
+
+void UUnrealCamera::SetupThermal(
+    const projectairsim::CameraSettings& CameraSetting) {
+  const int Ir = projectairsim::MathUtils::ToNumeric(projectairsim::ImageType::kInfrared);
+  const int Temp = projectairsim::MathUtils::ToNumeric(projectairsim::ImageType::kTemperature);
+  if (!CameraSetting.capture_settings.at(Ir).capture_enabled &&
+      !CameraSetting.capture_settings.at(Temp).capture_enabled) {
+    return;
+  }
+  const auto& Thermal = CameraSetting.capture_settings.at(Ir).thermal;
+  ThermalSensor = MakeShared<FThermalSensorModel, ESPMode::ThreadSafe>(Thermal);
+  if (!Thermal.classes_file.empty()) {
+    try {
+      FThermalScene::Get().LoadMapping(UTF8_TO_TCHAR(Thermal.classes_file.c_str()));
+    } catch (const std::exception& E) {
+      UnrealLogger::Log(projectairsim::LogLevel::kError,
+                        TEXT("[UnrealCamera] Thermal class mapping '%hs': %hs"),
+                        Thermal.classes_file.c_str(), E.what());
+      throw;
+    }
+  }
+  // Object classes arrive through the custom stencil.
+  if (IConsoleVariable* CustomDepth =
+          IConsoleManager::Get().FindConsoleVariable(TEXT("r.CustomDepth"))) {
+    if (CustomDepth->GetInt() != 3) {
+      CustomDepth->Set(3, ECVF_SetByCode);
+    }
+  }
+  if (ThermalMaterial == nullptr) {
+    UnrealLogger::Log(projectairsim::LogLevel::kError,
+                      TEXT("[UnrealCamera] /ProjectAirSim/Sensors/ThermalMaterial is missing"));
+    throw std::runtime_error(
+        "Thermal camera enabled but /ProjectAirSim/Sensors/ThermalMaterial is missing");
+  }
 }
 
 void UUnrealCamera::SetRelativePoseFromNed(
@@ -420,8 +516,11 @@ void UUnrealCamera::CopyCameraSettingsToSceneCapture(
     UpdateCameraPostProcessingSetting(TargetPPSettings, CaptureSetting);
 
     if (TargetCaptureComponent ==
-        Captures[projectairsim::MathUtils::ToNumeric(
-            projectairsim::ImageType::kScene)]) {
+            Captures[projectairsim::MathUtils::ToNumeric(
+                projectairsim::ImageType::kScene)] ||
+        TargetCaptureComponent ==
+            Captures[projectairsim::MathUtils::ToNumeric(
+                projectairsim::ImageType::kInfrared)]) {
       TargetPPSettings.bOverride_DynamicGlobalIlluminationMethod = true;
       TargetPPSettings.DynamicGlobalIlluminationMethod =
           static_cast<EDynamicGlobalIlluminationMethod::Type>(SceneCameraMethod(
@@ -442,6 +541,7 @@ void UUnrealCamera::CopyCameraSettingsToAllSceneCaptures(
   int image_count = static_cast<int>(
       projectairsim::MathUtils::ToNumeric(projectairsim::ImageType::kCount));
   for (int image_type = 0; image_type < image_count; ++image_type) {
+    if (Captures[image_type] == nullptr) continue;
     CopyCameraSettingsToSceneCapture(
         CameraComponent, Captures[image_type],
         CameraSetting.capture_settings.at(image_type));
@@ -455,7 +555,12 @@ void UUnrealCamera::UpdateCaptureComponentSetting(
   if (!CaptureSettings.show_debug_plots)
     HideDebugDrawComponent(Capture, UnrealWorld);
   const FIntPoint RenderSize = FLensRemap::RenderSize(CaptureSettings);
-  if (CaptureSettings.pixels_as_float ||
+  if (CaptureSettings.image_type ==
+      projectairsim::MathUtils::ToNumeric(projectairsim::ImageType::kInfrared)) {
+    // Apparent temperature in K needs 32-bit floats: half precision steps 0.25 K at 300 K.
+    RenderTarget->InitCustomFormat(RenderSize.X, RenderSize.Y,
+                                   EPixelFormat::PF_A32B32G32R32F, true);
+  } else if (CaptureSettings.pixels_as_float ||
       CaptureSettings.image_type ==
           projectairsim::MathUtils::ToNumeric(
               projectairsim::ImageType::kDepthPerspective) ||
@@ -729,6 +834,11 @@ void UUnrealCamera::BeginPlay() {
                                              CaptureSetting.pixels_as_float,
                                              CaptureSetting.compress));
       CaptureRequests.back().LensRemap = LensRemaps[ImageTypeInt];
+      CaptureRequests.back().ThermalSensor =
+          (ImageTypeEnum == projectairsim::ImageType::kInfrared ||
+           ImageTypeEnum == projectairsim::ImageType::kTemperature)
+              ? ThermalSensor
+              : nullptr;
       SetCameraTypeEnabled(ImageTypeEnum, true);
       bAnyCaptureEnabled = true;
 
@@ -832,7 +942,12 @@ class FCaptureReadbackPipeline {
     const uint8* Src = static_cast<const uint8*>(
         Item.Readback->Lock(RowPitchPixels));
     check(Src != nullptr);
-    if (R.Format == EPixelFormat::PF_FloatRGBA) {
+    if (R.Format == EPixelFormat::PF_A32B32G32R32F) {
+      R.UnrealImageFloat32.SetNumUninitialized(R.Width * R.Height);
+      CopyRows(Src, RowPitchPixels, R.Width, R.Height,
+               reinterpret_cast<uint8*>(R.UnrealImageFloat32.GetData()),
+               sizeof(FLinearColor));
+    } else if (R.Format == EPixelFormat::PF_FloatRGBA) {
       R.UnrealImageFloat.SetNumUninitialized(R.Width * R.Height);
       CopyRows(Src, RowPitchPixels, R.Width, R.Height,
                reinterpret_cast<uint8*>(R.UnrealImageFloat.GetData()),
@@ -863,6 +978,7 @@ class FCaptureReadbackPipeline {
 // the request asks for; any other combination reads synchronously.
 static bool CanReadBackAsync(FRHITexture* Texture, bool bPixelsAsFloat) {
   const EPixelFormat Format = Texture->GetFormat();
+  if (Format == EPixelFormat::PF_A32B32G32R32F) return true;
   return (!bPixelsAsFloat && Format == EPixelFormat::PF_B8G8R8A8) ||
          (bPixelsAsFloat && Format == EPixelFormat::PF_FloatRGBA);
 }
@@ -918,8 +1034,19 @@ void UUnrealCamera::TickComponent(
 
     for (int ImageTypeInt = 0; ImageTypeInt < ImageTypeCount();
          ++ImageTypeInt) {
+      // kTemperature is read from kInfrared's render
+      if (ImageTypeInt == projectairsim::MathUtils::ToNumeric(
+                              projectairsim::ImageType::kTemperature)) {
+        continue;
+      }
       // Only capture the scene for the image type if someone wants it
       bool bEnable = SimCamera.HasSubscribers(ImageTypeInt);
+      if (ImageTypeInt == projectairsim::MathUtils::ToNumeric(
+                              projectairsim::ImageType::kInfrared)) {
+        bEnable = bEnable || SimCamera.HasSubscribers(
+                                 projectairsim::MathUtils::ToNumeric(
+                                     projectairsim::ImageType::kTemperature));
+      }
       // Get the active (enabled) capture component to render
       USceneCaptureComponent2D* Capture = GetCaptureComponent(
           static_cast<projectairsim::ImageType>(ImageTypeInt), true);
@@ -941,6 +1068,13 @@ void UUnrealCamera::TickComponent(
         // thread right away, and a deferred capture is only queued at the end
         // of the frame, so the readback would get the previous capture and
         // every image would carry the pose and time of the next one.
+        if (ImageTypeInt == projectairsim::MathUtils::ToNumeric(
+                                projectairsim::ImageType::kInfrared)) {
+          FThermalScene::Get().PrepareCapture(
+              UnrealWorld,
+              projectairsim::SimClock::Get()->NanosToSec(PoseUpdatedTimeStamp),
+              ThermalMaterial);
+        }
         Capture->CaptureScene();
         bCaptureIsActive = true;
       }
@@ -1108,8 +1242,31 @@ void UUnrealCamera::OnRendered(
     FRHICommandListImmediate& RHICmdList =
         GetImmediateCommandList_ForRenderCommand();
 
+    // The thermal render serves both thermal image types; its readback is one item.
+    bool bThermalDisplay = false, bThermalTemperature = false;
+    for (const auto& Request : CaptureRequests) {
+      bThermalDisplay |= Request.ImageType == projectairsim::ImageType::kInfrared;
+      bThermalTemperature |= Request.ImageType == projectairsim::ImageType::kTemperature;
+    }
+    bool bThermalQueued = false;
+    uint64 ThermalFrameIndex = ThermalFrame;
+    if (bThermalDisplay || bThermalTemperature) ++ThermalFrame;
+
     // Process each image type requested for this captured frame
-    for (const auto& ImageRequest : CaptureRequests) {
+    for (const auto& ImageRequestIn : CaptureRequests) {
+      ImageRequest Request = ImageRequestIn;
+      const bool bThermal =
+          Request.ImageType == projectairsim::ImageType::kInfrared ||
+          Request.ImageType == projectairsim::ImageType::kTemperature;
+      if (bThermal) {
+        if (bThermalQueued) continue;
+        bThermalQueued = true;
+        Request.ImageType = projectairsim::ImageType::kInfrared;
+        Request.bThermalDisplay = bThermalDisplay;
+        Request.bThermalTemperature = bThermalTemperature;
+        Request.ThermalFrame = ThermalFrameIndex;
+      }
+      const ImageRequest& ImageRequest = Request;
       USceneCaptureComponent2D* CaptureComponent =
           GetCaptureComponent(ImageRequest.ImageType, true);
 
@@ -1168,6 +1325,12 @@ void UUnrealCamera::OnRendered(
 
 void UUnrealCamera::DrawViewFrustum() {
   int CaptureType = SimCamera.GetFrustumCaptureType();
+  // kTemperature has no capture of its own: it shares kInfrared's frustum.
+  if (CaptureType ==
+      projectairsim::MathUtils::ToNumeric(projectairsim::ImageType::kTemperature)) {
+    CaptureType = projectairsim::MathUtils::ToNumeric(
+        projectairsim::ImageType::kInfrared);
+  }
   USceneCaptureComponent2D* CaptureComp = Captures[CaptureType];
 
   FVector CamLocation = CaptureComp->GetComponentTransform().GetLocation();
@@ -1278,6 +1441,11 @@ void UUnrealCamera::ComputeFrustumVertices() {
   for (int ImageType = 0; ImageType < ImageTypeCount(); ++ImageType) {
     FrustumInfo Info;
     USceneCaptureComponent2D* CaptureComp = Captures[ImageType];
+    // kTemperature has no capture of its own: it shares kInfrared's frustum.
+    if (CaptureComp == nullptr) {
+      CaptureComp = Captures[projectairsim::MathUtils::ToNumeric(
+          projectairsim::ImageType::kInfrared)];
+    }
 
     float Angle = FMath::DegreesToRadians(CaptureComp->FOVAngle / 2);
     float AspectRatio = float(CaptureComp->TextureTarget->SizeX) /

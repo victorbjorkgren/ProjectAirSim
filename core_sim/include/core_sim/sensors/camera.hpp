@@ -6,6 +6,7 @@
 #ifndef CORE_SIM_INCLUDE_CORE_SIM_SENSORS_CAMERA_HPP_
 #define CORE_SIM_INCLUDE_CORE_SIM_SENSORS_CAMERA_HPP_
 
+#include <cstdint>
 #include <exception>
 #include <functional>
 #include <limits>
@@ -42,7 +43,8 @@ enum class ImageType : int {
   kDepthVis = 4,
   kDisparityNormalized = 5,
   kSurfaceNormals = 6,
-  // kInfrared = 7,  // this type not implemented yet
+  kInfrared = 7,     // thermal (LWIR) camera, 8-bit display image
+  kTemperature = 8,  // thermal camera, radiometric, uint16 centikelvin
   kCount  //  must be last
 };        // enum class ImageType
 
@@ -64,6 +66,37 @@ NLOHMANN_JSON_SERIALIZE_ENUM(BoxAlignment, {
                                                {kAxis, "axis"},
                                                {kOriented, "oriented"},
                                            })
+
+//! Sensor model of the thermal camera (image types kInfrared and kTemperature).
+//! Both types come from one render and share these settings, which are read
+//! from the "thermal" object of the kInfrared capture setting.
+struct ThermalSettings {
+  enum class Agc : int { kPercentile = 0, kHistogramEqualization = 1, kFixed = 2 };
+  enum class Palette : int { kWhiteHot = 0, kBlackHot = 1, kIronbow = 2 };
+
+  // Optics and detector
+  float psf_sigma_px = 0.8f;          // Gaussian blur of the optics, in pixels
+  float vignette = 0.12f;             // relative loss of signal in the corners
+  float halo = 0.0f;                  // edge-sharpening overshoot of the camera's image processing (0 = none)
+  // Noise: deterministic, from `seed` and the frame counter
+  bool noise_enabled = true;
+  uint32_t seed = 1234;
+  float netd_kelvin = 0.05f;          // temporal noise, RMS in K at 300 K scene
+  float fpn_gain_sigma = 0.004f;      // per-pixel gain spread after non-uniformity correction
+  float fpn_offset_kelvin = 0.08f;    // per-pixel offset spread, K
+  float fpn_column_kelvin = 0.05f;    // per-column stripe amplitude, K
+  // Display
+  Agc agc = Agc::kPercentile;
+  float agc_low_percent = 1.0f;       // percentile mapped to black
+  float agc_high_percent = 99.5f;     // percentile mapped to white
+  float agc_min_span_kelvin = 6.0f;   // the display never stretches a smaller span than this
+  float agc_smoothing = 0.9f;         // 0..1 weight of the previous frame's range (steady display)
+  float fixed_min_celsius = -20.0f;   // Agc::kFixed span
+  float fixed_max_celsius = 60.0f;
+  Palette palette = Palette::kWhiteHot;
+  // Environment: an environment can also set these from its own code or JSON
+  std::string classes_file = "";      // optional path of the thermal class mapping JSON
+};  // struct ThermalSettings
 
 struct CaptureSettings {
   /*
@@ -113,6 +146,7 @@ struct CaptureSettings {
   float chromatic_aberration_intensity =
       std::numeric_limits<float>::quiet_NaN();
   LensSettings lens;  // "lens": pinhole (default) or kannala-brandt
+  ThermalSettings thermal;  // "thermal": sensor model of image types 7 and 8
 };  // struct CaptureSettings
 
 struct NoiseSettings {
