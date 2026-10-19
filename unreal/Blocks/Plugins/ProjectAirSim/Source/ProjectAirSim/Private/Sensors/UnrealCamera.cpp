@@ -359,6 +359,10 @@ void UUnrealCamera::CreateComponents() {
   ThermalCaptureComponent->bCaptureEveryFrame = false;
   ThermalCaptureComponent->bCaptureOnMovement = false;
   ThermalCaptureComponent->bAlwaysPersistRenderingState = true;
+  // The irradiance comes from the lit scene colour, so it gets the same lighting as the scene
+  // camera: without ray tracing, a project with distance fields off renders the capture with Lumen
+  // off and shaded streets see an unoccluded sky. A no-op where ray tracing is off.
+  ThermalCaptureComponent->bUseRayTracingIfEnabled = true;
   TArray<FEngineShowFlagsSetting> ThermalFlags;
   for (const TCHAR* Name :
        {TEXT("Fog"), TEXT("VolumetricFog"), TEXT("Atmosphere"), TEXT("Bloom"),
