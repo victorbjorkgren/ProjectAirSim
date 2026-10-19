@@ -13,6 +13,7 @@
 #include "Engine/DirectionalLight.h"
 #include "Engine/Texture2D.h"
 #include "Engine/World.h"
+#include "HAL/IConsoleManager.h"
 #include "EngineUtils.h"
 #include "GameFramework/Actor.h"
 #include "Landscape.h"
@@ -30,6 +31,17 @@ using json = nlohmann::json;
 namespace {
 
 constexpr int32 kMaxClasses = 256;
+
+// Debug read-out of the thermal material's intermediates (class id, sunlit fraction, albedo, surface temperature,
+// effective emissivity, surface minus air, roughness, metallic, normal z, luminance; see the DebugMode block of
+// tools/thermal/build_thermal_material.py). N > 0 cycles the temperature image through modes 1..N at two modes
+// per second of sim time, with N = 11 ending each cycle on the normal temperature; 0 (default) is off.
+// The environment variable PROJECTAIRSIM_THERMAL_DEBUG_CYCLE sets the same when the cvar is 0 (a packaged app's
+// command line is the other way in, but an inherited variable needs no quoting).
+TAutoConsoleVariable<int32> CVarThermalDebugCycle(
+    TEXT("projectairsim.ThermalDebugCycle"), 0,
+    TEXT("Cycle the thermal temperature image through N debug read-outs (0 = off, 11 = all, ending on normal)."),
+    ECVF_Default);
 
 // A class with all its fields, for the built-in table below.
 FThermalClass Make(const TCHAR* Name, float Emissivity, float Absorptivity,
@@ -408,5 +420,12 @@ void FThermalScene::PrepareCapture(UWorld* World, double SimTimeSec, UMaterialIn
   Material->SetScalarParameterValue(TEXT("WindMS"), Environment.WindSpeed);
   Material->SetScalarParameterValue(TEXT("ExtinctionPerM"), Environment.ExtinctionPerM);
   Material->SetScalarParameterValue(TEXT("SnowCover"), Environment.SnowCover);
+  int32 DebugCycle = CVarThermalDebugCycle.GetValueOnGameThread();
+  if (DebugCycle == 0) {
+    const FString FromEnv = FPlatformMisc::GetEnvironmentVariable(TEXT("PROJECTAIRSIM_THERMAL_DEBUG_CYCLE"));
+    DebugCycle = FromEnv.IsEmpty() ? 0 : FCString::Atoi(*FromEnv);
+  }
+  Material->SetScalarParameterValue(
+      TEXT("DebugMode"), DebugCycle > 0 ? 1.0f + float(int64(SimTimeSec * 2.0) % DebugCycle) : 0.0f);
   Material->SetTextureParameterValue(TEXT("ClassTable"), Table.Get());
 }

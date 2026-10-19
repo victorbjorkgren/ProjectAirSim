@@ -1485,6 +1485,7 @@ void Camera::Loader::LoadThermalSettings(const json& json,
   t.agc_high_percent = JsonUtils::GetNumber<float>(thermal_json, C::thermal_agc_high_percent, t.agc_high_percent);
   t.agc_min_span_kelvin = JsonUtils::GetNumber<float>(thermal_json, C::thermal_agc_min_span_kelvin, t.agc_min_span_kelvin);
   t.agc_smoothing = JsonUtils::GetNumber<float>(thermal_json, C::thermal_agc_smoothing, t.agc_smoothing);
+  t.agc_target_median = JsonUtils::GetNumber<float>(thermal_json, C::thermal_agc_target_median, t.agc_target_median);
   t.fixed_min_celsius = JsonUtils::GetNumber<float>(thermal_json, C::thermal_fixed_min_celsius, t.fixed_min_celsius);
   t.fixed_max_celsius = JsonUtils::GetNumber<float>(thermal_json, C::thermal_fixed_max_celsius, t.fixed_max_celsius);
   t.classes_file = JsonUtils::GetString(thermal_json, C::thermal_classes_file, t.classes_file);
@@ -1503,6 +1504,8 @@ void Camera::Loader::LoadThermalSettings(const json& json,
 
   if (t.agc_low_percent < 0 || t.agc_high_percent > 100 || t.agc_low_percent >= t.agc_high_percent)
     throw Error("Thermal AGC percentiles need 0 <= low < high <= 100.");
+  if (t.agc_target_median < 0 || t.agc_target_median >= 1)
+    throw Error("Thermal 'agc-target-median' needs 0 <= value < 1 (0 = linear).");
 }
 
 void Camera::Loader::InitializeNoiseSettings() {
