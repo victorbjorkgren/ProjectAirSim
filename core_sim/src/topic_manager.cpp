@@ -7,6 +7,7 @@
 
 #include <array>
 #include <atomic>
+#include <cstdlib>
 #include <functional>
 #include <map>
 #include <memory>
@@ -258,8 +259,18 @@ void TopicManager::Impl::Start() {
   // A send call can get held up by the receiving callback if it tries to do any
   // processing other than just copying the data, so if it takes too long, just
   // drop the send after this specified send_timeout to prevent the dispatcher
-  // queue from stacking up
-  const int send_timeout = 1000 / 60;  // 16.7 ms = 60 FPS
+  // queue from stacking up. PROJECTAIRSIM_TOPIC_SEND_TIMEOUT_MS raises it for large messages, such
+  // as 4K PNG frames on a stepped clock, which can take longer than that to send.
+  int send_timeout = 1000 / 60;  // 16.7 ms = 60 FPS
+  if (const char* env = std::getenv("PROJECTAIRSIM_TOPIC_SEND_TIMEOUT_MS")) {
+    char* end = nullptr;
+    const long value = std::strtol(env, &end, 10);
+    if (end == env || *end != '\0' || value < 1 || value > 60000) {
+      throw Error(std::string("PROJECTAIRSIM_TOPIC_SEND_TIMEOUT_MS must be 1-60000 ms, got '") +
+                  env + "'.");
+    }
+    send_timeout = static_cast<int>(value);
+  }
   rv = nng_setopt_ms(topic_socket_, NNG_OPT_SENDTIMEO, send_timeout);
   if (rv != 0) {
     auto errno_str = nng_strerror(rv);
