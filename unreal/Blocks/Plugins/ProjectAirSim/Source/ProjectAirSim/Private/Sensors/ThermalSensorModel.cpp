@@ -173,6 +173,22 @@ void FThermalSensorModel::ToDisplay(const std::vector<float>& T, std::vector<uin
     bHaveRange = true;
   }
 
+  // Percentile AGC alone leaves the bulk of a scene near white when a few cold pixels (sky) set the low end, and
+  // near black when a few hot ones set the high end. Real cameras present the scene about mid-grey, so a gamma
+  // moves the median of the stretched image to the target level; it is smoothed like the range, so the mapping stays
+  // steady for SLAM.
+  float Gamma = 1.0f;
+  if (Settings.agc == ThermalSettings::Agc::kPercentile && Settings.agc_target_median > 0.0f) {
+    const float MedianK = Percentile(50.0f);
+    const float U = std::clamp((MedianK - Lo) / (Hi - Lo), 0.03f, 0.97f);
+    const float Wanted = std::clamp(std::log(Settings.agc_target_median) / std::log(U), 0.3f, 6.0f);
+    std::lock_guard<std::mutex> Guard(Lock);
+    const float S = std::clamp(Settings.agc_smoothing, 0.0f, 0.999f);
+    Gamma = bHaveGamma ? S * RangeGamma + (1 - S) * Wanted : Wanted;
+    RangeGamma = Gamma;
+    bHaveGamma = true;
+  }
+
   // Histogram equalisation maps through a clipped cumulative distribution (plateau equalisation:
   // the clip keeps large uniform areas from swallowing the contrast and noise from being amplified).
   std::vector<float> Lut;
@@ -194,6 +210,7 @@ void FThermalSensorModel::ToDisplay(const std::vector<float>& T, std::vector<uin
   Out->resize(N * 3);
   for (size_t I = 0; I < N; ++I) {
     float U = std::clamp((T[I] - Lo) / (Hi - Lo), 0.0f, 1.0f);
+    if (Gamma != 1.0f) U = std::pow(U, Gamma);
     // Half equalised, half linear: full equalisation posterises smooth gradients.
     if (!Lut.empty()) U = 0.5f * U + 0.5f * Lut[std::min(int(U * Lut.size()), int(Lut.size()) - 1)];
     // 8-bit display: the camera outputs a grey level.

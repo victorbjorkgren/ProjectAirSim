@@ -75,9 +75,18 @@ blur as type 7 (it is what a radiometric camera outputs); set `noise-enabled` fa
 | `agc-low-percent`, `agc-high-percent` | 1, 99.5 | percentiles mapped to black and white |
 | `agc-min-span-kelvin` | 6 | the display never stretches less than this span (keeps a flat scene from becoming noise) |
 | `agc-smoothing` | 0.9 | weight of the previous frame's range: a steady display for SLAM |
+| `agc-target-median` | 0.42 | `percentile` only: display level (0..1) the scene median is moved to by a smoothed gamma, so a few cold (sky) or hot pixels at the ends of the range do not push the bulk of the picture to white or black, as in a real camera's mid-grey presentation; 0 is the plain linear stretch |
 | `fixed-min-celsius`, `fixed-max-celsius` | -20, 60 | span of `agc: fixed` |
 | `palette` | `white-hot` | `white-hot`, `black-hot`, `ironbow` |
 | `classes-file` | none | JSON of classes, rules and environment, see below |
+
+**Debug read-out**: with the console variable `projectairsim.ThermalDebugCycle N` (or the environment variable
+`PROJECTAIRSIM_THERMAL_DEBUG_CYCLE=N` when the variable is 0) the temperature image cycles through the material's
+intermediates for modes 1..N, half a second of sim time each: class id, sunlit fraction x100, albedo x100, surface
+temperature, effective emissivity x100, surface minus air + 100, roughness x100, metallic x100, normal z x100 + 100,
+luminance x100, and as mode 11 the normal temperature. Pixel (0,0) of a frame is 500 + its mode. Use a config with the
+thermal noise and blur off, and do not use the display image while it runs. `Simulate/NordicProvingGround/sim/thermal_validate.py`
+reads it. Rebuild the material with `tools/thermal/build_thermal_material.py` after changing the HLSL.
 
 ## Adopting thermal in another environment
 

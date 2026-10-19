@@ -91,6 +91,7 @@ struct ThermalSettings {
   float agc_high_percent = 99.5f;     // percentile mapped to white
   float agc_min_span_kelvin = 6.0f;   // the display never stretches a smaller span than this
   float agc_smoothing = 0.9f;         // 0..1 weight of the previous frame's range (steady display)
+  float agc_target_median = 0.42f;    // display level (0..1) the percentile AGC gives the scene median; 0 = linear stretch
   float fixed_min_celsius = -20.0f;   // Agc::kFixed span
   float fixed_max_celsius = 60.0f;
   Palette palette = Palette::kWhiteHot;

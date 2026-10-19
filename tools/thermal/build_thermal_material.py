@@ -100,11 +100,23 @@ float Lpix = tau * Lsurf + (1.0 - tau) * air4;
 float Tapp = pow(Lpix, 0.25);
 if (isSky) { Tapp = skyT; cid = 0; }
 
-if (DebugMode > 0.5) {
-  if (DebugMode < 1.5) return float3(Stn.x, CDp.x * 0.01, depthCm * 0.01);
-  if (DebugMode < 2.5) return float3(fSun, Elux, lumW);
-  if (DebugMode < 3.5) return float3(N);
-  return float3(Ts, epsEff, dT);
+if (DebugMode > 0.5 && DebugMode < 10.5) {
+  // Debug read-out: the temperature image carries one intermediate per frame instead of the temperature.
+  // Pixel (0,0) holds 500 + mode so a reader can tell the frames apart.
+  int dm = (int)(DebugMode + 0.5);
+  float v = 0;
+  if (dm == 1) v = cid;                    // class id (0 = unclassified)
+  else if (dm == 2) v = fSun * 100.0;      // sunlit fraction x100
+  else if (dm == 3) v = rho * 100.0;       // base-colour albedo used for the irradiance estimate x100
+  else if (dm == 4) v = Ts;                // surface temperature, K
+  else if (dm == 5) v = epsEff * 100.0;    // effective emissivity x100
+  else if (dm == 6) v = dT + 100.0;        // surface minus air, K, plus 100
+  else if (dm == 7) v = Rgh.x * 100.0;     // GBuffer roughness x100
+  else if (dm == 8) v = Met.x * 100.0;     // GBuffer metallic x100
+  else if (dm == 9) v = N.z * 100.0 + 100.0;  // world normal z x100, plus 100
+  else v = min(lumW * 100.0, 600.0);       // lit scene luminance x100
+  if (all(floor(Parameters.SvPosition.xy) < 1.0)) v = 500.0 + dm;
+  return float3(v, cid / 255.0, fSun);
 }
 return float3(Tapp, cid / 255.0, fSun);
 """

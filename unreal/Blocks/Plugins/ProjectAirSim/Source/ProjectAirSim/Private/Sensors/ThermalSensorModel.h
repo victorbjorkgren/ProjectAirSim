@@ -44,4 +44,7 @@ class FThermalSensorModel {
   // Display range of the previous frame, for a steady AGC
   bool bHaveRange = false;
   float RangeLow = 0.f, RangeHigh = 0.f;
+  // Display gamma that puts the scene median at agc_target_median, smoothed like the range
+  float RangeGamma = 1.f;
+  bool bHaveGamma = false;
 };

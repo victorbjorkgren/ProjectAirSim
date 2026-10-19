@@ -225,6 +225,7 @@ class Constant {
     static constexpr const char* thermal_agc_high_percent = "agc-high-percent";
     static constexpr const char* thermal_agc_min_span_kelvin = "agc-min-span-kelvin";
     static constexpr const char* thermal_agc_smoothing = "agc-smoothing";
+    static constexpr const char* thermal_agc_target_median = "agc-target-median";
     static constexpr const char* thermal_fixed_min_celsius = "fixed-min-celsius";
     static constexpr const char* thermal_fixed_max_celsius = "fixed-max-celsius";
     static constexpr const char* thermal_palette = "palette";
