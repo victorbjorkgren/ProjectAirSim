@@ -425,6 +425,25 @@ class World(object):
             object_poses[i] = Pose(obj_pose)
         return object_poses
 
+    def get_mass_agents(self, center: List[float], radius_m: float) -> List[Dict]:
+        """Get the Mass agents (crowd and traffic, e.g. City Sample's) near a point
+
+        Args:
+            center (List[float]): [x, y, z] in NED, m
+            radius_m (float): only agents within this distance of center; <= 0 for all
+
+        Returns:
+            List[Dict]: one dict per agent: "id" (stable for the agent's life), "position" (NED, m),
+                "yaw" (rad), "radius_m" (None if the agent has no radius) and "velocity" (NED, m/s,
+                None if the agent has none). Empty in a level without Mass.
+        """
+        req: Dict = {
+            "method": f"{self.parent_topic}/GetMassAgents",
+            "params": {"center": [float(v) for v in center], "radius_m": float(radius_m)},
+            "version": 1.0,
+        }
+        return self.client.request(req)
+
     def get_spawn_points(self) -> List[Dict]:
         """Get all spawn points placed in the world
 

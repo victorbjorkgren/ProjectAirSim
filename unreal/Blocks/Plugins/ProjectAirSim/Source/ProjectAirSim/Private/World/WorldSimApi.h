@@ -178,6 +178,10 @@ class WorldSimApi {
 
   nlohmann::json GetSpawnPoints();
 
+  // The Mass agents (City Sample's crowd and traffic) within radius_m of center (NED, m; radius_m <= 0:
+  // all): id, position (NED, m), yaw (rad), radius_m, and velocity (NED, m/s; null if the agent has none).
+  nlohmann::json GetMassAgents(const std::vector<float>& center, float radius_m);
+
   /* Server-side only */
   AActor* FindActor(const std::string& object_name);
 
