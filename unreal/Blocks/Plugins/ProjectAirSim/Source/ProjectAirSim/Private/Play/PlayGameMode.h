@@ -8,6 +8,7 @@
 #include "Play/Audio/PlayAudio.h"
 #include "Play/PlayInputMap.h"
 #include "Play/PlayShared.h"
+#include "Play/PlayTestScript.h"
 #include "Play/UI/PlayUi.h"
 #include "ProjectAirSimGameMode.h"
 
@@ -48,6 +49,8 @@ class AProjectAirSimPlayGameMode : public AProjectAirSimGameMode {
   void TickFlight(APlayerController& Controller, float WallDelta);
   void UpdateHud(float WallDelta);
   void UpdateFootnotes();
+  void BuildTestHooks();
+  static const TCHAR* ScreenName(EPlayScreen Screen);
 
   // The screen the player sees, and the choices made on the way to a launch.
   EPlayScreen Screen = EPlayScreen::Title;
@@ -66,6 +69,10 @@ class AProjectAirSimPlayGameMode : public AProjectAirSimGameMode {
   UPROPERTY() TObjectPtr<UPlayAudio> Audio;
   FPlayInputMap InputMap;
   FPlayUiActions Actions;
+  TUniquePtr<FPlayTestScript> TestScript;
+  FPlayTestHooks TestHooks;
+  bool bStickOverride = false;
+  FPlayStick OverrideStick;
   FString LoadingBase;
 
   UPROPERTY() TObjectPtr<APlayCameraActor> Camera;

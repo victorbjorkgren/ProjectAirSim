@@ -21,7 +21,10 @@
 #include "Play/PlayCameraActor.h"
 #include "Play/PlayLog.h"
 #include "Play/PlaySettings.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Misc/CoreDelegates.h"
 #include "Robot/UnrealRobot.h"
+#include "UnrealClient.h"
 #include "SpawnPoint.h"
 #include "Styling/SlateBrush.h"
 #include "Widgets/SWeakWidget.h"
@@ -87,6 +90,9 @@ void AProjectAirSimPlayGameMode::StartPlay() {
   GEngine->GameViewport->AddViewportWidgetContent(Ui.ToSharedRef(), 100);
   LastWallSeconds = FPlatformTime::Seconds();
   GoTo(EPlayScreen::Title);
+
+  TestScript = FPlayTestScript::FromEnvironment();
+  if (TestScript) BuildTestHooks();
 }
 
 void AProjectAirSimPlayGameMode::EndPlay(const EEndPlayReason::Type EndPlayReason) {
@@ -400,6 +406,7 @@ void AProjectAirSimPlayGameMode::Tick(float DeltaSeconds) {
   UpdateHud(WallDelta);
   UpdateFootnotes();
   Ui->ApplyPendingFocus();
+  if (TestScript) TestScript->Tick(TestHooks);
 }
 
 void AProjectAirSimPlayGameMode::TickFlight(APlayerController& Controller, float WallDelta) {
@@ -420,6 +427,12 @@ void AProjectAirSimPlayGameMode::TickFlight(APlayerController& Controller, float
   TiltDegrees = FMath::Clamp(TiltDegrees + In.Axis(EPlayAxis::CameraTilt) * kTiltRateDegPerSec * WallDelta,
                              kTiltMinDeg, kTiltMaxDeg);
 
+  if (bStickOverride) {
+    FPlayStick Held = OverrideStick;
+    Held.Camera = CameraIndex;
+    Shared->SetStick(Held);
+    return;
+  }
   // Body frame, NED: x forward, y right, z down.
   const float Speed = kPresetSpeeds[PresetIndex];
   FPlayStick Stick;
@@ -473,4 +486,59 @@ void AProjectAirSimPlayGameMode::UpdateFootnotes() {
     if (Since < 0.0 || Since > 3.0) Note += TEXT("  - attendant not answering");
     Model->LoadingNote = Note;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Test hooks (see PlayTestScript.h)
+
+const TCHAR* AProjectAirSimPlayGameMode::ScreenName(EPlayScreen Screen) {
+  switch (Screen) {
+    case EPlayScreen::Title: return TEXT("title");
+    case EPlayScreen::Map: return TEXT("map");
+    case EPlayScreen::Mode: return TEXT("mode");
+    case EPlayScreen::Spawn: return TEXT("spawn");
+    case EPlayScreen::Vehicle: return TEXT("vehicle");
+    case EPlayScreen::Pause: return TEXT("pause");
+    case EPlayScreen::Loading: return TEXT("loading");
+    case EPlayScreen::Flying: return TEXT("flying");
+  }
+  UE_LOG(LogPlay, Fatal, TEXT("Unhandled play screen"));
+  return TEXT("");
+}
+
+void AProjectAirSimPlayGameMode::BuildTestHooks() {
+  TestHooks.Key = [this](const FKey& Key, bool bDown) {
+    const bool bGameInput = Screen == EPlayScreen::Flying || Screen == EPlayScreen::Loading;
+    if (bGameInput) {
+      APlayerController* Controller = GetWorld()->GetFirstPlayerController();
+      check(Controller);
+      Controller->InputKey(FInputKeyParams(Key, bDown ? IE_Pressed : IE_Released, 1.0, false));
+      return;
+    }
+    const uint32* KeyCode = nullptr;
+    const uint32* CharCode = nullptr;
+    FInputKeyManager::Get().GetCodesFromKey(Key, KeyCode, CharCode);
+    const FKeyEvent Event(Key, FModifierKeysState(), 0, false, CharCode ? *CharCode : 0, KeyCode ? *KeyCode : 0);
+    if (bDown) {
+      FSlateApplication::Get().ProcessKeyDownEvent(Event);
+    } else {
+      FSlateApplication::Get().ProcessKeyUpEvent(Event);
+    }
+  };
+  TestHooks.Screenshot = [](const FString& Path) {
+    IFileManager::Get().MakeDirectory(*FPaths::GetPath(Path), true);
+    FScreenshotRequest::RequestScreenshot(Path, true, false);
+  };
+  TestHooks.Stick = [this](const FPlayStick& Stick) {
+    bStickOverride = true;
+    OverrideStick = Stick;
+  };
+  TestHooks.ClearStick = [this]() {
+    bStickOverride = false;
+    Shared->SetStick(FPlayStick());
+  };
+  TestHooks.TakeoffLand = [this]() { Shared->PressTakeoffLand(); };
+  TestHooks.ScreenName = [this]() { return FString(ScreenName(Screen)); };
+  TestHooks.HudText = [this]() { return Model->HudStats + TEXT(" | ") + Model->HudReferee; };
+  TestHooks.Quit = []() { FPlatformMisc::RequestExit(false); };
 }
