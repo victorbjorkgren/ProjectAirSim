@@ -44,7 +44,8 @@ struct FPlayModeEntry {
 
   UPROPERTY() FString Name;
   UPROPERTY() FString Scenario;
-  // "key=value,key=value", forwarded as the request's opts.
+  // "key=value,key=value", forwarded as the request's opts. A value that
+  // parses as JSON (1500, true) is sent typed, anything else as a string.
   UPROPERTY() FString Opts;
 };
 

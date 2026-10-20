@@ -58,7 +58,11 @@ nlohmann::json FPlayShared::RequestJson() const {
   }
   nlohmann::json Opts = nlohmann::json::object();
   for (const TPair<FString, FString>& Pair : Run.Opts) {
-    Opts[TCHAR_TO_UTF8(*Pair.Key)] = TCHAR_TO_UTF8(*Pair.Value);
+    // A value that parses as JSON (1500, true, [1,2]) goes out typed; anything else is a string.
+    const std::string Text = TCHAR_TO_UTF8(*Pair.Value);
+    nlohmann::json Value = nlohmann::json::parse(Text, nullptr, false);
+    if (Value.is_discarded()) Value = Text;
+    Opts[TCHAR_TO_UTF8(*Pair.Key)] = Value;
   }
   Out["opts"] = Opts;
   return Out;
