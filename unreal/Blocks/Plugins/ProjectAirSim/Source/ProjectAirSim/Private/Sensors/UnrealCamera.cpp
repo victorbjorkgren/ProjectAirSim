@@ -29,6 +29,7 @@
 #include "ThermalScene.h"
 #include "ThermalSensorModel.h"
 #include "RenderingThread.h"
+#include "RenderUtils.h"
 #include "Runtime/Engine/Classes/Kismet/KismetMathLibrary.h"
 #include "UObject/ConstructorHelpers.h"
 #include "UnrealCameraRenderRequest.h"
@@ -359,6 +360,19 @@ void UUnrealCamera::CreateComponents() {
   ThermalCaptureComponent->bCaptureEveryFrame = false;
   ThermalCaptureComponent->bCaptureOnMovement = false;
   ThermalCaptureComponent->bAlwaysPersistRenderingState = true;
+  // The irradiance comes from the lit scene colour. Ray tracing gives the capture the scene camera's
+  // ray-traced sun shadows (a no-op where ray tracing is off). With ray tracing, Lumen GI and
+  // reflections stay off in this view: running them here left the scene camera's reflections black
+  // for the rest of the session (City Sample: road luma median 97 -> 49), so the sky light in shade
+  // is unoccluded. Without ray tracing (software Lumen) the view keeps the project's Lumen.
+  ThermalCaptureComponent->bUseRayTracingIfEnabled = true;
+  if (IsRayTracingEnabled()) {
+    ThermalCaptureComponent->PostProcessSettings.bOverride_DynamicGlobalIlluminationMethod = true;
+    ThermalCaptureComponent->PostProcessSettings.DynamicGlobalIlluminationMethod =
+        EDynamicGlobalIlluminationMethod::None;
+    ThermalCaptureComponent->PostProcessSettings.bOverride_ReflectionMethod = true;
+    ThermalCaptureComponent->PostProcessSettings.ReflectionMethod = EReflectionMethod::None;
+  }
   TArray<FEngineShowFlagsSetting> ThermalFlags;
   for (const TCHAR* Name :
        {TEXT("Fog"), TEXT("VolumetricFog"), TEXT("Atmosphere"), TEXT("Bloom"),
