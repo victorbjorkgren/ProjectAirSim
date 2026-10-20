@@ -17,7 +17,7 @@ into `unreal/Blocks/Plugins/Drone/Content/OpenFrame_v8/` and builds the material
 | Cooked path (`/Drone/OpenFrame_v8/...`) | What it is |
 | --- | --- |
 | `SM_OpenFrame_v8` | the whole drone with static blades, one mesh (`spawn_object`, distant views, props) |
-| `SM_OpenFrame_v8_Body` | frame, electronics, camera, antenna, strap, wiring; one box of simple collision |
+| `SM_OpenFrame_v8_Body` | frame, electronics, camera, antenna, strap, wiring; simple collision is the body box (0.280 x 0.105 x 0.180 m, centre 0.005, 0, 0.030) plus one sphere of the prop radius (0.0889 m) at each rotor hub (x, y = ±0.145, z up 0.006), so the collision covers the 0.47 x 0.47 m prop sweep, plan-view radius 0.294 m |
 | `SM_OpenFrame_v8_Battery` | the battery and its end fold |
 | `SM_OpenFrame_v8_Motors` | the four motor bells |
 | `SM_OpenFrame_v8_ESC` | the ESC board and its capacitor |
