@@ -127,7 +127,11 @@ public class ProjectAirSim : ModuleRules
                 "Projects",  // default
                 "ProceduralMeshComponent",
                 "PixelStreaming",
-                "SunPosition"
+                "SunPosition",
+                "MassEntity",  // GetMassAgents: the crowd and traffic agents
+                "MassCore",
+                "MassCommon",
+                "MassMovement"
                 // ... add private dependencies that you statically link with here ...
             }
         );

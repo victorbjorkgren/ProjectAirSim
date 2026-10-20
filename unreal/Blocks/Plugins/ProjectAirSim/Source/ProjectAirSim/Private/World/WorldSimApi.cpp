@@ -21,6 +21,12 @@
 #include "assimp/scene.h"
 #include "assimp/Importer.hpp"
 #endif
+#include "MassCommonFragments.h"
+#include "MassEntityQuery.h"
+#include "MassEntitySubsystem.h"
+#include "MassExecutionContext.h"
+#include "MassMovementFragments.h"
+#include "Mass/EntityFragments.h"
 #include "core_sim/actor/env_actor.hpp"
 #include "core_sim/geodetic_converter.hpp"
 
@@ -257,6 +263,12 @@ void WorldSimApi::RegisterServiceMethods() {
   auto get_seg_map_handler = get_seg_map.CreateMethodHandler(
       &WorldSimApi::GetSegmentationIDMap, *this);
   sim_scene_->RegisterServiceMethod(get_seg_map, get_seg_map_handler);
+
+  auto get_mass_agents =
+      projectairsim::ServiceMethod("GetMassAgents", {"center", "radius_m"});
+  auto get_mass_agents_handler = get_mass_agents.CreateMethodHandler(
+      &WorldSimApi::GetMassAgents, *this);
+  sim_scene_->RegisterServiceMethod(get_mass_agents, get_mass_agents_handler);
 
   auto get_spawn_points = projectairsim::ServiceMethod("GetSpawnPoints", {});
   auto get_spawn_points_handler = get_spawn_points.CreateMethodHandler(
@@ -1407,6 +1419,60 @@ nlohmann::json WorldSimApi::GetSegmentationIDMap() {
       },
       true);
   return seg_json;
+}
+
+nlohmann::json WorldSimApi::GetMassAgents(const std::vector<float>& center,
+                                          float radius_m) {
+  if (center.size() != 3) {
+    throw projectairsim::Error("GetMassAgents: center must be [x, y, z] (NED, m)");
+  }
+  nlohmann::json agents = nlohmann::json::array();
+  UnrealHelpers::RunCommandOnGameThread(
+      [this, &center, radius_m, &agents]() {
+        UMassEntitySubsystem* mass =
+            unreal_world_ ? unreal_world_->GetSubsystem<UMassEntitySubsystem>() : nullptr;
+        if (mass == nullptr) return;  // a level without Mass has no agents
+        FMassEntityManager& manager = mass->GetMutableEntityManager();
+        const projectairsim::Vector3 c(center[0], center[1], center[2]);
+        FMassExecutionContext context(manager);
+        FMassEntityQuery query(manager.AsShared());
+        query.AddRequirement<FTransformFragment>(EMassFragmentAccess::ReadOnly);
+        query.AddRequirement<FAgentRadiusFragment>(EMassFragmentAccess::ReadOnly,
+                                                   EMassFragmentPresence::Optional);
+        query.AddRequirement<FMassVelocityFragment>(EMassFragmentAccess::ReadOnly,
+                                                    EMassFragmentPresence::Optional);
+        query.ForEachEntityChunk(context, [&](FMassExecutionContext& chunk) {
+          const auto transforms = chunk.GetFragmentView<FTransformFragment>();
+          const auto radii = chunk.GetFragmentView<FAgentRadiusFragment>();
+          const auto velocities = chunk.GetFragmentView<FMassVelocityFragment>();
+          for (int32 i = 0; i < chunk.GetNumEntities(); ++i) {
+            const FTransform& t = transforms[i].GetTransform();
+            const projectairsim::Vector3 p = UnrealTransform::UnrealToNedLinear(t.GetLocation());
+            if (radius_m > 0 && (p - c).norm() > radius_m) continue;
+            const FMassEntityHandle e = chunk.GetEntity(i);
+            nlohmann::json a;
+            a["id"] = (static_cast<uint64_t>(e.Index) << 32) | static_cast<uint32_t>(e.SerialNumber);
+            a["position"] = {p.x(), p.y(), p.z()};
+            // NED yaw is Unreal yaw: both measure from x (north) towards y (east).
+            a["yaw"] = FMath::DegreesToRadians(t.Rotator().Yaw);
+            if (radii.Num()) {
+              a["radius_m"] = radii[i].Radius / 100.0;
+            } else {
+              a["radius_m"] = nullptr;
+            }
+            if (velocities.Num()) {
+              const projectairsim::Vector3 v =
+                  UnrealTransform::UnrealToNedLinear(velocities[i].Value);
+              a["velocity"] = {v.x(), v.y(), v.z()};
+            } else {
+              a["velocity"] = nullptr;
+            }
+            agents.push_back(std::move(a));
+          }
+        });
+      },
+      true);
+  return agents;
 }
 
 nlohmann::json WorldSimApi::GetSpawnPoints() {
