@@ -57,6 +57,8 @@ AProjectAirSimPlayGameMode::AProjectAirSimPlayGameMode(const FObjectInitializer&
 
 void AProjectAirSimPlayGameMode::StartPlay() {
   Settings = GetDefault<UPlaySettings>();
+  UE_LOG(LogPlay, Log, TEXT("PlaySettings: env='%s' maps=%d vehicles=%d modes=%d spawns=%d"), *Settings->Env,
+         Settings->Maps.Num(), Settings->Vehicles.Num(), Settings->Modes.Num(), Settings->Spawns.Num());
   CurrentLevelName = UGameplayStatics::GetCurrentLevelName(GetWorld(), true);
   for (int32 I = 0; I < Settings->Maps.Num(); ++I) {
     if (LevelStem(Settings->Maps[I].Level) == CurrentLevelName) CurrentMapIndex = I;
@@ -66,6 +68,7 @@ void AProjectAirSimPlayGameMode::StartPlay() {
   }
 
   Shared = MakeShared<FPlayShared, ESPMode::ThreadSafe>();
+  Shared->SetDefaultEnv(Settings->Env);
   FPlayShared::Set(Shared);
 
   BuildModel();
@@ -164,6 +167,7 @@ void AProjectAirSimPlayGameMode::LoadBackdrop(const FPlayMapEntry& Map) {
 void AProjectAirSimPlayGameMode::BuildActions() {
   Actions.NewFlight = [this]() { GoTo(EPlayScreen::Map); };
   Actions.Quit = [this]() {
+    UE_LOG(LogPlay, Log, TEXT("Quit chosen from the title menu"));
     UKismetSystemLibrary::QuitGame(GetWorld(), GetWorld()->GetFirstPlayerController(), EQuitPreference::Quit, false);
   };
   Actions.Back = [this]() {
@@ -230,6 +234,7 @@ void AProjectAirSimPlayGameMode::BuildActions() {
 // Screens and requests
 
 void AProjectAirSimPlayGameMode::GoTo(EPlayScreen Next) {
+  UE_LOG(LogPlay, Log, TEXT("Screen %s -> %s"), ScreenName(Screen), ScreenName(Next));
   Screen = Next;
   if (Next == EPlayScreen::Spawn) GatherMarkers();
   const bool bUi = Next != EPlayScreen::Flying && Next != EPlayScreen::Loading;

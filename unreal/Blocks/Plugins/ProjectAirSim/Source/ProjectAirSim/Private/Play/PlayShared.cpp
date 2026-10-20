@@ -22,6 +22,11 @@ void FPlayShared::Set(TSharedPtr<FPlayShared, ESPMode::ThreadSafe> Instance) {
   GInstance = MoveTemp(Instance);
 }
 
+void FPlayShared::SetDefaultEnv(const FString& Env) {
+  FScopeLock Lock(&Mutex);
+  Run.Env = Env;
+}
+
 int64 FPlayShared::PostRun(const FPlayRunRequest& Request) {
   FScopeLock Lock(&Mutex);
   Run = Request;

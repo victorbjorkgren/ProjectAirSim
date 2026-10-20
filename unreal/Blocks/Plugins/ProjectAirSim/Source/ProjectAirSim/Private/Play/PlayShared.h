@@ -38,6 +38,9 @@ class FPlayShared {
   static TSharedPtr<FPlayShared, ESPMode::ThreadSafe> Get();
   static void Set(TSharedPtr<FPlayShared, ESPMode::ThreadSafe> Instance);
 
+  // The environment named in the settings; the idle request reports it until a run replaces it.
+  void SetDefaultEnv(const FString& Env);
+
   // Requests
   int64 PostRun(const FPlayRunRequest& Request);
   int64 PostStop();
