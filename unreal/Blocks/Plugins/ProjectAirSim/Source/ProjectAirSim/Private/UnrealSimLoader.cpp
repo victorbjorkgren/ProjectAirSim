@@ -15,6 +15,7 @@
 #include "Interfaces/IPluginManager.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "ProjectAirSim.h"
+#include "Play/PlayServices.h"
 #include "UnrealLogger.h"
 #include "UnrealScene.h"
 #include "simserver.hpp"
@@ -358,6 +359,7 @@ void AUnrealSimLoader::SetUnrealEngineVariableInt(const TCHAR* VarName,
 
 void AUnrealSimLoader::LoadUnrealScene() {
   projectairsim::Scene& Scene = SimServer->GetScene();
+  PlayServices::RegisterAll(SimServer->GetSimulator());
 
   UnrealLogger::Log(projectairsim::LogLevel::kTrace,
                     TEXT("[AUnrealSimLoader] Loading Unreal scene '%hs'."),
