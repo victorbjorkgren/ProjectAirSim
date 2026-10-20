@@ -124,6 +124,8 @@ public class ProjectAirSim : ModuleRules
                 "RHI",
                 "Slate",
                 "SlateCore",
+                "AudioMixer",  // USynthComponent: the play-mode procedural audio
+                "SignalProcessing",
                 "Projects",  // default
                 "ProceduralMeshComponent",
                 "PixelStreaming",
