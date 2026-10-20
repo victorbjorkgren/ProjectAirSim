@@ -5,7 +5,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Play/PlayAudioBridge.h"
+#include "Play/Audio/PlayAudio.h"
 #include "Play/PlayInputMap.h"
 #include "Play/PlayShared.h"
 #include "Play/UI/PlayUi.h"
@@ -63,7 +63,7 @@ class AProjectAirSimPlayGameMode : public AProjectAirSimGameMode {
   TSharedPtr<FPlayUiModel> Model;
   TSharedPtr<SPlayUi> Ui;
   TSharedPtr<FPlayShared, ESPMode::ThreadSafe> Shared;
-  TUniquePtr<IPlayAudio> Audio;
+  UPROPERTY() TObjectPtr<UPlayAudio> Audio;
   FPlayInputMap InputMap;
   FPlayUiActions Actions;
   FString LoadingBase;

@@ -67,7 +67,10 @@ void AProjectAirSimPlayGameMode::StartPlay() {
 
   BuildModel();
   BuildActions();
-  Audio = CreatePlayAudio(GetWorld());
+  // The only place a sound source is made: API mode never reaches this.
+  Audio = NewObject<UPlayAudio>(this, TEXT("PlayAudio"));
+  Audio->RegisterComponentWithWorld(GetWorld());
+  Audio->Activate(true);
 
   FActorSpawnParameters Params;
   Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
@@ -91,7 +94,11 @@ void AProjectAirSimPlayGameMode::EndPlay(const EEndPlayReason::Type EndPlayReaso
     GEngine->GameViewport->RemoveViewportWidgetContent(Ui.ToSharedRef());
   }
   Ui.Reset();
-  Audio.Reset();
+  if (Audio) {
+    Audio->Stop();
+    Audio->DestroyComponent();
+    Audio = nullptr;
+  }
   FPlayShared::Set(nullptr);
   Shared.Reset();
   Super::EndPlay(EndPlayReason);
@@ -227,7 +234,7 @@ void AProjectAirSimPlayGameMode::GoTo(EPlayScreen Next) {
   if (Audio) {
     Audio->MenuAmbient(!bFlightScreen);
     Audio->FlightAmbient(bFlightScreen);
-    if (!bFlightScreen) Audio->RotorLoop(0.f);
+    if (!bFlightScreen) Audio->RotorLoop(-1.f);
   }
   if (Camera) {
     if (Next == EPlayScreen::Flying || Next == EPlayScreen::Pause) {
@@ -445,7 +452,10 @@ void AProjectAirSimPlayGameMode::UpdateHud(float WallDelta) {
                   : Location.Z / 100.f;
   Model->HudStats = FString::Printf(TEXT("ALT %6.1f m   SPD %5.1f m/s   PRESET %2.0f m/s   CAM %s"), AltitudeM,
                                     SpeedMs, kPresetSpeeds[PresetIndex], CameraIndex == 0 ? TEXT("CHASE") : TEXT("FPV"));
-  if (Audio && Screen == EPlayScreen::Flying) Audio->RotorLoop(FMath::Clamp(0.25f + SpeedMs / 25.f, 0.f, 1.f));
+  // No thrust is published to the plugin side; the measured speed stands in for throttle.
+  if (Audio && Screen == EPlayScreen::Flying) {
+    Audio->RotorLoop(FMath::Clamp(0.25f + SpeedMs / 25.f, 0.f, 1.f));
+  }
 }
 
 void AProjectAirSimPlayGameMode::UpdateFootnotes() {
