@@ -359,10 +359,16 @@ void UUnrealCamera::CreateComponents() {
   ThermalCaptureComponent->bCaptureEveryFrame = false;
   ThermalCaptureComponent->bCaptureOnMovement = false;
   ThermalCaptureComponent->bAlwaysPersistRenderingState = true;
-  // The irradiance comes from the lit scene colour, so it gets the same lighting as the scene
-  // camera: without ray tracing, a project with distance fields off renders the capture with Lumen
-  // off and shaded streets see an unoccluded sky. A no-op where ray tracing is off.
+  // The irradiance comes from the lit scene colour. Ray tracing gives the capture the scene camera's
+  // ray-traced sun shadows (a no-op where ray tracing is off). Lumen GI and reflections stay off in
+  // this view: running them here left the scene camera's reflections black for the rest of the
+  // session (City Sample: road luma median 97 -> 49). So the sky light in shade is unoccluded.
   ThermalCaptureComponent->bUseRayTracingIfEnabled = true;
+  ThermalCaptureComponent->PostProcessSettings.bOverride_DynamicGlobalIlluminationMethod = true;
+  ThermalCaptureComponent->PostProcessSettings.DynamicGlobalIlluminationMethod =
+      EDynamicGlobalIlluminationMethod::None;
+  ThermalCaptureComponent->PostProcessSettings.bOverride_ReflectionMethod = true;
+  ThermalCaptureComponent->PostProcessSettings.ReflectionMethod = EReflectionMethod::None;
   TArray<FEngineShowFlagsSetting> ThermalFlags;
   for (const TCHAR* Name :
        {TEXT("Fog"), TEXT("VolumetricFog"), TEXT("Atmosphere"), TEXT("Bloom"),
