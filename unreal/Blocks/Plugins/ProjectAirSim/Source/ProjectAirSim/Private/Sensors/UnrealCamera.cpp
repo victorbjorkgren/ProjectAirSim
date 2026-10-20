@@ -688,6 +688,17 @@ void UUnrealCamera::UpdateCameraPostProcessingSetting(
         CaptureSettings.chromatic_aberration_intensity;
   }
 
+  if (!std::isnan(CaptureSettings.vignette_intensity)) {
+    PostProcessSettings.bOverride_VignetteIntensity = true;
+    PostProcessSettings.VignetteIntensity = CaptureSettings.vignette_intensity;
+  }
+
+  if (!std::isnan(CaptureSettings.lens_flare_intensity)) {
+    PostProcessSettings.bOverride_LensFlareIntensity = true;
+    PostProcessSettings.LensFlareIntensity =
+        CaptureSettings.lens_flare_intensity;
+  }
+
   // We use Depth of Field where things that are too far are out of focus.
   // There is a different Mobile Depth of Field Region which seems to
   // have a region that completely in focus. Maybe we should expose that?

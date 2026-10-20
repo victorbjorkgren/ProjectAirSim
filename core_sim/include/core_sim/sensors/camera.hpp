@@ -146,6 +146,9 @@ struct CaptureSettings {
       std::numeric_limits<float>::quiet_NaN();
   float chromatic_aberration_intensity =
       std::numeric_limits<float>::quiet_NaN();
+  // NaN keeps what the level's post-process volumes give the capture.
+  float vignette_intensity = std::numeric_limits<float>::quiet_NaN();
+  float lens_flare_intensity = std::numeric_limits<float>::quiet_NaN();
   LensSettings lens;  // "lens": pinhole (default) or kannala-brandt
   ThermalSettings thermal;  // "thermal": sensor model of image types 7 and 8
 };  // struct CaptureSettings
