@@ -25,13 +25,11 @@ include(FetchContent)
 include(ExternalProject)
 
 if (UNIX)
-    if(DEFINED ENV{UE_ROOT} AND NOT APPLE)
-        # Build/link against UE's packaged Linux toolchain instead of system-installed toolchain
+    if(DEFINED ENV{LINUX_MULTIARCH_ROOT} AND NOT APPLE)
+        # Build/link against UE's Linux cross toolchain (clang + bundled libc++) instead of the system toolchain.
         # Note: This must be set BEFORE `project()` is called
-        # Only use Linux toolchain on actual Linux systems, not on macOS
-        message("Building/linking against Unreal packaged toolchain from UE_ROOT=$ENV{UE_ROOT}")
-        set(CMAKE_TOOLCHAIN_FILE "unreal-linux-toolchain.cmake")
-        link_directories("$ENV{UE_ROOT}/Engine/Source/ThirdParty/Unix/LibCxx/lib/Unix/x86_64-unknown-linux-gnu")
+        message("Building/linking against Unreal Linux cross toolchain from LINUX_MULTIARCH_ROOT=$ENV{LINUX_MULTIARCH_ROOT}")
+        set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_LIST_DIR}/unreal-linux-toolchain.cmake")
     else()
         message("Building/linking against system-installed toolchain")
         if(APPLE)
@@ -60,6 +58,31 @@ endif()
 
 # Set up project
 project("ProjectAirSimLibs")
+
+# External projects (nng, assimp, openssl) are separate CMake/Configure runs; hand them the same cross toolchain
+# (UE's clang + bundled libc++) so every sim lib is built against the C++ runtime the engine links.
+set(PAS_EXTERNAL_TOOLCHAIN_ARG "")
+set(PAS_OPENSSL_CROSS_ENV "")
+set(PAS_OPENSSL_TARGET "")
+# The Linux packaging below reads OpenSSL from lib64; macOS reads lib (OpenSSL's own default there).
+if(APPLE)
+    set(PAS_OPENSSL_LIBDIR "")
+else()
+    set(PAS_OPENSSL_LIBDIR "--libdir=lib64")
+endif()
+if(UNIX AND NOT APPLE AND DEFINED ENV{LINUX_MULTIARCH_ROOT})
+    set(PAS_EXTERNAL_TOOLCHAIN_ARG "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}")
+    if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+        set(PAS_OPENSSL_TARGET "linux-aarch64")
+    else()
+        set(PAS_OPENSSL_TARGET "linux-x86_64")
+    endif()
+    get_filename_component(PAS_CLANG_BIN_DIR "${CMAKE_C_COMPILER}" DIRECTORY)
+    set(PAS_OPENSSL_CROSS_ENV
+        "CC=${CMAKE_C_COMPILER} --target=${CMAKE_C_COMPILER_TARGET} --sysroot=${CMAKE_SYSROOT} -fuse-ld=lld"
+        "AR=${CMAKE_AR}"
+        "RANLIB=${CMAKE_RANLIB}")
+endif()
 
 # Set up paths for packaging the sim libs build outputs as custom post-command steps
 set(SIMLIBS_PACKAGE_DIR ${CMAKE_SOURCE_DIR}/packages/projectairsim_simlibs)
@@ -151,6 +174,7 @@ ExternalProject_Add(nng-external
     INSTALL_COMMAND         ${CMAKE_COMMAND} --build <BINARY_DIR> --config ${NNG_BUILD_TYPE} --target install
     TEST_COMMAND            ""  # disable test step
     CMAKE_ARGS
+        ${PAS_EXTERNAL_TOOLCHAIN_ARG}
         -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
         -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
         -DCMAKE_EXE_LINKER_FLAGS=${NNG_CMAKE_LINKER_MANIFEST_FLAG}
@@ -199,6 +223,14 @@ else()
     else()
         set(ASSIMP_LIBRARY_SUFFIX_OVERRIDE "")
     endif()
+    if(WIN32)
+        # GCC/clang-style warning flags are invalid for cl.exe (D8021)
+        set(ASSIMP_FLAG_ARGS "")
+    else()
+        set(ASSIMP_FLAG_ARGS
+            "-DCMAKE_C_FLAGS=\"-Wno-deprecated-declarations -Wno-macro-redefined -D_POSIX_C_SOURCE=200809L\""
+            "-DCMAKE_CXX_FLAGS=\"-Wno-deprecated-declarations -D_POSIX_C_SOURCE=200809L\"")
+    endif()
     ExternalProject_Add(assimp-external
         GIT_REPOSITORY          https://github.com/assimp/assimp.git
         GIT_TAG                 v5.2.5
@@ -209,7 +241,9 @@ else()
         INSTALL_COMMAND         ${CMAKE_COMMAND} --build <BINARY_DIR> --config ${ASSIMP_BUILD_TYPE} --target install
         TEST_COMMAND            ""  # disable test step
         CMAKE_ARGS
+            ${PAS_EXTERNAL_TOOLCHAIN_ARG}
             -DCMAKE_SYSROOT=${CMAKE_SYSROOT}
+            -DASSIMP_WARNINGS_AS_ERRORS=OFF
             -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=${CMAKE_FIND_ROOT_PATH_MODE_PROGRAM}
             -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=${CMAKE_FIND_ROOT_PATH_MODE_LIBRARY}
             -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=${CMAKE_FIND_ROOT_PATH_MODE_INCLUDE}
@@ -226,8 +260,7 @@ else()
             -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_BINARY_DIR}/_deps/assimp-install
             -DCMAKE_INSTALL_MESSAGE=LAZY  # don't print out all files copied
             -DCMAKE_BUILD_TYPE:STRING=${ASSIMP_BUILD_TYPE}  # for single-config generators (Ninja)
-            -DCMAKE_C_FLAGS="-Wno-deprecated-declarations -Wno-macro-redefined -D_POSIX_C_SOURCE=200809L"
-            -DCMAKE_CXX_FLAGS="-Wno-deprecated-declarations -D_POSIX_C_SOURCE=200809L"
+            ${ASSIMP_FLAG_ARGS}
     )
     set(ASSIMP_LIB_DIR ${CMAKE_BINARY_DIR}/_deps/assimp-install/lib)
     set(ASSIMP_INCLUDE_DIR ${CMAKE_BINARY_DIR}/_deps/assimp-install/include)
@@ -337,8 +370,8 @@ if(UNIX)
         GIT_CONFIG              "advice.detachedHead=false"
         PREFIX                  ${CMAKE_BINARY_DIR}/_deps/openssl
         UPDATE_COMMAND          ""  # disable update step
-        CONFIGURE_COMMAND       ${CMAKE_COMMAND} -E env ${OPENSSL_MACOS_FLAGS} <SOURCE_DIR>/Configure --${OPENSSL_BUILD_TYPE} --prefix=${CMAKE_BINARY_DIR}/_deps/openssl-install no-tests
-        BUILD_COMMAND           ${CMAKE_COMMAND} -E env ${OPENSSL_MACOS_FLAGS} make
+        CONFIGURE_COMMAND       ${CMAKE_COMMAND} -E env ${OPENSSL_MACOS_FLAGS} ${PAS_OPENSSL_CROSS_ENV} <SOURCE_DIR>/Configure ${PAS_OPENSSL_TARGET} --${OPENSSL_BUILD_TYPE} --prefix=${CMAKE_BINARY_DIR}/_deps/openssl-install ${PAS_OPENSSL_LIBDIR} no-tests -fPIC
+        BUILD_COMMAND           ${CMAKE_COMMAND} -E env ${OPENSSL_MACOS_FLAGS} make -j4
         INSTALL_COMMAND         make install
         TEST_COMMAND            ""  # disable test step
     )
@@ -380,16 +413,21 @@ elseif(UNIX)
             message("Using system-installed ONNX Runtime")
         else()
             # Fall back to downloading if system package not found
-            set(onnx_url https://github.com/microsoft/onnxruntime/releases/download/v1.16.0/onnxruntime-linux-x64-gpu-1.16.0.tgz)
-            set(onnx_hash MD5=27adfa51648d2713608f35c3c6957a4f)
+            set(onnx_url https://github.com/microsoft/onnxruntime/releases/download/v1.16.3/onnxruntime-linux-x64-gpu-1.16.3.tgz)
+            set(onnx_hash MD5=597eb06a0d7a66ef0c29e38bde118364)
             message("System ONNX Runtime not found, downloading...")
         endif()
     else()
-        set(onnx_url https://github.com/microsoft/onnxruntime/releases/download/v1.16.0/onnxruntime-linux-x64-gpu-1.16.0.tgz)
-        set(onnx_hash MD5=27adfa51648d2713608f35c3c6957a4f)
+        set(onnx_url https://github.com/microsoft/onnxruntime/releases/download/v1.16.3/onnxruntime-linux-x64-gpu-1.16.3.tgz)
+        set(onnx_hash MD5=597eb06a0d7a66ef0c29e38bde118364)
         message("PkgConfig not found, downloading ONNX Runtime...")
     endif()
     
+    if(DEFINED onnx_url AND CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+        # LinuxArm64 (e.g. Jetson): Microsoft ships a CPU-only aarch64 build, no GPU variant
+        set(onnx_url https://github.com/microsoft/onnxruntime/releases/download/v1.16.3/onnxruntime-linux-aarch64-1.16.3.tgz)
+        set(onnx_hash MD5=43fcb93c4aa63822ff11be72423f78af)
+    endif()
     if(DEFINED onnx_url)
         FetchContent_Declare(
             onnxruntime
@@ -418,8 +456,10 @@ elseif(UNIX)
         message("Packaging [onnxruntime] to ${UNITY_WRAPPER_DLL_DIR}")
         file(COPY "${ONNX_LIB_DIR}/" DESTINATION "${UNITY_WRAPPER_DLL_DIR}/" FILES_MATCHING PATTERN "*onn*.dll" PATTERN "*onn*.lib" PATTERN "*.so*")
 
+        if(NOT CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")  # the aarch64 ONNX Runtime package is CPU-only
         add_definitions(-DUSE_CUDA)
         add_definitions(-DUSE_TENSORRT)
+        endif()
     endif()
 else()
     # Windows - try to use system package or fall back to download
@@ -434,12 +474,12 @@ else()
         else()
             # Fall back to downloading if system package not found
             set(onnx_url https://github.com/microsoft/onnxruntime/releases/download/v1.16.0/onnxruntime-win-x64-gpu-1.16.0.zip)
-            set(onnx_hash MD5=dd6d6ba7aaaa58dd9ef8528dfcb822d2)
+            set(onnx_hash MD5=19c0a4b34cb014e109e48fbc7c25c43a)
             message("System ONNX Runtime not found, downloading...")
         endif()
     else()
         set(onnx_url https://github.com/microsoft/onnxruntime/releases/download/v1.16.0/onnxruntime-win-x64-gpu-1.16.0.zip)
-        set(onnx_hash MD5=dd6d6ba7aaaa58dd9ef8528dfcb822d2)
+        set(onnx_hash MD5=19c0a4b34cb014e109e48fbc7c25c43a)
         message("PkgConfig not found, downloading ONNX Runtime...")
     endif()
     
