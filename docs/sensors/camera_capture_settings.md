@@ -96,6 +96,8 @@ A single camera can output multiple capture types. The following parameters desc
 | auto-exposure-histogram-log-min |                                   | Defines the lower bounds for the brightness range of the generated histogram when using the  HDR (Eye Adaptation) visualization mode;log-min value for histogram of scene colors; E.g.:0.8 ==> 80% of the screen pixels are darker than the luminance value A |
 | auto-exposure-histogram-log-max |                                   | log-max value for histogram of scene colors; E.g.:0.95 ==>  95% of the screen pixels are darker than the luminance value B. Current luminance value (C) = avg(A, B) |
 | motion-blur-amount              | [0, 1]                            | Blurs objects based on it's motion determined using velocity maps. A value of 0.25 - 0.5 looks reasonable. Avoid 1.0 |
+| vignette-intensity              | [0, 1]                            | Darkens the image corners like a real lens. Unset keeps what the level's post-process volumes give the camera. |
+| lens-flare-intensity            | [0, 16]                           | Lens flare ghosts from bright sources (the sun, lamps). Unset keeps the level's. |
 | target-gamma                    |                                   | Target gamma to be used by the render target (UTextureRenderTarget2D) |
 | max-depth-meters              | > 0.0                             | Maximum depth for Depth Visualization. Objects beyond the maximum depth will be true white, while close objects will be completely black. |
 | lens                          | json                              | (Optional) Lens model of the capture, see Lens models below. Pinhole by default. |

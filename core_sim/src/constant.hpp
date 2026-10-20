@@ -203,6 +203,8 @@ class Constant {
     static constexpr const char* target_gamma = "target-gamma";
     static constexpr const char* max_depth_meters = "max-depth-meters";
     static constexpr const char* chromatic_aberration_intensity = "chromatic-aberration-intensity";
+    static constexpr const char* vignette_intensity = "vignette-intensity";
+    static constexpr const char* lens_flare_intensity = "lens-flare-intensity";
     static constexpr const char* depth_of_field_focal_region = "depth-of-field-focal-region";
     static constexpr const char* depth_of_field_transition_region = "depth-of-field-transition-region";
     static constexpr const char* lens = "lens";

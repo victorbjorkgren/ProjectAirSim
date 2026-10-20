@@ -1428,6 +1428,11 @@ void Camera::Loader::LoadCaptureSetting(const json& json) {
   setting.chromatic_aberration_intensity = JsonUtils::GetNumber(
       json, Constant::Config::chromatic_aberration_intensity,
       setting.chromatic_aberration_intensity);
+  setting.vignette_intensity = JsonUtils::GetNumber(
+      json, Constant::Config::vignette_intensity, setting.vignette_intensity);
+  setting.lens_flare_intensity = JsonUtils::GetNumber(
+      json, Constant::Config::lens_flare_intensity,
+      setting.lens_flare_intensity);
 
   auto lens_json = JsonUtils::GetJsonObject(json, Constant::Config::lens);
   if (!JsonUtils::IsEmpty(lens_json)) {
