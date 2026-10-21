@@ -16,6 +16,7 @@
 #include "Kismet/KismetSystemLibrary.h"
 #include "ProjectAirSim.h"
 #include "Play/PlayServices.h"
+#include "RenderingThread.h"
 #include "UnrealLogger.h"
 #include "UnrealScene.h"
 #include "simserver.hpp"
@@ -481,6 +482,8 @@ void AUnrealSimLoader::UnloadUnrealScene() {
                     TEXT("[AUnrealSimLoader] Unloading Unreal scene."));
   UnrealHelpers::RunCommandOnGameThread(
       [this]() {
+        // Let queued render work that uses the scene's actors finish first.
+        FlushRenderingCommands();
         if (UnrealScene) {
           // Destroy UnrealRobot actors in UnrealScene
           UnrealScene->UnloadUnrealScene();
