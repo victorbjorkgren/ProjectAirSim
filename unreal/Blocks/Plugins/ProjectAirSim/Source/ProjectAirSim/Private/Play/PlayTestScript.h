@@ -25,7 +25,7 @@ struct FPlayTestHooks {
 // environment or -playtest=<file> on the command line; one command per line,
 // '#' starts a comment:
 //   wait <seconds>
-//   key <Name> [count]            a key press and release (Down, Enter, Escape, Tab, W ...)
+//   key <Name> [count]            presses 0.3 s apart, each held 0.12 s (Down, Enter, Escape, Tab, W ...)
 //   keydown <Name> / keyup <Name>
 //   expect <screen>               title|map|mode|spawn|vehicle|pause|loading|flying; a mismatch is fatal
 //   waitscreen <screen> <timeout> waits for a screen; a timeout is fatal
@@ -49,7 +49,13 @@ class FPlayTestScript {
   explicit FPlayTestScript(const FString& Path);
   FKey ParseKey(const FString& Name) const;
 
+  struct FTimedKey {
+    double At;
+    FKey Key;
+    bool bDown;
+  };
   TArray<FStep> Steps;
+  TArray<FTimedKey> KeyQueue;
   int32 Next = 0;
   double ResumeAt = 0.0;
   double ScreenDeadline = 0.0;

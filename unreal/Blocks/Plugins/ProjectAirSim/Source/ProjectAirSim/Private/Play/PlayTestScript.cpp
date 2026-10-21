@@ -44,6 +44,14 @@ FKey FPlayTestScript::ParseKey(const FString& Name) const {
 
 void FPlayTestScript::Tick(const FPlayTestHooks& H) {
   const double Now = FPlatformTime::Seconds();
+  for (int32 I = 0; I < KeyQueue.Num();) {
+    if (Now >= KeyQueue[I].At) {
+      H.Key(KeyQueue[I].Key, KeyQueue[I].bDown);
+      KeyQueue.RemoveAt(I);
+    } else {
+      ++I;
+    }
+  }
   if (bStickHeld && Now >= StickUntil) {
     H.ClearStick();
     bStickHeld = false;
@@ -64,11 +72,12 @@ void FPlayTestScript::Tick(const FPlayTestHooks& H) {
       ResumeAt = Now + FCString::Atod(*S.Args[0]);
     } else if (S.Verb == TEXT("key")) {
       const int32 Count = S.Args.Num() > 1 ? FCString::Atoi(*S.Args[1]) : 1;
+      const FKey Key = ParseKey(S.Args[0]);
       for (int32 I = 0; I < Count; ++I) {
-        H.Key(ParseKey(S.Args[0]), true);
-        H.Key(ParseKey(S.Args[0]), false);
+        KeyQueue.Add({Now + I * 0.3, Key, true});
+        KeyQueue.Add({Now + I * 0.3 + 0.12, Key, false});
       }
-      ResumeAt = Now + 0.35;
+      ResumeAt = Now + Count * 0.3 + 0.2;
     } else if (S.Verb == TEXT("keydown") || S.Verb == TEXT("keyup")) {
       H.Key(ParseKey(S.Args[0]), S.Verb == TEXT("keydown"));
     } else if (S.Verb == TEXT("expect")) {
