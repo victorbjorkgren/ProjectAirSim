@@ -10,7 +10,8 @@
 class APlayerController;
 
 enum class EPlayAxis : uint8 { Forward, Right, Climb, Yaw, CameraTilt };
-enum class EPlayButton : uint8 { PresetDown, PresetUp, TakeoffLand, CycleCamera, Pause };
+enum class EPlayButton : uint8 { PresetDown, PresetUp, TakeoffLand, CycleCamera, Pause, Confirm, Restart };
+constexpr int32 kPlayButtonCount = 7;
 
 struct FPlayAxisBinding {
   EPlayAxis Axis;
@@ -27,7 +28,7 @@ struct FPlayButtonBinding {
 // its key goes down.
 struct FPlayInputSample {
   float Axes[5] = {0, 0, 0, 0, 0};
-  bool Buttons[5] = {false, false, false, false, false};
+  bool Buttons[kPlayButtonCount] = {};
 
   float Axis(EPlayAxis A) const { return Axes[static_cast<int32>(A)]; }
   bool Pressed(EPlayButton B) const { return Buttons[static_cast<int32>(B)]; }
@@ -52,5 +53,5 @@ class FPlayInputMap {
  private:
   TArray<FPlayAxisBinding> AxisBindings;
   TArray<FPlayButtonBinding> ButtonBindings;
-  bool WasDown[5] = {false, false, false, false, false};
+  bool WasDown[kPlayButtonCount] = {};
 };

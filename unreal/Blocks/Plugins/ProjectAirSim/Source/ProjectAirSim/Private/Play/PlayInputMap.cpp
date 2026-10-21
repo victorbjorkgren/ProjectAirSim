@@ -20,6 +20,8 @@ FPlayInputMap::FPlayInputMap() {
       {EPlayButton::TakeoffLand, EKeys::SpaceBar},
       {EPlayButton::CycleCamera, EKeys::Tab},
       {EPlayButton::Pause, EKeys::Escape},
+      {EPlayButton::Confirm, EKeys::Enter},
+      {EPlayButton::Restart, EKeys::R},
   };
 }
 
