@@ -95,7 +95,7 @@ void AProjectAirSimPlayGameMode::StartPlay() {
   Super::StartPlay();
 
   if (Settings->Moods.Num() > 0) {
-    MoodDirector = MakeUnique<FPlayMoodDirector>(*Settings);
+    MoodDirector = MakeUnique<FPlayMoodDirector>(*Settings, [this](const FPostProcessSettings& Grade) { Camera->SetGrade(Grade); });
     FString Wanted = Settings->DefaultMood;
     FParse::Value(FCommandLine::Get(), TEXT("-playmood="), Wanted);
     // "none" keeps the level's own look (run.sh uses it for a PLAY_SUN override).

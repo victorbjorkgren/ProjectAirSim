@@ -8,7 +8,7 @@
 #include "Play/PlaySettings.h"
 
 class ADirectionalLight;
-class APostProcessVolume;
+struct FPostProcessSettings;
 class ASkyLight;
 class AExponentialHeightFog;
 class UMaterialParameterCollection;
@@ -17,12 +17,13 @@ class UWorld;
 
 // Applies a mood to the running level. The sun, sky light and height fog are
 // found by class and restored to the level's own values before each mood, so
-// switching never accumulates; the grade lives in an unbound post process
-// volume this class spawns. Tick() re-applies the current mood when a scene
+// switching never accumulates; the grade goes to the sink. Tick() re-applies the current mood when a scene
 // load has replaced the actors it wrote to.
 class FPlayMoodDirector {
  public:
-  explicit FPlayMoodDirector(const UPlaySettings& InSettings) : Settings(InSettings) {}
+  // GradeSink receives the mood's post process settings (the play camera's view).
+  FPlayMoodDirector(const UPlaySettings& InSettings, TFunction<void(const FPostProcessSettings&)> InGradeSink)
+      : Settings(InSettings), GradeSink(MoveTemp(InGradeSink)) {}
 
   // Applies Settings.Moods[Index] to World.
   void Apply(UWorld& World, int32 Index);
@@ -47,6 +48,7 @@ class FPlayMoodDirector {
     float Density;
     float HeightFalloff;
     FLinearColor Inscattering;
+    float StartDistance;
   };
 
   bool FindActors(UWorld& World);
@@ -56,13 +58,13 @@ class FPlayMoodDirector {
   void ApplyParams(UWorld& World, const FPlayMoodEntry& Mood);
 
   const UPlaySettings& Settings;
+  TFunction<void(const FPostProcessSettings&)> GradeSink;
   int32 CurrentIndex = INDEX_NONE;
   double NextCheck = 0.0;
 
   TWeakObjectPtr<ADirectionalLight> Sun;
   TWeakObjectPtr<ASkyLight> Sky;
   TWeakObjectPtr<AExponentialHeightFog> Fog;
-  TWeakObjectPtr<APostProcessVolume> Grade;
   TWeakObjectPtr<UMaterialParameterCollectionInstance> ParamInstance;
   FSunBase SunBase;
   FSkyBase SkyBase;

@@ -10,7 +10,7 @@
 #include "Engine/DirectionalLight.h"
 #include "Engine/Engine.h"
 #include "Engine/ExponentialHeightFog.h"
-#include "Engine/PostProcessVolume.h"
+#include "Engine/Scene.h"
 #include "Engine/SkyLight.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -54,7 +54,7 @@ TArray<TPair<FString, FString>> ParseParams(const FString& Spec) {
 
 bool FPlayMoodDirector::ActorsStale() const {
   if (Settings.MoodParamCollection.IsEmpty() == false && !ParamInstance.IsValid()) return true;
-  return !Sun.IsValid() || !Sky.IsValid() || !Fog.IsValid() || !Grade.IsValid();
+  return !Sun.IsValid() || !Sky.IsValid() || !Fog.IsValid();
 }
 
 bool FPlayMoodDirector::FindActors(UWorld& World) {
@@ -87,33 +87,13 @@ bool FPlayMoodDirector::FindActors(UWorld& World) {
       if (It->IsActorBeingDestroyed()) continue;
       Fog = *It;
       UExponentialHeightFogComponent* C = It->GetComponent();
-      FogBase = {C->FogDensity, C->FogHeightFalloff, C->FogInscatteringLuminance};
+      FogBase = {C->FogDensity, C->FogHeightFalloff, C->FogInscatteringLuminance, C->StartDistance};
       UE_LOG(LogPlay, Log, TEXT("Mood: height fog %s base density %.4f falloff %.3f max opacity %.2f start %.0f z %.0f volumetric %d"),
              *It->GetName(), FogBase.Density, FogBase.HeightFalloff, C->FogMaxOpacity, C->StartDistance,
              It->GetActorLocation().Z, C->bEnableVolumetricFog);
       bChanged = true;
       break;
     }
-  }
-  if (!Grade.IsValid()) {
-    for (TActorIterator<APostProcessVolume> It(&World); It; ++It) {
-      const FPostProcessSettings& L = It->Settings;
-      UE_LOG(LogPlay, Log, TEXT("Mood: level post process volume %s unbound=%d priority %.1f weight %.2f exposure bias override=%d (%.2f) method override=%d min/max override=%d/%d"),
-             *It->GetName(), It->bUnbound, It->Priority, It->BlendWeight, L.bOverride_AutoExposureBias, L.AutoExposureBias,
-             L.bOverride_AutoExposureMethod, L.bOverride_AutoExposureMinBrightness, L.bOverride_AutoExposureMaxBrightness);
-    }
-    FActorSpawnParameters Params;
-    Params.Name = TEXT("PlayMoodGrade");
-    Params.NameMode = FActorSpawnParameters::ESpawnActorNameMode::Requested;
-    Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-    APostProcessVolume* Volume = World.SpawnActor<APostProcessVolume>(FVector::ZeroVector, FRotator::ZeroRotator, Params);
-    check(Volume);
-    Volume->bUnbound = true;
-    Volume->BlendWeight = 1.f;
-    // Above the level's own volumes, one of which sits at 1e18.
-    Volume->Priority = 1.0e30f;
-    Grade = Volume;
-    bChanged = true;
   }
   if (!Settings.MoodParamCollection.IsEmpty()) {
     UMaterialParameterCollection* Collection =
@@ -196,12 +176,11 @@ void FPlayMoodDirector::ApplyToActors(UWorld&, const FPlayMoodEntry& M) {
     C->SetFogDensity(IsSet(M.FogDensity) ? M.FogDensity : FogBase.Density);
     C->SetFogHeightFalloff(IsSet(M.FogHeightFalloff) ? M.FogHeightFalloff : FogBase.HeightFalloff);
     C->SetFogInscatteringColor(IsSet(M.FogColor) ? M.FogColor : FogBase.Inscattering);
+    C->SetStartDistance(IsSet(M.FogStartDistanceM) ? M.FogStartDistanceM * 100.f : FogBase.StartDistance);
   }
 }
 
 void FPlayMoodDirector::ApplyGrade(UWorld&, const FPlayMoodEntry& M) {
-  APostProcessVolume* Volume = Grade.Get();
-  if (!Volume) return;
   FPostProcessSettings S;
   if (IsSet(M.ExposureBiasEv)) { S.bOverride_AutoExposureBias = true; S.AutoExposureBias = M.ExposureBiasEv; }
   if (IsSet(M.ExposureMinEv)) { S.bOverride_AutoExposureMinBrightness = true; S.AutoExposureMinBrightness = M.ExposureMinEv; }
@@ -222,7 +201,7 @@ void FPlayMoodDirector::ApplyGrade(UWorld&, const FPlayMoodEntry& M) {
     S.bOverride_ColorGainHighlights = true;
     S.ColorGainHighlights = FVector4(M.HighlightTint.R, M.HighlightTint.G, M.HighlightTint.B, 1.f);
   }
-  Volume->Settings = S;
+  GradeSink(S);
 }
 
 void FPlayMoodDirector::ApplyParams(UWorld&, const FPlayMoodEntry& M) {

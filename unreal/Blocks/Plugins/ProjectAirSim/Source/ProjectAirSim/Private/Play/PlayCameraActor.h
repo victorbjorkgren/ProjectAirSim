@@ -28,6 +28,8 @@ class APlayCameraActor : public AActor {
   EPlayCameraMode GetMode() const { return Mode; }
   // Pitch offset on top of the mode's own aim, degrees.
   void SetTilt(float TiltDegrees) { Tilt = TiltDegrees; }
+  // The mood's grade, applied to this view only (the drone cameras keep their own exposure).
+  void SetGrade(const FPostProcessSettings& Settings);
 
   // Driven by the game mode with unpaused wall-clock time, because the scene
   // pauses the world between sim steps.

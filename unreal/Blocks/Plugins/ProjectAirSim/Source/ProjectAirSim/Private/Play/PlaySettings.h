@@ -88,10 +88,12 @@ struct FPlayMoodEntry {
   UPROPERTY() FLinearColor SkyTint = FLinearColor(0.f, 0.f, 0.f, -1.f);
   UPROPERTY() float FogDensity = kUnset;
   UPROPERTY() float FogHeightFalloff = kUnset;
+  // Metres from the camera before the fog begins (the level's own start may be hundreds of metres).
+  UPROPERTY() float FogStartDistanceM = kUnset;
   UPROPERTY() FLinearColor FogColor = FLinearColor(0.f, 0.f, 0.f, -1.f);
-  // Grade (post process): exposure bias in EV, uniform saturation and
-  // contrast, shadow and highlight gain tints. No grain, vignette or bloom:
-  // the volume reaches the drone cameras too.
+  // Grade (post process of the play camera, so the drone cameras are not
+  // graded): exposure bias in EV, uniform saturation and contrast, shadow and
+  // highlight gain tints. No grain, vignette or bloom.
   UPROPERTY() float ExposureBiasEv = kUnset;
   UPROPERTY() float ExposureMinEv = kUnset;
   UPROPERTY() float ExposureMaxEv = kUnset;

@@ -95,3 +95,8 @@ void APlayCameraActor::AdvanceFollow(float DeltaSeconds) {
   }
   Camera->SetFieldOfView(Mode == EPlayCameraMode::Fpv ? 100.f : 85.f);
 }
+
+void APlayCameraActor::SetGrade(const FPostProcessSettings& Settings) {
+  Camera->PostProcessSettings = Settings;
+  Camera->PostProcessBlendWeight = 1.f;
+}
