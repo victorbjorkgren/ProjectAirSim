@@ -393,8 +393,9 @@ void AProjectAirSimPlayGameMode::Tick(float DeltaSeconds) {
   if (Found && Found != RobotBeforeLaunch.Get()) Robot = Found;
   if (Screen == EPlayScreen::Loading && Robot.IsValid()) {
     GoTo(EPlayScreen::Flying);
-  } else if ((Screen == EPlayScreen::Flying || Screen == EPlayScreen::Pause) && !Robot.IsValid()) {
-    // The attendant tore the scene down; wait for the next robot.
+  } else if (Screen == EPlayScreen::Flying && !Robot.IsValid()) {
+    // The attendant tore the scene down; wait for the next robot. A paused
+    // player stays on the pause menu; Resume returns to loading if needed.
     RobotBeforeLaunch.Reset();
     GoTo(EPlayScreen::Loading);
   }
