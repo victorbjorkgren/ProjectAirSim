@@ -563,6 +563,8 @@ void AProjectAirSimPlayGameMode::MuteProjectSounds() {
   for (TObjectIterator<UAudioComponent> It; It; ++It) {
     UAudioComponent* Component = *It;
     if (!Component->IsPlaying() || Component->GetWorld() != GetWorld()) continue;
+    // The play mode's own procedural audio streams through an audio component owned by UPlayAudio.
+    if (Component->GetTypedOuter<UPlayAudio>()) continue;
     const USoundBase* Sound = Component->Sound;
     if (!Sound) continue;
     const FString Name = Sound->GetName();
