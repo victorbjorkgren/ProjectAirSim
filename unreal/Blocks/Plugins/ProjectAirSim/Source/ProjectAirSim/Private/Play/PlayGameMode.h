@@ -49,18 +49,22 @@ class AProjectAirSimPlayGameMode : public AProjectAirSimGameMode {
   void TickFlight(APlayerController& Controller, float WallDelta);
   void UpdateHud(float WallDelta);
   void UpdateFootnotes();
+  void UpdateLaunchSequence();
   void MuteProjectSounds();
   void LogFrameRate();
   void BuildTestHooks();
   static const TCHAR* ScreenName(EPlayScreen Screen);
 
   // The screen the player sees, and the choices made on the way to a launch.
-  EPlayScreen Screen = EPlayScreen::Title;
+  EPlayScreen Screen = EPlayScreen::Intro;
   int32 SelectedMode = 0;
   bool bHasSpawn = false;
   FVector3d SpawnNed = FVector3d::ZeroVector;
   FPlayRunRequest LastRequest;
   double LaunchWallSeconds = 0.0;
+  // Launch sequence: when it began, and when the curtain began to lift.
+  double IntroStartSeconds = 0.0;
+  double CurtainLiftSeconds = -1.0;
 
   const UPlaySettings* Settings = nullptr;
   int32 CurrentMapIndex = INDEX_NONE;

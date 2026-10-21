@@ -16,6 +16,13 @@
 namespace {
 const FLinearColor kInk(0.88f, 0.89f, 0.90f, 1.f);
 const FLinearColor kDim(0.88f, 0.89f, 0.90f, 0.5f);
+// Menu items: the chosen one is white, the others grey.
+const FLinearColor kChosen(1.f, 1.f, 1.f, 1.f);
+const FLinearColor kIdle(0.80f, 0.82f, 0.84f, 0.42f);
+// The Nordic brand orange of the mark, #D97706.
+const FLinearColor kBrand(0.693f, 0.184f, 0.002f, 1.f);
+// The dark veil over the scene behind every menu screen.
+const FLinearColor kVeil(0.f, 0.f, 0.f, 0.58f);
 const FLinearColor kAccent(1.00f, 0.74f, 0.25f, 1.f);
 const FLinearColor kWarn(1.00f, 0.55f, 0.20f, 1.f);
 const FLinearColor kResult(0.55f, 0.90f, 0.60f, 1.f);
@@ -28,6 +35,90 @@ const FSlateBrush* White() { return FCoreStyle::Get().GetBrush("WhiteBrush"); }
 }  // namespace
 
 // ---------------------------------------------------------------------------
+// SPlayLogo
+
+namespace {
+constexpr float kLogoBox = 48.f;
+constexpr float kLogoCenterX = 24.f;
+constexpr float kLogoStroke = 2.f;
+constexpr float kLogoDash = 0.5f;  // half-length of the dash the bottom chevron starts as
+constexpr float kLogoBottomBaseY = 36.f;
+constexpr float kLogoBottomFlatY = kLogoBottomBaseY - 7.f;
+
+struct FChevron {
+  float HalfWidth;
+  float BaseY;
+  float TipY;
+};
+
+// Every chevron has a 98 degree interior angle at the tip.
+FChevron MakeChevron(float HalfWidth, float BaseY) {
+  const float HalfAngle = FMath::DegreesToRadians(98.f) * 0.5f;
+  return {HalfWidth, BaseY, BaseY - HalfWidth / FMath::Tan(HalfAngle)};
+}
+
+float EaseInOutCubic(float T) { return T < 0.5f ? 4.f * T * T * T : 1.f - FMath::Pow(-2.f * T + 2.f, 3.f) / 2.f; }
+
+// Left base, tip, right base, in view-box units.
+TArray<FVector2f> Polyline(float HalfWidth, float LeftY, float TipY, float RightY) {
+  return {FVector2f(kLogoCenterX - HalfWidth, LeftY), FVector2f(kLogoCenterX, TipY),
+          FVector2f(kLogoCenterX + HalfWidth, RightY)};
+}
+
+TArray<FVector2f> Morph(const FChevron& From, const FChevron& To, float T) {
+  const float Base = FMath::Lerp(From.BaseY, To.BaseY, T);
+  return Polyline(FMath::Lerp(From.HalfWidth, To.HalfWidth, T), Base, FMath::Lerp(From.TipY, To.TipY, T), Base);
+}
+}  // namespace
+
+void SPlayLogo::Construct(const FArguments& InArgs) {
+  Progress = InArgs._Progress;
+  Alpha = InArgs._Alpha;
+}
+
+int32 SPlayLogo::OnPaint(const FPaintArgs&, const FGeometry& G, const FSlateRect&, FSlateWindowElementList& Out,
+                         int32 LayerId, const FWidgetStyle&, bool) const {
+  const float P = FMath::Clamp(Progress.Get(), 0.f, 1.f);
+  FLinearColor Color = kBrand;
+  Color.A = FMath::Clamp(Alpha.Get(), 0.f, 1.f);
+  if (Color.A <= 0.f) return LayerId;
+
+  const FChevron Bottom = MakeChevron(15.f, kLogoBottomBaseY);
+  const FChevron Middle = MakeChevron(12.f, kLogoBottomBaseY - 8.f);
+  const FChevron Top = MakeChevron(9.f, kLogoBottomBaseY - 16.f);
+
+  TArray<TArray<FVector2f>> Lines;
+  if (P < 0.3f) {
+    // A dash stretches into a flat line.
+    const float T = EaseInOutCubic(P / 0.3f);
+    Lines.Add(Polyline(FMath::Lerp(kLogoDash, Bottom.HalfWidth, T), kLogoBottomFlatY, kLogoBottomFlatY,
+                       kLogoBottomFlatY));
+  } else if (P < 0.6f) {
+    // The line bends into the chevron.
+    const float T = EaseInOutCubic((P - 0.3f) / 0.3f);
+    Lines.Add(Polyline(Bottom.HalfWidth, FMath::Lerp(kLogoBottomFlatY, Bottom.BaseY, T),
+                       FMath::Lerp(kLogoBottomFlatY, Bottom.TipY, T), FMath::Lerp(kLogoBottomFlatY, Bottom.BaseY, T)));
+  } else {
+    Lines.Add(Polyline(Bottom.HalfWidth, Bottom.BaseY, Bottom.TipY, Bottom.BaseY));
+  }
+  if (P >= 0.6f) {
+    Lines.Add(P < 0.8f ? Morph(Bottom, Middle, EaseInOutCubic((P - 0.6f) / 0.2f))
+                       : Polyline(Middle.HalfWidth, Middle.BaseY, Middle.TipY, Middle.BaseY));
+  }
+  if (P >= 0.8f) Lines.Add(Morph(Middle, Top, EaseInOutCubic((P - 0.8f) / 0.2f)));
+
+  const FVector2f Size = G.GetLocalSize();
+  const float Scale = FMath::Min(Size.X, Size.Y) / kLogoBox;
+  const FVector2f Offset((Size.X - kLogoBox * Scale) * 0.5f, (Size.Y - kLogoBox * Scale) * 0.5f);
+  for (TArray<FVector2f>& Line : Lines) {
+    for (FVector2f& Point : Line) Point = Offset + Point * Scale;
+    FSlateDrawElement::MakeLines(Out, LayerId, G.ToPaintGeometry(), Line, ESlateDrawEffect::None, Color, true,
+                                 kLogoStroke * Scale);
+  }
+  return LayerId + 1;
+}
+
+// ---------------------------------------------------------------------------
 // SPlayMenuItem
 
 void SPlayMenuItem::Construct(const FArguments& InArgs) {
@@ -38,14 +129,12 @@ void SPlayMenuItem::Construct(const FArguments& InArgs) {
   ChildSlot[SNew(SBox).Padding(FMargin(0, 5))[
       SNew(STextBlock)
           .Text_Lambda([this, Label]() {
-            return (HasKeyboardFocus() || IsHovered()) && bItemEnabled
-                       ? FText::FromString(TEXT("- ") + Label.ToString())
-                       : Label;
+            return Label;
           })
           .Font(Font("Regular", 22))
           .ColorAndOpacity_Lambda([this]() {
             if (!bItemEnabled) return FSlateColor(FLinearColor(1, 1, 1, 0.22f));
-            return FSlateColor((HasKeyboardFocus() || IsHovered()) ? kAccent : kDim);
+            return FSlateColor((HasKeyboardFocus() || IsHovered()) ? kChosen : kIdle);
           })]];
 }
 
@@ -298,8 +387,12 @@ void SPlayUi::Construct(const FArguments& InArgs) {
   check(Model.IsValid());
   ScreenHolder = SNew(SBox);
   HudWidget = MakeHud();
-  ChildSlot[SNew(SOverlay) + SOverlay::Slot()[ScreenHolder.ToSharedRef()] + SOverlay::Slot()[HudWidget.ToSharedRef()]];
-  ShowScreen(EPlayScreen::Title);
+  ChildSlot[
+      SNew(SOverlay)
+      + SOverlay::Slot()[ScreenHolder.ToSharedRef()]
+      + SOverlay::Slot()[MakeCurtain()]
+      + SOverlay::Slot()[HudWidget.ToSharedRef()]];
+  ShowScreen(EPlayScreen::Intro);
 }
 
 void SPlayUi::ShowScreen(EPlayScreen Screen) {
@@ -355,16 +448,15 @@ TSharedRef<SWidget> SPlayUi::MakeItem(const FString& Label, bool bEnabled, TFunc
 }
 
 TSharedRef<SWidget> SPlayUi::MakePanel(const FString& Heading, TSharedRef<SWidget> Body) {
-  return SNew(SBox).HAlign(HAlign_Left)[
-      SNew(SBorder)
-          .BorderImage(White())
-          .BorderBackgroundColor(FLinearColor(0.f, 0.f, 0.f, 0.58f))
-          .Padding(FMargin(64, 0, 96, 0))[
-              SNew(SVerticalBox)
-              + SVerticalBox::Slot().FillHeight(1.f)
-              + SVerticalBox::Slot().AutoHeight().Padding(0, 0, 0, 18)[
-                  SNew(STextBlock).Text(FText::FromString(Heading)).Font(Font("Regular", 13)).ColorAndOpacity(kDim)]
-              + SVerticalBox::Slot().AutoHeight().Padding(0, 0, 0, 80)[Body]]];
+  return SNew(SBorder)
+      .BorderImage(White())
+      .BorderBackgroundColor(kVeil)
+      .Padding(FMargin(64, 0, 96, 0))[
+          SNew(SVerticalBox)
+          + SVerticalBox::Slot().FillHeight(1.f)
+          + SVerticalBox::Slot().AutoHeight().Padding(0, 0, 0, 18)[
+              SNew(STextBlock).Text(FText::FromString(Heading)).Font(Font("Regular", 13)).ColorAndOpacity(kDim)]
+          + SVerticalBox::Slot().AutoHeight().Padding(0, 0, 0, 80)[Body]];
 }
 
 TSharedRef<SWidget> SPlayUi::BuildScreen(EPlayScreen Screen) {
@@ -378,24 +470,23 @@ TSharedRef<SWidget> SPlayUi::BuildScreen(EPlayScreen Screen) {
     case EPlayScreen::Title: {
       Add(TEXT("NEW FLIGHT"), true, [A]() { if (A.NewFlight) A.NewFlight(); });
       Add(TEXT("QUIT"), true, [A]() { if (A.Quit) A.Quit(); });
-      return SNew(SBox).HAlign(HAlign_Left)[
-          SNew(SBorder)
-              .BorderImage(White())
-              .BorderBackgroundColor(FLinearColor(0.f, 0.f, 0.f, 0.50f))
-              .Padding(FMargin(64, 0, 120, 0))[
-                  SNew(SVerticalBox)
-                  + SVerticalBox::Slot().FillHeight(1.f)
-                  + SVerticalBox::Slot().AutoHeight().Padding(0, 0, 0, 40)[Items]
-                  + SVerticalBox::Slot().AutoHeight()[
-                      SNew(STextBlock)
-                          .Text_Lambda([M = Model]() { return FText::FromString(M->Title); })
-                          .Font(Font("Light", 84))
-                          .ColorAndOpacity(kInk)]
-                  + SVerticalBox::Slot().AutoHeight().Padding(4, 8, 0, 56)[
-                      SNew(STextBlock)
-                          .Text_Lambda([M = Model]() { return FText::FromString(M->Footnote); })
-                          .Font(Font("Mono", 10))
-                          .ColorAndOpacity(kDim)]]];
+      return SNew(SBorder)
+          .BorderImage(White())
+          .BorderBackgroundColor(kVeil)
+          .Padding(FMargin(64, 0, 120, 0))[
+              SNew(SVerticalBox)
+              + SVerticalBox::Slot().FillHeight(1.f)
+              + SVerticalBox::Slot().AutoHeight().Padding(0, 0, 0, 40)[Items]
+              + SVerticalBox::Slot().AutoHeight()[
+                  SNew(STextBlock)
+                      .Text_Lambda([M = Model]() { return FText::FromString(M->Title); })
+                      .Font(Font("Light", 84))
+                      .ColorAndOpacity(kInk)]
+              + SVerticalBox::Slot().AutoHeight().Padding(4, 8, 0, 56)[
+                  SNew(STextBlock)
+                      .Text_Lambda([M = Model]() { return FText::FromString(M->Footnote); })
+                      .Font(Font("Mono", 10))
+                      .ColorAndOpacity(kDim)]];
     }
     case EPlayScreen::Map: {
       for (int32 I = 0; I < Model->MapNames.Num(); ++I) {
@@ -455,10 +546,28 @@ TSharedRef<SWidget> SPlayUi::BuildScreen(EPlayScreen Screen) {
                     .Text_Lambda([M = Model]() { return FText::FromString(M->LoadingNote); })
                     .Font(Font("Mono", 11))
                     .ColorAndOpacity(kDim)]];
+    case EPlayScreen::Intro:
     case EPlayScreen::Flying:
       return SNullWidget::NullWidget;
   }
   return SNullWidget::NullWidget;
+}
+
+TSharedRef<SWidget> SPlayUi::MakeCurtain() {
+  TSharedPtr<FPlayUiModel> M = Model;
+  return SNew(SOverlay)
+      .Visibility_Lambda([M]() {
+        return M->CurtainAlpha > 0.f ? EVisibility::HitTestInvisible : EVisibility::Collapsed;
+      })
+      + SOverlay::Slot()[
+            SNew(SBorder)
+                .BorderImage(White())
+                .BorderBackgroundColor_Lambda([M]() { return FLinearColor(0.f, 0.f, 0.f, M->CurtainAlpha); })]
+      + SOverlay::Slot().HAlign(HAlign_Center).VAlign(VAlign_Center)[
+            SNew(SBox).WidthOverride(140).HeightOverride(140)[
+                SNew(SPlayLogo)
+                    .Progress_Lambda([M]() { return M->LogoProgress; })
+                    .Alpha_Lambda([M]() { return M->LogoAlpha; })]];
 }
 
 TSharedRef<SWidget> SPlayUi::MakeHud() {
