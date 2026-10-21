@@ -9,6 +9,7 @@
 #include "Engine/SkeletalMesh.h"
 #include "LandscapeComponent.h"
 #include "ProceduralMeshComponent.h"
+#include "RenderingThread.h"
 
 namespace projectairsim = microsoft::projectairsim;
 
@@ -497,7 +498,14 @@ void UnrealHelpers::ForceUnrealGarbageCollection() {
   auto prev_gc_frame = GLastGCFrame;
 
   // Set request for Unreal garbage collection to clear destroyed actors
-  RunCommandOnGameThread([]() { GEngine->ForceGarbageCollection(true); }, true);
+  // Render passes still in flight (a visible main view, scene captures) must
+  // finish before the collector releases the resources of the destroyed actors.
+  RunCommandOnGameThread(
+      []() {
+        FlushRenderingCommands();
+        GEngine->ForceGarbageCollection(true);
+      },
+      true);
 
   if (IsInGameThread()) {
     UnrealLogger::Log(
