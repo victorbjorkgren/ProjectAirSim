@@ -185,6 +185,12 @@ void FPlayMoodDirector::ApplyGrade(UWorld&, const FPlayMoodEntry& M) {
   if (IsSet(M.ExposureBiasEv)) { S.bOverride_AutoExposureBias = true; S.AutoExposureBias = M.ExposureBiasEv; }
   if (IsSet(M.ExposureMinEv)) { S.bOverride_AutoExposureMinBrightness = true; S.AutoExposureMinBrightness = M.ExposureMinEv; }
   if (IsSet(M.ExposureMaxEv)) { S.bOverride_AutoExposureMaxBrightness = true; S.AutoExposureMaxBrightness = M.ExposureMaxEv; }
+  if (IsSet(M.WhiteTempK)) {
+    S.bOverride_TemperatureType = true;
+    S.TemperatureType = ETemperatureMethod::TEMP_WhiteBalance;
+    S.bOverride_WhiteTemp = true;
+    S.WhiteTemp = M.WhiteTempK;
+  }
   if (IsSet(M.Saturation)) {
     S.bOverride_ColorSaturation = true;
     S.ColorSaturation = FVector4(M.Saturation, M.Saturation, M.Saturation, 1.f);

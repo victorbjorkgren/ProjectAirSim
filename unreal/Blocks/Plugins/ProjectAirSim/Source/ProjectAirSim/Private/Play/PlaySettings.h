@@ -99,6 +99,8 @@ struct FPlayMoodEntry {
   UPROPERTY() float ExposureMaxEv = kUnset;
   UPROPERTY() float Saturation = kUnset;
   UPROPERTY() float Contrast = kUnset;
+  // White balance in kelvin; the camera assumes this illuminant, so a higher value warms the picture (6500 is neutral).
+  UPROPERTY() float WhiteTempK = kUnset;
   UPROPERTY() FLinearColor ShadowTint = FLinearColor(0.f, 0.f, 0.f, -1.f);
   UPROPERTY() FLinearColor HighlightTint = FLinearColor(0.f, 0.f, 0.f, -1.f);
   // Scalars and colours of the settings' MoodParamCollection, "Name=1.5;Tint=(R=1,G=0.5,B=0.2,A=1)".
