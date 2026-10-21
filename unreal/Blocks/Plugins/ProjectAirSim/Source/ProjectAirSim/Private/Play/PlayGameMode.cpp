@@ -426,6 +426,18 @@ void AProjectAirSimPlayGameMode::TickFlight(APlayerController& Controller, float
   }
   if (Screen != EPlayScreen::Flying) return;
 
+  // A run that ended with a result: Enter goes back to the title, R runs it again.
+  if (Model->HudRefereeLevel == TEXT("result")) {
+    if (In.Pressed(EPlayButton::Confirm)) {
+      Actions.BackToTitle();
+      return;
+    }
+    if (In.Pressed(EPlayButton::Restart)) {
+      Actions.Restart();
+      return;
+    }
+  }
+
   if (In.Pressed(EPlayButton::PresetDown)) PresetIndex = FMath::Max(PresetIndex - 1, 0);
   if (In.Pressed(EPlayButton::PresetUp)) PresetIndex = FMath::Min(PresetIndex + 1, kPresetCount - 1);
   if (In.Pressed(EPlayButton::CycleCamera)) {
@@ -455,6 +467,7 @@ void AProjectAirSimPlayGameMode::TickFlight(APlayerController& Controller, float
 
 void AProjectAirSimPlayGameMode::UpdateHud(float WallDelta) {
   Shared->GetHud(Model->HudReferee, Model->HudRefereeLevel);
+  if (Model->HudRefereeLevel == TEXT("result")) Model->HudReferee += TEXT("    ENTER: TITLE   R: RESTART");
   AUnrealRobot* Target = Robot.Get();
   if (!Target) return;
 
