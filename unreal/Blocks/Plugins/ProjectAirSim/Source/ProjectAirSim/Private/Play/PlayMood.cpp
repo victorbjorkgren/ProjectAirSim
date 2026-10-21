@@ -95,6 +95,12 @@ bool FPlayMoodDirector::FindActors(UWorld& World) {
     }
   }
   if (!Grade.IsValid()) {
+    for (TActorIterator<APostProcessVolume> It(&World); It; ++It) {
+      const FPostProcessSettings& L = It->Settings;
+      UE_LOG(LogPlay, Log, TEXT("Mood: level post process volume %s unbound=%d priority %.1f weight %.2f exposure bias override=%d (%.2f) method override=%d min/max override=%d/%d"),
+             *It->GetName(), It->bUnbound, It->Priority, It->BlendWeight, L.bOverride_AutoExposureBias, L.AutoExposureBias,
+             L.bOverride_AutoExposureMethod, L.bOverride_AutoExposureMinBrightness, L.bOverride_AutoExposureMaxBrightness);
+    }
     FActorSpawnParameters Params;
     Params.Name = TEXT("PlayMoodGrade");
     Params.NameMode = FActorSpawnParameters::ESpawnActorNameMode::Requested;
