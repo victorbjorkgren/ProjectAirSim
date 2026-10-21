@@ -32,6 +32,8 @@ int64 FPlayShared::PostRun(const FPlayRunRequest& Request) {
   Run = Request;
   Action = TEXT("run");
   bTakeoffLand = false;
+  HudText.Reset();
+  HudLevel = TEXT("info");
   return ++Seq;
 }
 
@@ -40,6 +42,7 @@ int64 FPlayShared::PostStop() {
   Action = TEXT("stop");
   bTakeoffLand = false;
   HudText.Reset();
+  HudLevel = TEXT("info");
   return ++Seq;
 }
 
