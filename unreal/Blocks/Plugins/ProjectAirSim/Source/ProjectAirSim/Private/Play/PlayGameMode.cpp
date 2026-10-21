@@ -98,7 +98,8 @@ void AProjectAirSimPlayGameMode::StartPlay() {
     MoodDirector = MakeUnique<FPlayMoodDirector>(*Settings);
     FString Wanted = Settings->DefaultMood;
     FParse::Value(FCommandLine::Get(), TEXT("-playmood="), Wanted);
-    if (!Wanted.IsEmpty()) {
+    // "none" keeps the level's own look (run.sh uses it for a PLAY_SUN override).
+    if (!Wanted.IsEmpty() && !Wanted.Equals(TEXT("none"), ESearchCase::IgnoreCase)) {
       const int32 Index = Settings->Moods.IndexOfByPredicate(
           [&](const FPlayMoodEntry& Mood) { return Mood.Name.Equals(Wanted, ESearchCase::IgnoreCase); });
       if (Index == INDEX_NONE) UE_LOG(LogPlay, Fatal, TEXT("Mood '%s' is not in PlaySettings.Moods"), *Wanted);

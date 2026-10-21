@@ -129,7 +129,7 @@ class UPlaySettings : public UObject {
   UPROPERTY(Config) TArray<FString> MutedSounds;
   // Moods the menus offer; with none listed the mood step and the pause
   // menu entry do not appear. DefaultMood names the one applied at start
-  // (-playmood=NAME on the command line wins); empty keeps the level's own look.
+  // (-playmood=NAME on the command line wins; "none" or an empty DefaultMood keeps the level's own look).
   UPROPERTY(Config) TArray<FPlayMoodEntry> Moods;
   UPROPERTY(Config) FString DefaultMood;
   // A MaterialParameterCollection asset path (/Game/Lighting/Material/MPC_sky)
