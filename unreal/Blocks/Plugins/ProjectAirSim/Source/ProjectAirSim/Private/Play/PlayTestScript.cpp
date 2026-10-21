@@ -102,6 +102,8 @@ void FPlayTestScript::Tick(const FPlayTestHooks& H) {
       bStickHeld = true;
       StickUntil = Now + FCString::Atod(*S.Args[4]);
       ResumeAt = StickUntil;
+    } else if (S.Verb == TEXT("cursor")) {
+      H.Cursor(FVector2D(FCString::Atod(*S.Args[0]), FCString::Atod(*S.Args[1])));
     } else if (S.Verb == TEXT("takeoff")) {
       H.TakeoffLand();
       ResumeAt = Now + 0.2;

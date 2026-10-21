@@ -650,6 +650,7 @@ void AProjectAirSimPlayGameMode::BuildTestHooks() {
   TestHooks.TakeoffLand = [this]() { Shared->PressTakeoffLand(); };
   TestHooks.ScreenName = [this]() { return FString(ScreenName(Screen)); };
   TestHooks.HudText = [this]() { return Model->HudStats + TEXT(" | ") + Model->HudReferee; };
+  TestHooks.Cursor = [](const FVector2D& Position) { FSlateApplication::Get().SetCursorPos(Position); };
   TestHooks.Quit = []() { FPlatformMisc::RequestExit(false); };
 }
 
