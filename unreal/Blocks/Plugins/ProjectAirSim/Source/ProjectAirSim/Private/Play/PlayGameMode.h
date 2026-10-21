@@ -49,6 +49,8 @@ class AProjectAirSimPlayGameMode : public AProjectAirSimGameMode {
   void TickFlight(APlayerController& Controller, float WallDelta);
   void UpdateHud(float WallDelta);
   void UpdateFootnotes();
+  void MuteProjectSounds();
+  void LogFrameRate();
   void BuildTestHooks();
   static const TCHAR* ScreenName(EPlayScreen Screen);
 
@@ -94,6 +96,9 @@ class AProjectAirSimPlayGameMode : public AProjectAirSimGameMode {
   double NextRobotSearch = 0.0;
   double NextTabCheck = 0.0;
   double NextDriftRefresh = 0.0;
+  double NextMuteSweep = 0.0;
+  double FpsWindowStart = 0.0;
+  int32 FpsWindowFrames = 0;
   int32 DriftRefreshes = 0;
   int32 AppliedUiMode = -1;
   bool bMarkersReady = false;

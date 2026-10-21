@@ -4,6 +4,7 @@
 
 #include "Play/PlayGameMode.h"
 
+#include "Components/AudioComponent.h"
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
 #include "Engine/World.h"
@@ -411,6 +412,8 @@ void AProjectAirSimPlayGameMode::Tick(float DeltaSeconds) {
 
   UpdateHud(WallDelta);
   UpdateFootnotes();
+  MuteProjectSounds();
+  LogFrameRate();
   Ui->ApplyPendingFocus();
   if (TestScript) TestScript->Tick(TestHooks);
 }
@@ -547,4 +550,39 @@ void AProjectAirSimPlayGameMode::BuildTestHooks() {
   TestHooks.ScreenName = [this]() { return FString(ScreenName(Screen)); };
   TestHooks.HudText = [this]() { return Model->HudStats + TEXT(" | ") + Model->HudReferee; };
   TestHooks.Quit = []() { FPlatformMisc::RequestExit(false); };
+}
+
+// ---------------------------------------------------------------------------
+// Project sounds and frame rate
+
+void AProjectAirSimPlayGameMode::MuteProjectSounds() {
+  if (Settings->MutedSounds.Num() == 0) return;
+  const double Now = FPlatformTime::Seconds();
+  if (Now < NextMuteSweep) return;
+  NextMuteSweep = Now + 1.0;
+  for (TObjectIterator<UAudioComponent> It; It; ++It) {
+    UAudioComponent* Component = *It;
+    if (!Component->IsPlaying() || Component->GetWorld() != GetWorld()) continue;
+    const USoundBase* Sound = Component->Sound;
+    if (!Sound) continue;
+    const FString Name = Sound->GetName();
+    for (const FString& Muted : Settings->MutedSounds) {
+      if (Name.Contains(Muted)) {
+        UE_LOG(LogPlay, Log, TEXT("Muting project sound %s"), *Name);
+        Component->Stop();
+        break;
+      }
+    }
+  }
+}
+
+void AProjectAirSimPlayGameMode::LogFrameRate() {
+  const double Now = FPlatformTime::Seconds();
+  ++FpsWindowFrames;
+  if (FpsWindowStart == 0.0) FpsWindowStart = Now;
+  if (Now - FpsWindowStart < 10.0) return;
+  UE_LOG(LogPlay, Log, TEXT("Frame rate %.1f fps over %.1f s (screen %s)"), FpsWindowFrames / (Now - FpsWindowStart),
+         Now - FpsWindowStart, ScreenName(Screen));
+  FpsWindowStart = Now;
+  FpsWindowFrames = 0;
 }
