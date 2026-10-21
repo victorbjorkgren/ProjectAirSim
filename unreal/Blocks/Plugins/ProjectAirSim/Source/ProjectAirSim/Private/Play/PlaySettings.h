@@ -79,6 +79,9 @@ class UPlaySettings : public UObject {
   // under the orbit centre, metres.
   UPROPERTY(Config) float DriftRadiusM = 70.f;
   UPROPERTY(Config) float DriftHeightM = 45.f;
+  // Sounds the project plays on its own (game music) are stopped while the
+  // play mode runs when their asset name contains one of these strings.
+  UPROPERTY(Config) TArray<FString> MutedSounds;
 };
 
 // Parses "k=v,k=v" into pairs; an entry without '=' is an error.
