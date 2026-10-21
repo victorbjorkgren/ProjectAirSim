@@ -8,7 +8,7 @@
 #include "Widgets/SCompoundWidget.h"
 #include "Widgets/SLeafWidget.h"
 
-enum class EPlayScreen : uint8 { Title, Map, Mode, Spawn, Vehicle, Pause, Loading, Flying };
+enum class EPlayScreen : uint8 { Intro, Title, Map, Mode, Spawn, Vehicle, Pause, Loading, Flying };
 
 struct FPlaySpawnMarker {
   FString Name;
@@ -30,6 +30,11 @@ struct FPlayUiModel {
   FString HudStats;
   FString HudReferee;
   FString HudRefereeLevel = TEXT("info");
+  // Launch sequence: the mark's build-up progress (0..1), its opacity, and the
+  // black curtain over everything else (1 = fully black).
+  float LogoProgress = 0.f;
+  float LogoAlpha = 0.f;
+  float CurtainAlpha = 0.f;
 };
 
 // What the screens ask for.
@@ -48,7 +53,28 @@ struct FPlayUiActions {
   TFunction<void()> Activated;  // a menu item was chosen
 };
 
-// A menu item: plain text, lit while hovered or focused.
+// The Nordic tri-chevron mark building itself up, drawn as lines in the
+// 48 x 48 view box of the app mark and scaled to the widget.
+class SPlayLogo : public SLeafWidget {
+ public:
+  SLATE_BEGIN_ARGS(SPlayLogo) {}
+  SLATE_ATTRIBUTE(float, Progress)
+  SLATE_ATTRIBUTE(float, Alpha)
+  SLATE_END_ARGS()
+
+  void Construct(const FArguments& InArgs);
+
+  FVector2D ComputeDesiredSize(float) const override { return FVector2D(140, 140); }
+  int32 OnPaint(const FPaintArgs& Args, const FGeometry& Geometry, const FSlateRect& Culling,
+                FSlateWindowElementList& Out, int32 LayerId, const FWidgetStyle& Style,
+                bool bParentEnabled) const override;
+
+ private:
+  TAttribute<float> Progress;
+  TAttribute<float> Alpha;
+};
+
+// A menu item: plain text, white while hovered or focused, grey otherwise.
 class SPlayMenuItem : public SCompoundWidget {
  public:
   SLATE_BEGIN_ARGS(SPlayMenuItem) : _Enabled(true) {}
@@ -61,6 +87,8 @@ class SPlayMenuItem : public SCompoundWidget {
   void Construct(const FArguments& InArgs);
 
   bool SupportsKeyboardFocus() const override { return bItemEnabled; }
+  // The item shows its own selection; no focus rectangle on top.
+  TOptional<bool> OnQueryShowFocus(const EFocusCause) const override { return false; }
   FReply OnKeyDown(const FGeometry& Geometry, const FKeyEvent& KeyEvent) override;
   FReply OnMouseButtonUp(const FGeometry& Geometry, const FPointerEvent& MouseEvent) override;
   void OnMouseEnter(const FGeometry& Geometry, const FPointerEvent& MouseEvent) override;
@@ -87,6 +115,7 @@ class SPlaySpawnPicker : public SLeafWidget {
   void Construct(const FArguments& InArgs);
 
   bool SupportsKeyboardFocus() const override { return true; }
+  TOptional<bool> OnQueryShowFocus(const EFocusCause) const override { return false; }
   FVector2D ComputeDesiredSize(float) const override { return FVector2D(640, 480); }
   int32 OnPaint(const FPaintArgs& Args, const FGeometry& Geometry, const FSlateRect& Culling,
                 FSlateWindowElementList& Out, int32 LayerId, const FWidgetStyle& Style,
@@ -145,11 +174,12 @@ class SPlayUi : public SCompoundWidget {
   TSharedRef<SWidget> BuildScreen(EPlayScreen Screen);
   TSharedRef<SWidget> MakeItem(const FString& Label, bool bEnabled, TFunction<void()> Action);
   TSharedRef<SWidget> MakePanel(const FString& Heading, TSharedRef<SWidget> Body);
+  TSharedRef<SWidget> MakeCurtain();
   TSharedRef<SWidget> MakeHud();
 
   TSharedPtr<FPlayUiModel> Model;
   FPlayUiActions Actions;
-  EPlayScreen Current = EPlayScreen::Title;
+  EPlayScreen Current = EPlayScreen::Intro;
   TSharedPtr<class SBox> ScreenHolder;
   TSharedPtr<class SWidget> HudWidget;
   TWeakPtr<SWidget> FirstFocus;

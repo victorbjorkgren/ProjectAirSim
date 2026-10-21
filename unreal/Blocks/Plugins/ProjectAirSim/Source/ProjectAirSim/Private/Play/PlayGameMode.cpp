@@ -39,6 +39,11 @@ constexpr float kYawRate = 1.0f;
 constexpr float kTiltRateDegPerSec = 40.f;
 constexpr float kTiltMinDeg = -30.f;
 constexpr float kTiltMaxDeg = 40.f;
+// Launch sequence, seconds: the mark builds up, rests, fades; then the curtain lifts off the title.
+constexpr double kIntroBuild = 2.0;
+constexpr double kIntroHold = 0.4;
+constexpr double kIntroFade = 0.6;
+constexpr double kCurtainLift = 0.8;
 
 FString LevelStem(const FString& Level) {
   FString Stem = FPaths::GetBaseFilename(Level);
@@ -93,10 +98,16 @@ void AProjectAirSimPlayGameMode::StartPlay() {
   Ui = SNew(SPlayUi).Model(Model).Actions(FPlayUiActions(Actions));
   GEngine->GameViewport->AddViewportWidgetContent(Ui.ToSharedRef(), 100);
   LastWallSeconds = FPlatformTime::Seconds();
-  GoTo(EPlayScreen::Title);
-
   TestScript = FPlayTestScript::FromEnvironment();
   if (TestScript) BuildTestHooks();
+  // A scripted run goes straight to the title.
+  if (TestScript) {
+    GoTo(EPlayScreen::Title);
+  } else {
+    IntroStartSeconds = LastWallSeconds;
+    Model->CurtainAlpha = 1.f;
+    GoTo(EPlayScreen::Intro);
+  }
 }
 
 void AProjectAirSimPlayGameMode::EndPlay(const EEndPlayReason::Type EndPlayReason) {
@@ -388,7 +399,8 @@ void AProjectAirSimPlayGameMode::Tick(float DeltaSeconds) {
   if (AppliedUiMode < 0) ApplyInputMode(Screen != EPlayScreen::Flying && Screen != EPlayScreen::Loading);
 
   RemoveStockTabBinding(*Controller);
-  if (Screen == EPlayScreen::Title) UpdateDriftCenter();
+  if (Screen == EPlayScreen::Intro || Screen == EPlayScreen::Title) UpdateDriftCenter();
+  UpdateLaunchSequence();
 
   AUnrealRobot* Found = FindRobot();
   if (Found && Found != RobotBeforeLaunch.Get()) Robot = Found;
@@ -493,6 +505,25 @@ void AProjectAirSimPlayGameMode::UpdateHud(float WallDelta) {
   }
 }
 
+void AProjectAirSimPlayGameMode::UpdateLaunchSequence() {
+  const double Now = FPlatformTime::Seconds();
+  if (Screen == EPlayScreen::Intro) {
+    const double T = Now - IntroStartSeconds;
+    Model->LogoProgress = static_cast<float>(FMath::Clamp(T / kIntroBuild, 0.0, 1.0));
+    Model->LogoAlpha = static_cast<float>(
+        1.0 - FMath::Clamp((T - kIntroBuild - kIntroHold) / kIntroFade, 0.0, 1.0));
+    if (T < kIntroBuild + kIntroHold + kIntroFade) return;
+    Model->LogoAlpha = 0.f;
+    CurtainLiftSeconds = Now;
+    GoTo(EPlayScreen::Title);
+  }
+  if (CurtainLiftSeconds >= 0.0) {
+    const double Lifted = FMath::Clamp((Now - CurtainLiftSeconds) / kCurtainLift, 0.0, 1.0);
+    Model->CurtainAlpha = static_cast<float>(1.0 - Lifted);
+    if (Lifted >= 1.0) CurtainLiftSeconds = -1.0;
+  }
+}
+
 void AProjectAirSimPlayGameMode::UpdateFootnotes() {
   const double Since = Shared->SecondsSinceAttendantPoll();
   if (Since < 0.0) {
@@ -515,6 +546,7 @@ void AProjectAirSimPlayGameMode::UpdateFootnotes() {
 
 const TCHAR* AProjectAirSimPlayGameMode::ScreenName(EPlayScreen Screen) {
   switch (Screen) {
+    case EPlayScreen::Intro: return TEXT("intro");
     case EPlayScreen::Title: return TEXT("title");
     case EPlayScreen::Map: return TEXT("map");
     case EPlayScreen::Mode: return TEXT("mode");
