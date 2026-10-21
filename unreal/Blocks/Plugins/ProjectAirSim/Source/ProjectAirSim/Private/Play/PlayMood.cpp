@@ -88,8 +88,9 @@ bool FPlayMoodDirector::FindActors(UWorld& World) {
       Fog = *It;
       UExponentialHeightFogComponent* C = It->GetComponent();
       FogBase = {C->FogDensity, C->FogHeightFalloff, C->FogInscatteringLuminance};
-      UE_LOG(LogPlay, Log, TEXT("Mood: height fog %s base density %.4f falloff %.3f"), *It->GetName(),
-             FogBase.Density, FogBase.HeightFalloff);
+      UE_LOG(LogPlay, Log, TEXT("Mood: height fog %s base density %.4f falloff %.3f max opacity %.2f start %.0f z %.0f volumetric %d"),
+             *It->GetName(), FogBase.Density, FogBase.HeightFalloff, C->FogMaxOpacity, C->StartDistance,
+             It->GetActorLocation().Z, C->bEnableVolumetricFog);
       bChanged = true;
       break;
     }
@@ -109,7 +110,8 @@ bool FPlayMoodDirector::FindActors(UWorld& World) {
     check(Volume);
     Volume->bUnbound = true;
     Volume->BlendWeight = 1.f;
-    Volume->Priority = 1000.f;
+    // Above the level's own volumes, one of which sits at 1e18.
+    Volume->Priority = 1.0e30f;
     Grade = Volume;
     bChanged = true;
   }
