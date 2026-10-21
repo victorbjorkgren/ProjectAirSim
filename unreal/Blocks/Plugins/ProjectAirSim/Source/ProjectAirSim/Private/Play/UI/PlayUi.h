@@ -8,7 +8,7 @@
 #include "Widgets/SCompoundWidget.h"
 #include "Widgets/SLeafWidget.h"
 
-enum class EPlayScreen : uint8 { Intro, Title, Map, Mode, Spawn, Vehicle, Pause, Loading, Flying };
+enum class EPlayScreen : uint8 { Intro, Title, Map, Mode, Mood, Spawn, Vehicle, Pause, Loading, Flying };
 
 struct FPlaySpawnMarker {
   FString Name;
@@ -22,6 +22,8 @@ struct FPlayUiModel {
   TArray<bool> MapEnabled;
   TArray<FString> ModeNames;  // index 0 is free flight
   TArray<FString> VehicleNames;
+  TArray<FString> MoodNames;  // empty: the build has no moods and the mood entries do not appear
+  int32 CurrentMood = INDEX_NONE;
   TArray<FPlaySpawnMarker> Markers;
   TSharedPtr<FSlateBrush> Backdrop;
   FBox2D BackdropNed = FBox2D(ForceInit);  // x = north, y = east
@@ -48,6 +50,8 @@ struct FPlayUiActions {
   TFunction<void(int32)> PickMap;
   TFunction<void(int32)> PickMode;
   TFunction<void(int32)> PickVehicle;
+  TFunction<void(int32)> PickMood;
+  TFunction<void()> OpenMood;  // the pause menu's mood entry
   TFunction<void(const FVector3d&)> PickSpawn;
   TFunction<void()> Focused;    // a menu item took focus
   TFunction<void()> Activated;  // a menu item was chosen

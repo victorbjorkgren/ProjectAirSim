@@ -94,6 +94,20 @@ void AProjectAirSimPlayGameMode::StartPlay() {
   // during that load because the shared state already exists.
   Super::StartPlay();
 
+  if (Settings->Moods.Num() > 0) {
+    MoodDirector = MakeUnique<FPlayMoodDirector>(*Settings);
+    FString Wanted = Settings->DefaultMood;
+    FParse::Value(FCommandLine::Get(), TEXT("-playmood="), Wanted);
+    if (!Wanted.IsEmpty()) {
+      const int32 Index = Settings->Moods.IndexOfByPredicate(
+          [&](const FPlayMoodEntry& Mood) { return Mood.Name.Equals(Wanted, ESearchCase::IgnoreCase); });
+      if (Index == INDEX_NONE) UE_LOG(LogPlay, Fatal, TEXT("Mood '%s' is not in PlaySettings.Moods"), *Wanted);
+      SelectMood(Index);
+    }
+  } else if (FParse::Param(FCommandLine::Get(), TEXT("playmood"))) {
+    UE_LOG(LogPlay, Fatal, TEXT("-playmood was given but PlaySettings lists no moods"));
+  }
+
   check(GEngine && GEngine->GameViewport);
   Ui = SNew(SPlayUi).Model(Model).Actions(FPlayUiActions(Actions));
   GEngine->GameViewport->AddViewportWidgetContent(Ui.ToSharedRef(), 100);
@@ -142,6 +156,7 @@ void AProjectAirSimPlayGameMode::BuildModel() {
   Model->ModeNames.Add(TEXT("FREE FLIGHT"));
   for (const FPlayModeEntry& Mode : Settings->Modes) Model->ModeNames.Add(Mode.Name.ToUpper());
   for (const FPlayVehicleEntry& Vehicle : Settings->Vehicles) Model->VehicleNames.Add(Vehicle.Name.ToUpper());
+  for (const FPlayMoodEntry& Mood : Settings->Moods) Model->MoodNames.Add(Mood.Name.ToUpper());
   if (CurrentMapIndex != INDEX_NONE) LoadBackdrop(Settings->Maps[CurrentMapIndex]);
 }
 
@@ -186,7 +201,13 @@ void AProjectAirSimPlayGameMode::BuildActions() {
     switch (Screen) {
       case EPlayScreen::Map: GoTo(EPlayScreen::Title); break;
       case EPlayScreen::Mode: GoTo(EPlayScreen::Map); break;
-      case EPlayScreen::Spawn: GoTo(EPlayScreen::Mode); break;
+      case EPlayScreen::Mood: {
+        const bool bFromPause = bMoodFromPause;
+        bMoodFromPause = false;
+        GoTo(bFromPause ? EPlayScreen::Pause : EPlayScreen::Mode);
+        break;
+      }
+      case EPlayScreen::Spawn: GoTo(Settings->Moods.Num() > 0 ? EPlayScreen::Mood : EPlayScreen::Mode); break;
       case EPlayScreen::Vehicle: GoTo(EPlayScreen::Spawn); break;
       default: break;
     }
@@ -194,17 +215,26 @@ void AProjectAirSimPlayGameMode::BuildActions() {
   Actions.PickMap = [this](int32) { GoTo(EPlayScreen::Mode); };
   Actions.PickMode = [this](int32 Index) {
     SelectedMode = Index;
-    if (Index == 0) {
-      GoTo(EPlayScreen::Spawn);
+    bMoodFromPause = false;
+    // The mood applies to free flight and the eval modes alike.
+    if (Settings->Moods.Num() > 0) {
+      GoTo(EPlayScreen::Mood);
       return;
     }
-    // Eval modes keep their seeded spawn and the stock vehicle.
-    const FPlayModeEntry& Mode = Settings->Modes[Index - 1];
-    FPlayRunRequest Request;
-    Request.Scenario = Mode.Scenario;
-    Request.Env = Settings->Env;
-    Request.Opts = ParsePlayOpts(Mode.Opts);
-    Launch(Request);
+    ContinueFromMode();
+  };
+  Actions.PickMood = [this](int32 Index) {
+    SelectMood(Index);
+    if (bMoodFromPause) {
+      bMoodFromPause = false;
+      GoTo(EPlayScreen::Pause);
+    } else {
+      ContinueFromMode();
+    }
+  };
+  Actions.OpenMood = [this]() {
+    bMoodFromPause = true;
+    GoTo(EPlayScreen::Mood);
   };
   Actions.PickSpawn = [this](const FVector3d& Ned) {
     bHasSpawn = true;
@@ -245,6 +275,26 @@ void AProjectAirSimPlayGameMode::BuildActions() {
 // ---------------------------------------------------------------------------
 // Screens and requests
 
+void AProjectAirSimPlayGameMode::ContinueFromMode() {
+  if (SelectedMode == 0) {
+    GoTo(EPlayScreen::Spawn);
+    return;
+  }
+  // Eval modes keep their seeded spawn and the stock vehicle.
+  const FPlayModeEntry& Mode = Settings->Modes[SelectedMode - 1];
+  FPlayRunRequest Request;
+  Request.Scenario = Mode.Scenario;
+  Request.Env = Settings->Env;
+  Request.Opts = ParsePlayOpts(Mode.Opts);
+  Launch(Request);
+}
+
+void AProjectAirSimPlayGameMode::SelectMood(int32 Index) {
+  check(MoodDirector);
+  Model->CurrentMood = Index;
+  MoodDirector->Apply(*GetWorld(), Index);
+}
+
 void AProjectAirSimPlayGameMode::GoTo(EPlayScreen Next) {
   UE_LOG(LogPlay, Log, TEXT("Screen %s -> %s"), ScreenName(Screen), ScreenName(Next));
   Screen = Next;
@@ -253,14 +303,17 @@ void AProjectAirSimPlayGameMode::GoTo(EPlayScreen Next) {
   ApplyInputMode(bUi);
   Ui->ShowScreen(Next);
 
-  const bool bFlightScreen = Next == EPlayScreen::Flying || Next == EPlayScreen::Pause || Next == EPlayScreen::Loading;
+  // The mood list opened from the pause menu keeps the flight view and sound behind it.
+  const bool bPauseMood = Next == EPlayScreen::Mood && bMoodFromPause;
+  const bool bFlightScreen = Next == EPlayScreen::Flying || Next == EPlayScreen::Pause || Next == EPlayScreen::Loading ||
+                             bPauseMood;
   if (Audio) {
     Audio->MenuAmbient(!bFlightScreen);
     Audio->FlightAmbient(bFlightScreen);
     if (!bFlightScreen) Audio->RotorLoop(-1.f);
   }
   if (Camera) {
-    if (Next == EPlayScreen::Flying || Next == EPlayScreen::Pause) {
+    if (Next == EPlayScreen::Flying || Next == EPlayScreen::Pause || bPauseMood) {
       Camera->SetTarget(Robot.Get());
       Camera->SetMode(CameraIndex == 0 ? EPlayCameraMode::Chase : EPlayCameraMode::Fpv);
     } else {
@@ -422,6 +475,7 @@ void AProjectAirSimPlayGameMode::Tick(float DeltaSeconds) {
   Camera->SetTilt(TiltDegrees);
   Camera->Advance(WallDelta);
 
+  if (MoodDirector) MoodDirector->Tick(*GetWorld());
   UpdateHud(WallDelta);
   UpdateFootnotes();
   MuteProjectSounds();
@@ -550,6 +604,7 @@ const TCHAR* AProjectAirSimPlayGameMode::ScreenName(EPlayScreen Screen) {
     case EPlayScreen::Title: return TEXT("title");
     case EPlayScreen::Map: return TEXT("map");
     case EPlayScreen::Mode: return TEXT("mode");
+    case EPlayScreen::Mood: return TEXT("mood");
     case EPlayScreen::Spawn: return TEXT("spawn");
     case EPlayScreen::Vehicle: return TEXT("vehicle");
     case EPlayScreen::Pause: return TEXT("pause");
