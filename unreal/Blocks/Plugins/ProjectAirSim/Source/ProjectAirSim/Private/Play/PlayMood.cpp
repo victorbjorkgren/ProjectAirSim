@@ -122,11 +122,13 @@ bool FPlayMoodDirector::FindActors(UWorld& World) {
         float V = P.DefaultValue;
         Instance->GetScalarParameterValue(P.ParameterName, V);
         ScalarBase.Add(P.ParameterName, V);
+        UE_LOG(LogPlay, Log, TEXT("Mood: parameter %s = %.4f"), *P.ParameterName.ToString(), V);
       }
       for (const FCollectionVectorParameter& P : Collection->VectorParameters) {
         FLinearColor V = P.DefaultValue;
         Instance->GetVectorParameterValue(P.ParameterName, V);
         VectorBase.Add(P.ParameterName, V);
+        UE_LOG(LogPlay, Log, TEXT("Mood: parameter %s = %s"), *P.ParameterName.ToString(), *V.ToString());
       }
       bChanged = true;
     }
