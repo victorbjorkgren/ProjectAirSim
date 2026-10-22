@@ -110,6 +110,24 @@ struct FPlayMoodEntry {
   // Console commands run after the look is applied, separated by ';' (for
   // example a project's own weather director: "npg.Mood GoldenHour").
   UPROPERTY() FString Commands;
+  // Hides every static mesh component with a material whose name contains this text while the mood is on (a level
+  // whose sun is a mesh of its own, driven by a material parameter, shows it as a dark disc when the parameter is 0).
+  UPROPERTY() FString HideMeshMaterial;
+  // The drone's lights this mood starts with: -1 leaves them as the player set them, 0 off, 1 on.
+  UPROPERTY() int32 Flashlight = -1;
+  UPROPERTY() int32 NavLights = -1;
+};
+
+// One set of position lights: the colour of the left (port) and right (starboard) light and an optional tail /
+// anti-collision light. Tail.A = 0 means the preset has no tail light. Colours are sRGB.
+USTRUCT()
+struct FPlayLightPreset {
+  GENERATED_BODY()
+
+  UPROPERTY() FString Name;
+  UPROPERTY() FColor Left = FColor(255, 255, 255, 255);
+  UPROPERTY() FColor Right = FColor(255, 255, 255, 255);
+  UPROPERTY() FColor Tail = FColor(255, 255, 255, 0);
 };
 
 // Play-mode content for one project, read from its DefaultGame.ini section
@@ -141,6 +159,41 @@ class UPlaySettings : public UObject {
   // A MaterialParameterCollection asset path (/Game/Lighting/Material/MPC_sky)
   // that moods may write through their Params.
   UPROPERTY(Config) FString MoodParamCollection;
+
+  // The drone's own lights (a flashlight and left/right/tail position lights), attached to the player's robot by the
+  // play mode. Positions are fractions of the robot's local bounding box half-extents measured from its centre
+  // (x forward, y right, z up; -1 is the rear / left / bottom face), pulled in by LightInsetCm; a non-empty socket name
+  // puts that light on the named socket of one of the robot's components instead (a socket that does not exist is fatal).
+  UPROPERTY(Config) FVector NavLeftBounds = FVector(0.0, -1.0, 0.15);
+  UPROPERTY(Config) FVector NavRightBounds = FVector(0.0, 1.0, 0.15);
+  UPROPERTY(Config) FVector NavTailBounds = FVector(-1.0, 0.0, 0.35);
+  UPROPERTY(Config) FVector FlashlightBounds = FVector(1.0, 0.0, -0.2);
+  UPROPERTY(Config) FString NavLeftSocket;
+  UPROPERTY(Config) FString NavRightSocket;
+  UPROPERTY(Config) FString NavTailSocket;
+  UPROPERTY(Config) FString FlashlightSocket;
+  UPROPERTY(Config) float LightInsetCm = 4.f;
+  // Used when the robot has no visible mesh to measure (half extents, cm).
+  UPROPERTY(Config) FVector LightFallbackHalfExtentCm = FVector(30.0, 30.0, 10.0);
+  // Flashlight: spot light in lumens, cone angles in degrees, pitch below the robot's forward axis, reach in cm,
+  // colour (sRGB) and shadows. The level's own exposure decides how bright it reads, so a project tunes the lumens.
+  UPROPERTY(Config) float FlashlightLumens = 6000.f;
+  UPROPERTY(Config) float FlashlightOuterConeDeg = 32.f;
+  UPROPERTY(Config) float FlashlightInnerConeDeg = 10.f;
+  UPROPERTY(Config) float FlashlightPitchDeg = 18.f;
+  UPROPERTY(Config) float FlashlightRangeCm = 5000.f;
+  UPROPERTY(Config) FColor FlashlightColor = FColor(255, 232, 196, 255);
+  UPROPERTY(Config) bool bFlashlightShadows = true;
+  // Position lights: the point light's lumens and reach (cm) light the airframe and what is near it; the glow is an
+  // emissive sphere of GlowRadiusCm whose colour is multiplied by GlowBrightness (above 1 so bloom picks it up).
+  UPROPERTY(Config) float NavLightLumens = 400.f;
+  UPROPERTY(Config) float NavLightRadiusCm = 350.f;
+  UPROPERTY(Config) float NavGlowRadiusCm = 3.5f;
+  UPROPERTY(Config) float NavGlowBrightness = 14.f;
+  // Position-light presets (the code supplies a default list; entries in the ini replace it).
+  UPROPERTY(Config) TArray<FPlayLightPreset> LightPresets;
+
+  UPlaySettings();
 };
 
 // Parses "k=v,k=v" into pairs; an entry without '=' is an error.

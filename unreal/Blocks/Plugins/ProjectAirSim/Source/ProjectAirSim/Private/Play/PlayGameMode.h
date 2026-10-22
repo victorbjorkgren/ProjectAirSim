@@ -7,6 +7,7 @@
 #include "CoreMinimal.h"
 #include "Play/Audio/PlayAudio.h"
 #include "Play/PlayInputMap.h"
+#include "Play/PlayLights.h"
 #include "Play/PlayMood.h"
 #include "Play/PlayShared.h"
 #include "Play/PlayTestScript.h"
@@ -78,6 +79,7 @@ class AProjectAirSimPlayGameMode : public AProjectAirSimGameMode {
   TSharedPtr<FPlayShared, ESPMode::ThreadSafe> Shared;
   UPROPERTY() TObjectPtr<UPlayAudio> Audio;
   TUniquePtr<FPlayMoodDirector> MoodDirector;
+  TUniquePtr<FPlayLights> Lights;
   FPlayInputMap InputMap;
   FPlayUiActions Actions;
   TUniquePtr<FPlayTestScript> TestScript;

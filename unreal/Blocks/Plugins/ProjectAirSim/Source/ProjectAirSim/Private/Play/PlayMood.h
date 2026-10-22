@@ -13,6 +13,7 @@ class ASkyLight;
 class AExponentialHeightFog;
 class UMaterialParameterCollection;
 class UMaterialParameterCollectionInstance;
+class UPrimitiveComponent;
 class UWorld;
 
 // Applies a mood to the running level. The sun, sky light and height fog are
@@ -57,6 +58,7 @@ class FPlayMoodDirector {
   void ApplyToActors(UWorld& World, const FPlayMoodEntry& Mood);
   void ApplyGrade(UWorld& World, const FPlayMoodEntry& Mood);
   void ApplyParams(UWorld& World, const FPlayMoodEntry& Mood);
+  void ApplyHidden(UWorld& World, const FPlayMoodEntry& Mood);
 
   const UPlaySettings& Settings;
   TFunction<void(const FPostProcessSettings&)> GradeSink;
@@ -70,6 +72,8 @@ class FPlayMoodDirector {
   TWeakObjectPtr<ASkyLight> Sky;
   TWeakObjectPtr<AExponentialHeightFog> Fog;
   TWeakObjectPtr<UMaterialParameterCollectionInstance> ParamInstance;
+  // Components the current mood hid, with whether each was hidden before.
+  TArray<TPair<TWeakObjectPtr<UPrimitiveComponent>, bool>> HiddenByMood;
   FSunBase SunBase;
   FSkyBase SkyBase;
   FFogBase FogBase;
