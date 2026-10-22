@@ -172,6 +172,18 @@ FReply SPlayMenuItem::OnFocusReceived(const FGeometry&, const FFocusEvent&) {
 // ---------------------------------------------------------------------------
 // SPlayChannelSlider
 
+namespace {
+// The stock slider with a thicker bar, so it reads on a dark panel.
+const FSliderStyle& SliderStyle() {
+  static FSliderStyle Style = [] {
+    FSliderStyle S = FCoreStyle::Get().GetWidgetStyle<FSliderStyle>("Slider");
+    S.SetBarThickness(5.f);
+    return S;
+  }();
+  return Style;
+}
+}  // namespace
+
 void SPlayChannelSlider::Construct(const FArguments& InArgs) {
   Value = InArgs._Value;
   Changed = InArgs._OnChanged;
@@ -190,7 +202,8 @@ void SPlayChannelSlider::Construct(const FArguments& InArgs) {
             SNew(SBox).HeightOverride(18)[
                 SNew(SSlider)
                     .IsFocusable(false)
-                    .SliderBarColor(FLinearColor(1, 1, 1, 0.18f))
+                    .Style(&SliderStyle())
+                    .SliderBarColor(FLinearColor(1, 1, 1, 0.55f))
                     .SliderHandleColor(Tint)
                     .Value_Lambda([this]() { return Value.Get() / 255.f; })
                     .OnValueChanged_Lambda([this](float V) { Changed.ExecuteIfBound(FMath::Clamp(FMath::RoundToInt(V * 255.f), 0, 255)); })]]
