@@ -77,7 +77,7 @@ bool FPlayMoodDirector::FindActors(UWorld& World) {
       bHadSun = true;
       UDirectionalLightComponent* C = Cast<UDirectionalLightComponent>(Found->GetLightComponent());
       SunBase = {Found->GetActorRotation(), C->Intensity, C->GetLightColor(), C->bUseTemperature, C->Temperature,
-                 C->LightSourceAngle};
+                 C->LightSourceAngle, C->AtmosphereSunDiskColorScale};
       UE_LOG(LogPlay, Log, TEXT("Mood: sun %s base elevation %.1f yaw %.1f intensity %.1f temp %d/%.0f angle %.2f"),
              *Found->GetName(), -SunBase.Rotation.Pitch, SunBase.Rotation.Yaw, SunBase.Intensity,
              SunBase.bUseTemperature, SunBase.Temperature, SunBase.SourceAngle);
@@ -182,6 +182,7 @@ void FPlayMoodDirector::ApplyToActors(UWorld&, const FPlayMoodEntry& M) {
     C->SetUseTemperature(IsSet(M.SunTemperatureK) ? true : SunBase.bUseTemperature);
     C->SetTemperature(IsSet(M.SunTemperatureK) ? M.SunTemperatureK : SunBase.Temperature);
     C->SetLightSourceAngle(IsSet(M.SunSourceAngleDeg) ? M.SunSourceAngleDeg : SunBase.SourceAngle);
+    C->SetAtmosphereSunDiskColorScale(IsSet(M.SunDiscScale) ? SunBase.DiscScale * M.SunDiscScale : SunBase.DiscScale);
   }
   if (ASkyLight* K = Sky.Get()) {
     USkyLightComponent* C = K->GetLightComponent();

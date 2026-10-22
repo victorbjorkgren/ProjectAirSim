@@ -7,6 +7,7 @@
 #include "Framework/Application/SlateApplication.h"
 #include "Styling/CoreStyle.h"
 #include "Styling/SlateBrush.h"
+#include "Widgets/Input/SSlider.h"
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/SBoxPanel.h"
@@ -126,12 +127,13 @@ void SPlayMenuItem::Construct(const FArguments& InArgs) {
   Activated = InArgs._OnActivated;
   FocusedDelegate = InArgs._OnFocused;
   const FText Label = InArgs._Label;
-  ChildSlot[SNew(SBox).Padding(FMargin(0, 5))[
+  TFunction<FString()> LabelFn = InArgs._LabelFn;
+  ChildSlot[SNew(SBox).Padding(FMargin(0, InArgs._FontSize < 22 ? 2 : 5))[
       SNew(STextBlock)
-          .Text_Lambda([this, Label]() {
-            return Label;
+          .Text_Lambda([Label, LabelFn]() {
+            return LabelFn ? FText::FromString(LabelFn()) : Label;
           })
-          .Font(Font("Regular", 22))
+          .Font(Font("Regular", InArgs._FontSize))
           .ColorAndOpacity_Lambda([this]() {
             if (!bItemEnabled) return FSlateColor(FLinearColor(1, 1, 1, 0.22f));
             return FSlateColor((HasKeyboardFocus() || IsHovered()) ? kChosen : kIdle);
@@ -163,6 +165,62 @@ void SPlayMenuItem::OnMouseEnter(const FGeometry& Geometry, const FPointerEvent&
 }
 
 FReply SPlayMenuItem::OnFocusReceived(const FGeometry&, const FFocusEvent&) {
+  FocusedDelegate.ExecuteIfBound();
+  return FReply::Handled();
+}
+
+// ---------------------------------------------------------------------------
+// SPlayChannelSlider
+
+void SPlayChannelSlider::Construct(const FArguments& InArgs) {
+  Value = InArgs._Value;
+  Changed = InArgs._OnChanged;
+  FocusedDelegate = InArgs._OnFocused;
+  const FText Label = InArgs._Label;
+  const FLinearColor Tint = InArgs._Tint;
+  ChildSlot[
+      SNew(SHorizontalBox)
+      + SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[
+            SNew(SBox).WidthOverride(26)[
+                SNew(STextBlock)
+                    .Text(Label)
+                    .Font(Font("Mono", 12))
+                    .ColorAndOpacity_Lambda([this]() { return FSlateColor((HasKeyboardFocus() || IsHovered()) ? kChosen : kIdle); })]]
+      + SHorizontalBox::Slot().FillWidth(1.f).VAlign(VAlign_Center)[
+            SNew(SBox).HeightOverride(18)[
+                SNew(SSlider)
+                    .IsFocusable(false)
+                    .SliderBarColor(FLinearColor(1, 1, 1, 0.18f))
+                    .SliderHandleColor(Tint)
+                    .Value_Lambda([this]() { return Value.Get() / 255.f; })
+                    .OnValueChanged_Lambda([this](float V) { Changed.ExecuteIfBound(FMath::Clamp(FMath::RoundToInt(V * 255.f), 0, 255)); })]]
+      + SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(10, 0, 0, 0)[
+            SNew(SBox).WidthOverride(34)[
+                SNew(STextBlock)
+                    .Text_Lambda([this]() { return FText::AsNumber(Value.Get()); })
+                    .Font(Font("Mono", 12))
+                    .ColorAndOpacity(kDim)]]];
+}
+
+FReply SPlayChannelSlider::OnKeyDown(const FGeometry&, const FKeyEvent& KeyEvent) {
+  const FKey Key = KeyEvent.GetKey();
+  const int32 Step = KeyEvent.IsShiftDown() ? 1 : 8;
+  int32 Next = Value.Get();
+  if (Key == EKeys::Left) Next -= Step;
+  else if (Key == EKeys::Right) Next += Step;
+  else if (Key == EKeys::Home) Next = 0;
+  else if (Key == EKeys::End) Next = 255;
+  else return FReply::Unhandled();
+  Changed.ExecuteIfBound(FMath::Clamp(Next, 0, 255));
+  return FReply::Handled();
+}
+
+void SPlayChannelSlider::OnMouseEnter(const FGeometry& Geometry, const FPointerEvent& MouseEvent) {
+  SCompoundWidget::OnMouseEnter(Geometry, MouseEvent);
+  FSlateApplication::Get().SetKeyboardFocus(AsShared(), EFocusCause::Mouse);
+}
+
+FReply SPlayChannelSlider::OnFocusReceived(const FGeometry&, const FFocusEvent&) {
   FocusedDelegate.ExecuteIfBound();
   return FReply::Handled();
 }
@@ -421,6 +479,7 @@ FReply SPlayUi::OnKeyDown(const FGeometry&, const FKeyEvent& KeyEvent) {
     case EPlayScreen::Mode:
     case EPlayScreen::Mood:
     case EPlayScreen::Vehicle:
+    case EPlayScreen::Lights:
     case EPlayScreen::Spawn:
       if (Actions.Back) Actions.Back();
       return FReply::Handled();
@@ -445,6 +504,22 @@ TSharedRef<SWidget> SPlayUi::MakeItem(const FString& Label, bool bEnabled, TFunc
             if (Actions.Focused) Actions.Focused();
           });
   if (bEnabled && !FirstFocus.IsValid()) FirstFocus = Item;
+  return Item;
+}
+
+TSharedRef<SWidget> SPlayUi::MakeDynamicItem(TFunction<FString()> Label, int32 FontSize, TFunction<void()> Action) {
+  TSharedRef<SPlayMenuItem> Item =
+      SNew(SPlayMenuItem)
+          .LabelFn(Label)
+          .FontSize(FontSize)
+          .OnActivated_Lambda([this, Action]() {
+            if (Actions.Activated) Actions.Activated();
+            Action();
+          })
+          .OnFocused_Lambda([this]() {
+            if (Actions.Focused) Actions.Focused();
+          });
+  if (!FirstFocus.IsValid()) FirstFocus = Item;
   return Item;
 }
 
@@ -526,9 +601,12 @@ TSharedRef<SWidget> SPlayUi::BuildScreen(EPlayScreen Screen) {
         const FString MoodName = Model->MoodNames.IsValidIndex(Model->CurrentMood) ? Model->MoodNames[Model->CurrentMood] : FString(TEXT("DEFAULT"));
         Add(FString::Printf(TEXT("MOOD: %s"), *MoodName), true, [A]() { if (A.OpenMood) A.OpenMood(); });
       }
+      Add(TEXT("LIGHTS"), true, [A]() { if (A.OpenLights) A.OpenLights(); });
       Add(TEXT("BACK TO TITLE"), true, [A]() { if (A.BackToTitle) A.BackToTitle(); });
       return MakePanel(TEXT("PAUSED"), Items);
     }
+    case EPlayScreen::Lights:
+      return BuildLights();
     case EPlayScreen::Spawn: {
       TSharedRef<SPlaySpawnPicker> Picker =
           SNew(SPlaySpawnPicker)
@@ -588,7 +666,8 @@ TSharedRef<SWidget> SPlayUi::MakeHud() {
   TSharedPtr<FPlayUiModel> M = Model;
   return SNew(SBox)
       .Visibility_Lambda([this]() {
-        return Current == EPlayScreen::Flying || Current == EPlayScreen::Pause || Current == EPlayScreen::Loading
+        return Current == EPlayScreen::Flying || Current == EPlayScreen::Pause || Current == EPlayScreen::Lights ||
+                       Current == EPlayScreen::Loading
                    ? EVisibility::HitTestInvisible
                    : EVisibility::Collapsed;
       })
@@ -612,4 +691,105 @@ TSharedRef<SWidget> SPlayUi::MakeHud() {
                       if (M->HudRefereeLevel == TEXT("result")) return FSlateColor(kResult);
                       return FSlateColor(kInk);
                     })]];
+}
+
+TSharedRef<SWidget> SPlayUi::BuildLights() {
+  check(Model->Lights.IsValid() && Model->LightSettings);
+  const TSharedPtr<FPlayLightsState> L = Model->Lights;
+  const UPlaySettings* Settings = Model->LightSettings;
+  const FPlayUiActions A = Actions;
+  constexpr int32 kRowFont = 15;
+
+  TSharedRef<SVerticalBox> Col = SNew(SVerticalBox);
+  auto Row = [&](TFunction<FString()> Label, TFunction<void()> Action) {
+    Col->AddSlot().AutoHeight()[MakeDynamicItem(MoveTemp(Label), kRowFont, MoveTemp(Action))];
+  };
+  Row([L]() { return FString::Printf(TEXT("FLASHLIGHT (F): %s"), !L->bFlashlight ? TEXT("OFF") : L->bFlashlightYielded ? TEXT("ON - PROJECT LAMP SHOWN") : TEXT("ON")); },
+      [A]() { if (A.LightsFlashlight) A.LightsFlashlight(); });
+  Row([L]() { return FString::Printf(TEXT("NAV LIGHTS (N): %s"), L->bNav ? TEXT("ON") : TEXT("OFF")); },
+      [A]() { if (A.LightsNav) A.LightsNav(); });
+  Row([L]() { return FString::Printf(TEXT("PATTERN (V): %s"), FPlayLights::ModeName(L->Mode)); },
+      [A]() { if (A.LightsMode) A.LightsMode(); });
+  Row([L, Settings]() { return FString::Printf(TEXT("PRESET (B): %s"), *L->PresetName(*Settings)); },
+      [A]() { if (A.LightsPreset) A.LightsPreset(); });
+
+  // Live preview: the three lights as seen from above, blinking as the pattern says.
+  auto Light = [L](int32 Role) {
+    return [L, Role]() {
+      const FColor& C = Role == 0 ? L->Left : Role == 1 ? L->Right : L->Tail;
+      const bool bPresent = Role != 2 || L->bTail;
+      const float F = bPresent ? FMath::Min(FPlayLights::Pattern(L->Mode, Role, L->bTail, FPlatformTime::Seconds()), 1.f) : 0.f;
+      FLinearColor Colour = FLinearColor::FromSRGBColor(C) * F;
+      Colour.A = 1.f;
+      return Colour;
+    };
+  };
+  auto Dot = [&](int32 Role, float Size) -> TSharedRef<SWidget> {
+    return SNew(SBox).WidthOverride(Size).HeightOverride(Size)[
+        SNew(SBorder).BorderImage(White()).BorderBackgroundColor_Lambda(Light(Role))];
+  };
+  Col->AddSlot().AutoHeight().Padding(0, 14, 0, 8)[
+      SNew(SHorizontalBox)
+      + SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[
+            SNew(STextBlock).Text(FText::FromString(TEXT("PREVIEW"))).Font(Font("Mono", 11)).ColorAndOpacity(kDim)]
+      + SHorizontalBox::Slot().AutoWidth().Padding(18, 0, 0, 0)[Dot(0, 34)]
+      + SHorizontalBox::Slot().AutoWidth().Padding(26, 0, 0, 0).VAlign(VAlign_Center)[Dot(2, 22)]
+      + SHorizontalBox::Slot().AutoWidth().Padding(26, 0, 0, 0)[Dot(1, 34)]
+      + SHorizontalBox::Slot().AutoWidth().Padding(14, 0, 0, 0).VAlign(VAlign_Center)[
+            SNew(STextBlock).Text(FText::FromString(TEXT("LEFT  TAIL  RIGHT"))).Font(Font("Mono", 10)).ColorAndOpacity(kDim)]];
+
+  auto Get = [](const FColor& C, int32 I) { return static_cast<int32>(I == 0 ? C.R : I == 1 ? C.G : C.B); };
+  auto Block = [&](const TCHAR* Name, FColor* Colour) {
+    const TCHAR* Letters[3] = {TEXT("R"), TEXT("G"), TEXT("B")};
+    const FLinearColor Tints[3] = {FLinearColor(1.f, 0.35f, 0.3f), FLinearColor(0.4f, 1.f, 0.45f), FLinearColor(0.4f, 0.6f, 1.f)};
+    TSharedRef<SVerticalBox> Channels = SNew(SVerticalBox);
+    for (int32 I = 0; I < 3; ++I) {
+      TSharedRef<SPlayChannelSlider> Slider =
+          SNew(SPlayChannelSlider)
+              .Label(FText::FromString(Letters[I]))
+              .Tint(Tints[I])
+              .Value_Lambda([Colour, I, Get]() { return Get(*Colour, I); })
+              .OnChanged_Lambda([this, Colour, I, A](int32 V) {
+                (I == 0 ? Colour->R : I == 1 ? Colour->G : Colour->B) = static_cast<uint8>(V);
+                if (A.LightsEdited) A.LightsEdited();
+              })
+              .OnFocused_Lambda([this]() { if (Actions.Focused) Actions.Focused(); });
+      Channels->AddSlot().AutoHeight().Padding(0, 1)[Slider];
+    }
+    Col->AddSlot().AutoHeight().Padding(0, 10, 0, 0)[
+        SNew(SHorizontalBox)
+        + SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0, 0, 14, 0)[
+              SNew(SBox).WidthOverride(86)[
+                  SNew(SVerticalBox)
+                  + SVerticalBox::Slot().AutoHeight()[
+                        SNew(STextBlock).Text(FText::FromString(Name)).Font(Font("Regular", 15)).ColorAndOpacity(kInk)]
+                  + SVerticalBox::Slot().AutoHeight().Padding(0, 4, 0, 0)[
+                        SNew(SBox).HeightOverride(22)[
+                            SNew(SBorder).BorderImage(White()).BorderBackgroundColor_Lambda(
+                                [Colour]() { FLinearColor C = FLinearColor::FromSRGBColor(*Colour); C.A = 1.f; return C; })]]]]
+        + SHorizontalBox::Slot().FillWidth(1.f)[Channels]];
+  };
+  Block(TEXT("LEFT"), &L->Left);
+  Block(TEXT("RIGHT"), &L->Right);
+  Block(TEXT("TAIL"), &L->Tail);
+  Col->AddSlot().AutoHeight().Padding(0, 8, 0, 0)[MakeDynamicItem(
+      [L]() { return FString::Printf(TEXT("TAIL LIGHT: %s"), L->bTail ? TEXT("ON") : TEXT("OFF")); }, kRowFont,
+      [A]() { if (A.LightsTail) A.LightsTail(); })];
+  Col->AddSlot().AutoHeight()[MakeDynamicItem([]() { return FString(TEXT("BACK")); }, kRowFont, [A]() { if (A.Back) A.Back(); })];
+  Col->AddSlot().AutoHeight().Padding(0, 10, 0, 0)[
+      SNew(STextBlock)
+          .Text(FText::FromString(TEXT("UP/DOWN: SELECT   LEFT/RIGHT: ADJUST (SHIFT: FINE)   ENTER: TOGGLE   ESC: BACK")))
+          .Font(Font("Mono", 9))
+          .ColorAndOpacity(kDim)];
+
+  return SNew(SBox).HAlign(HAlign_Left)[
+      SNew(SBox).WidthOverride(560)[
+          SNew(SBorder)
+              .BorderImage(White())
+              .BorderBackgroundColor(kVeil)
+              .Padding(FMargin(40, 80, 40, 24))[
+                  SNew(SVerticalBox)
+                  + SVerticalBox::Slot().AutoHeight().Padding(0, 0, 0, 12)[
+                        SNew(STextBlock).Text(FText::FromString(TEXT("LIGHTS"))).Font(Font("Light", 40)).ColorAndOpacity(kInk)]
+                  + SVerticalBox::Slot().FillHeight(1.f)[Col]]]];
 }

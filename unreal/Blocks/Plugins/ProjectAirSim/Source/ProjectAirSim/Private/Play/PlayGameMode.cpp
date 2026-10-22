@@ -79,6 +79,12 @@ void AProjectAirSimPlayGameMode::StartPlay() {
 
   BuildModel();
   BuildActions();
+  // The script is read first because the lights keep a test run's choices out of the player's settings file.
+  TestScript = FPlayTestScript::FromEnvironment();
+  Lights = MakeUnique<FPlayLights>(*Settings, FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("Config"),
+                                                              TestScript ? TEXT("PlayLightsTest.ini") : TEXT("PlayLights.ini")));
+  Model->Lights = Lights->State();
+  Model->LightSettings = Settings;
   // The only place a sound source is made: API mode never reaches this.
   Audio = NewObject<UPlayAudio>(this, TEXT("PlayAudio"));
   Audio->RegisterComponentWithWorld(GetWorld());
@@ -113,7 +119,6 @@ void AProjectAirSimPlayGameMode::StartPlay() {
   Ui = SNew(SPlayUi).Model(Model).Actions(FPlayUiActions(Actions));
   GEngine->GameViewport->AddViewportWidgetContent(Ui.ToSharedRef(), 100);
   LastWallSeconds = FPlatformTime::Seconds();
-  TestScript = FPlayTestScript::FromEnvironment();
   if (TestScript) BuildTestHooks();
   // A scripted run goes straight to the title.
   if (TestScript) {
@@ -130,6 +135,7 @@ void AProjectAirSimPlayGameMode::EndPlay(const EEndPlayReason::Type EndPlayReaso
     GEngine->GameViewport->RemoveViewportWidgetContent(Ui.ToSharedRef());
   }
   Ui.Reset();
+  Lights.Reset();
   if (Audio) {
     Audio->Stop();
     Audio->DestroyComponent();
@@ -208,6 +214,7 @@ void AProjectAirSimPlayGameMode::BuildActions() {
         GoTo(bFromPause ? EPlayScreen::Pause : EPlayScreen::Mode);
         break;
       }
+      case EPlayScreen::Lights: GoTo(EPlayScreen::Pause); break;
       case EPlayScreen::Spawn: GoTo(Settings->Moods.Num() > 0 ? EPlayScreen::Mood : EPlayScreen::Mode); break;
       case EPlayScreen::Vehicle: GoTo(EPlayScreen::Spawn); break;
       default: break;
@@ -236,6 +243,17 @@ void AProjectAirSimPlayGameMode::BuildActions() {
   Actions.OpenMood = [this]() {
     bMoodFromPause = true;
     GoTo(EPlayScreen::Mood);
+  };
+  Actions.OpenLights = [this]() { GoTo(EPlayScreen::Lights); };
+  Actions.LightsFlashlight = [this]() { Lights->ToggleFlashlight(); };
+  Actions.LightsNav = [this]() { Lights->ToggleNav(); };
+  Actions.LightsMode = [this]() { Lights->CycleMode(); };
+  Actions.LightsPreset = [this]() { Lights->CyclePreset(); };
+  Actions.LightsTail = [this]() { Lights->ToggleTail(); };
+  Actions.LightsEdited = [this]() {
+    // A colour edited by hand is no longer one of the presets.
+    Lights->State()->Preset = INDEX_NONE;
+    Lights->Changed();
   };
   Actions.PickSpawn = [this](const FVector3d& Ned) {
     bHasSpawn = true;
@@ -294,6 +312,7 @@ void AProjectAirSimPlayGameMode::SelectMood(int32 Index) {
   check(MoodDirector);
   Model->CurrentMood = Index;
   MoodDirector->Apply(*GetWorld(), Index);
+  Lights->ApplyMood(Settings->Moods[Index]);
 }
 
 void AProjectAirSimPlayGameMode::GoTo(EPlayScreen Next) {
@@ -307,14 +326,14 @@ void AProjectAirSimPlayGameMode::GoTo(EPlayScreen Next) {
   // The mood list opened from the pause menu keeps the flight view and sound behind it.
   const bool bPauseMood = Next == EPlayScreen::Mood && bMoodFromPause;
   const bool bFlightScreen = Next == EPlayScreen::Flying || Next == EPlayScreen::Pause || Next == EPlayScreen::Loading ||
-                             bPauseMood;
+                             Next == EPlayScreen::Lights || bPauseMood;
   if (Audio) {
     Audio->MenuAmbient(!bFlightScreen);
     Audio->FlightAmbient(bFlightScreen);
     if (!bFlightScreen) Audio->RotorLoop(-1.f);
   }
   if (Camera) {
-    if (Next == EPlayScreen::Flying || Next == EPlayScreen::Pause || bPauseMood) {
+    if (Next == EPlayScreen::Flying || Next == EPlayScreen::Pause || Next == EPlayScreen::Lights || bPauseMood) {
       Camera->SetTarget(Robot.Get());
       Camera->SetMode(CameraIndex == 0 ? EPlayCameraMode::Chase : EPlayCameraMode::Fpv);
     } else {
@@ -477,6 +496,7 @@ void AProjectAirSimPlayGameMode::Tick(float DeltaSeconds) {
   Camera->Advance(WallDelta);
 
   if (MoodDirector) MoodDirector->Tick(*GetWorld());
+  Lights->Tick(*GetWorld(), Robot.Get(), WallNow);
   UpdateHud(WallDelta);
   UpdateFootnotes();
   MuteProjectSounds();
@@ -512,6 +532,10 @@ void AProjectAirSimPlayGameMode::TickFlight(APlayerController& Controller, float
     Camera->SetMode(CameraIndex == 0 ? EPlayCameraMode::Chase : EPlayCameraMode::Fpv);
   }
   if (In.Pressed(EPlayButton::TakeoffLand)) Shared->PressTakeoffLand();
+  if (In.Pressed(EPlayButton::Flashlight)) Lights->ToggleFlashlight();
+  if (In.Pressed(EPlayButton::NavLights)) Lights->ToggleNav();
+  if (In.Pressed(EPlayButton::LightPreset)) Lights->CyclePreset();
+  if (In.Pressed(EPlayButton::LightMode)) Lights->CycleMode();
   TiltDegrees = FMath::Clamp(TiltDegrees + In.Axis(EPlayAxis::CameraTilt) * kTiltRateDegPerSec * WallDelta,
                              kTiltMinDeg, kTiltMaxDeg);
 
@@ -554,6 +578,7 @@ void AProjectAirSimPlayGameMode::UpdateHud(float WallDelta) {
                   : Location.Z / 100.f;
   Model->HudStats = FString::Printf(TEXT("ALT %6.1f m   SPD %5.1f m/s   PRESET %2.0f m/s   CAM %s"), AltitudeM,
                                     SpeedMs, kPresetSpeeds[PresetIndex], CameraIndex == 0 ? TEXT("CHASE") : TEXT("FPV"));
+  Model->HudStats += TEXT("\n") + Lights->HudText();
   // No thrust is published to the plugin side; the measured speed stands in for throttle.
   if (Audio && Screen == EPlayScreen::Flying) {
     Audio->RotorLoop(FMath::Clamp(0.25f + SpeedMs / 25.f, 0.f, 1.f));
@@ -609,6 +634,7 @@ const TCHAR* AProjectAirSimPlayGameMode::ScreenName(EPlayScreen Screen) {
     case EPlayScreen::Spawn: return TEXT("spawn");
     case EPlayScreen::Vehicle: return TEXT("vehicle");
     case EPlayScreen::Pause: return TEXT("pause");
+    case EPlayScreen::Lights: return TEXT("lights");
     case EPlayScreen::Loading: return TEXT("loading");
     case EPlayScreen::Flying: return TEXT("flying");
   }

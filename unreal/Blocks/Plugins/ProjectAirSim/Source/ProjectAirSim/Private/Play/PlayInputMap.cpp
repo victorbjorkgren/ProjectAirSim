@@ -22,6 +22,10 @@ FPlayInputMap::FPlayInputMap() {
       {EPlayButton::Pause, EKeys::Escape},
       {EPlayButton::Confirm, EKeys::Enter},
       {EPlayButton::Restart, EKeys::R},
+      {EPlayButton::Flashlight, EKeys::F},
+      {EPlayButton::NavLights, EKeys::N},
+      {EPlayButton::LightPreset, EKeys::B},
+      {EPlayButton::LightMode, EKeys::V},
   };
 }
 

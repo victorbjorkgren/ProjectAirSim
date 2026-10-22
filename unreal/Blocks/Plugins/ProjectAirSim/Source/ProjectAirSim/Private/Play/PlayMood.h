@@ -39,6 +39,7 @@ class FPlayMoodDirector {
     bool bUseTemperature;
     float Temperature;
     float SourceAngle;
+    FLinearColor DiscScale;
   };
   struct FSkyBase {
     float Intensity;

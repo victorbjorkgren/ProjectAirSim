@@ -5,10 +5,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Play/PlayLights.h"
 #include "Widgets/SCompoundWidget.h"
 #include "Widgets/SLeafWidget.h"
 
-enum class EPlayScreen : uint8 { Intro, Title, Map, Mode, Mood, Spawn, Vehicle, Pause, Loading, Flying };
+enum class EPlayScreen : uint8 { Intro, Title, Map, Mode, Mood, Spawn, Vehicle, Pause, Lights, Loading, Flying };
 
 struct FPlaySpawnMarker {
   FString Name;
@@ -24,6 +25,9 @@ struct FPlayUiModel {
   TArray<FString> VehicleNames;
   TArray<FString> MoodNames;  // empty: the build has no moods and the mood entries do not appear
   int32 CurrentMood = INDEX_NONE;
+  // The drone lights the LIGHTS panel edits, and the presets it cycles through.
+  TSharedPtr<FPlayLightsState> Lights;
+  const UPlaySettings* LightSettings = nullptr;
   TArray<FPlaySpawnMarker> Markers;
   TSharedPtr<FSlateBrush> Backdrop;
   FBox2D BackdropNed = FBox2D(ForceInit);  // x = north, y = east
@@ -52,6 +56,13 @@ struct FPlayUiActions {
   TFunction<void(int32)> PickVehicle;
   TFunction<void(int32)> PickMood;
   TFunction<void()> OpenMood;  // the pause menu's mood entry
+  TFunction<void()> OpenLights;  // the pause menu's lights entry
+  TFunction<void()> LightsFlashlight;
+  TFunction<void()> LightsNav;
+  TFunction<void()> LightsMode;
+  TFunction<void()> LightsPreset;
+  TFunction<void()> LightsTail;
+  TFunction<void()> LightsEdited;  // the panel changed a colour in the shared state
   TFunction<void(const FVector3d&)> PickSpawn;
   TFunction<void()> Focused;    // a menu item took focus
   TFunction<void()> Activated;  // a menu item was chosen
@@ -81,8 +92,11 @@ class SPlayLogo : public SLeafWidget {
 // A menu item: plain text, white while hovered or focused, grey otherwise.
 class SPlayMenuItem : public SCompoundWidget {
  public:
-  SLATE_BEGIN_ARGS(SPlayMenuItem) : _Enabled(true) {}
+  SLATE_BEGIN_ARGS(SPlayMenuItem) : _FontSize(22), _Enabled(true) {}
   SLATE_ARGUMENT(FText, Label)
+  // When set, the label is read every frame (a toggle that shows its state).
+  SLATE_ARGUMENT(TFunction<FString()>, LabelFn)
+  SLATE_ARGUMENT(int32, FontSize)
   SLATE_ARGUMENT(bool, Enabled)
   SLATE_EVENT(FSimpleDelegate, OnActivated)
   SLATE_EVENT(FSimpleDelegate, OnFocused)
@@ -101,6 +115,32 @@ class SPlayMenuItem : public SCompoundWidget {
  private:
   bool bItemEnabled = true;
   FSimpleDelegate Activated;
+  FSimpleDelegate FocusedDelegate;
+};
+
+// One colour channel of the LIGHTS panel: a label, a slider and the 0..255 value. Left/Right keys step the value
+// (Shift: one unit), the mouse drags the slider.
+class SPlayChannelSlider : public SCompoundWidget {
+ public:
+  SLATE_BEGIN_ARGS(SPlayChannelSlider) {}
+  SLATE_ARGUMENT(FText, Label)
+  SLATE_ARGUMENT(FLinearColor, Tint)
+  SLATE_ATTRIBUTE(int32, Value)
+  SLATE_EVENT(TDelegate<void(int32)>, OnChanged)
+  SLATE_EVENT(FSimpleDelegate, OnFocused)
+  SLATE_END_ARGS()
+
+  void Construct(const FArguments& InArgs);
+
+  bool SupportsKeyboardFocus() const override { return true; }
+  TOptional<bool> OnQueryShowFocus(const EFocusCause) const override { return false; }
+  FReply OnKeyDown(const FGeometry& Geometry, const FKeyEvent& KeyEvent) override;
+  void OnMouseEnter(const FGeometry& Geometry, const FPointerEvent& MouseEvent) override;
+  FReply OnFocusReceived(const FGeometry& Geometry, const FFocusEvent& FocusEvent) override;
+
+ private:
+  TAttribute<int32> Value;
+  TDelegate<void(int32)> Changed;
   FSimpleDelegate FocusedDelegate;
 };
 
@@ -177,6 +217,8 @@ class SPlayUi : public SCompoundWidget {
  private:
   TSharedRef<SWidget> BuildScreen(EPlayScreen Screen);
   TSharedRef<SWidget> MakeItem(const FString& Label, bool bEnabled, TFunction<void()> Action);
+  TSharedRef<SWidget> MakeDynamicItem(TFunction<FString()> Label, int32 FontSize, TFunction<void()> Action);
+  TSharedRef<SWidget> BuildLights();
   TSharedRef<SWidget> MakePanel(const FString& Heading, TSharedRef<SWidget> Body);
   TSharedRef<SWidget> MakeCurtain();
   TSharedRef<SWidget> MakeHud();
