@@ -104,7 +104,18 @@ void UWeatherLib::resetWeatherParams(UWorld* World) {
         Cast<UMaterialParameterCollection>(
             StaticLoadObject(UMaterialParameterCollection::StaticClass(), NULL,
                              getWeatherParamsObjectPath()));
-    World->AddParameterCollectionInstance(WeatherParameterCollection, true);
+    // An instance the world already holds is reset in place: replacing it leaves the old instance to the garbage
+    // collector, which frees its uniform buffer while the renderer's scene still binds it (a crash a few frames
+    // after the collection, in a level whose materials read the collection).
+    if (UMaterialParameterCollectionInstance* Existing =
+            World->GetParameterCollectionInstance(WeatherParameterCollection)) {
+      for (const FCollectionScalarParameter& P : WeatherParameterCollection->ScalarParameters)
+        Existing->SetScalarParameterValue(P.ParameterName, P.DefaultValue);
+      for (const FCollectionVectorParameter& P : WeatherParameterCollection->VectorParameters)
+        Existing->SetVectorParameterValue(P.ParameterName, P.DefaultValue);
+    } else {
+      World->AddParameterCollectionInstance(WeatherParameterCollection, true);
+    }
 
     // Re-apply existing wind direction
     setWeatherWindDirection(World, CurWindDir);
