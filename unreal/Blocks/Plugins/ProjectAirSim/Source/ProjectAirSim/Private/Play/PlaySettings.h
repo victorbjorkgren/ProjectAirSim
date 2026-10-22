@@ -189,7 +189,7 @@ class UPlaySettings : public UObject {
   UPROPERTY(Config) float NavLightLumens = 400.f;
   UPROPERTY(Config) float NavLightRadiusCm = 350.f;
   UPROPERTY(Config) float NavGlowRadiusCm = 3.5f;
-  UPROPERTY(Config) float NavGlowBrightness = 40.f;
+  UPROPERTY(Config) float NavGlowBrightness = 14.f;
   // Position-light presets (the code supplies a default list; entries in the ini replace it).
   UPROPERTY(Config) TArray<FPlayLightPreset> LightPresets;
 
