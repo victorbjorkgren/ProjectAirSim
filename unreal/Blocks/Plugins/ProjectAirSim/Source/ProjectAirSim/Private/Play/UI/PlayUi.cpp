@@ -7,7 +7,6 @@
 #include "Framework/Application/SlateApplication.h"
 #include "Styling/CoreStyle.h"
 #include "Styling/SlateBrush.h"
-#include "Widgets/Input/SSlider.h"
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/SBoxPanel.h"
@@ -172,17 +171,57 @@ FReply SPlayMenuItem::OnFocusReceived(const FGeometry&, const FFocusEvent&) {
 // ---------------------------------------------------------------------------
 // SPlayChannelSlider
 
-namespace {
-// The stock slider with a thicker bar, so it reads on a dark panel.
-const FSliderStyle& SliderStyle() {
-  static FSliderStyle Style = [] {
-    FSliderStyle S = FCoreStyle::Get().GetWidgetStyle<FSliderStyle>("Slider");
-    S.SetBarThickness(5.f);
-    return S;
-  }();
-  return Style;
+// ---------------------------------------------------------------------------
+// SPlaySliderBar
+
+void SPlaySliderBar::Construct(const FArguments& InArgs) {
+  Tint = InArgs._Tint;
+  Value = InArgs._Value;
+  Changed = InArgs._OnChanged;
 }
-}  // namespace
+
+int32 SPlaySliderBar::OnPaint(const FPaintArgs&, const FGeometry& G, const FSlateRect&, FSlateWindowElementList& Out,
+                              int32 LayerId, const FWidgetStyle&, bool) const {
+  const FVector2f Size = G.GetLocalSize();
+  constexpr float kHandle = 14.f;
+  constexpr float kBar = 6.f;
+  const float Travel = FMath::Max(Size.X - kHandle, 1.f);
+  const float X = Travel * FMath::Clamp(Value.Get() / 255.f, 0.f, 1.f);
+  const float BarY = (Size.Y - kBar) * 0.5f;
+  FSlateDrawElement::MakeBox(Out, LayerId, G.ToPaintGeometry(FVector2f(Size.X, kBar), FSlateLayoutTransform(FVector2f(0.f, BarY))),
+                             White(), ESlateDrawEffect::None, FLinearColor(1.f, 1.f, 1.f, 0.22f));
+  FSlateDrawElement::MakeBox(Out, LayerId + 1, G.ToPaintGeometry(FVector2f(X + kHandle * 0.5f, kBar), FSlateLayoutTransform(FVector2f(0.f, BarY))),
+                             White(), ESlateDrawEffect::None, Tint * FLinearColor(1.f, 1.f, 1.f, 0.9f));
+  FSlateDrawElement::MakeBox(Out, LayerId + 2,
+                             G.ToPaintGeometry(FVector2f(kHandle, kHandle), FSlateLayoutTransform(FVector2f(X, (Size.Y - kHandle) * 0.5f))),
+                             White(), ESlateDrawEffect::None, FLinearColor(1.f, 1.f, 1.f, 1.f));
+  return LayerId + 3;
+}
+
+void SPlaySliderBar::SetFromMouse(const FGeometry& G, const FPointerEvent& MouseEvent) {
+  const float Local = G.AbsoluteToLocal(MouseEvent.GetScreenSpacePosition()).X;
+  const float Travel = FMath::Max(G.GetLocalSize().X - 14.f, 1.f);
+  Changed.ExecuteIfBound(FMath::Clamp(FMath::RoundToInt((Local - 7.f) / Travel * 255.f), 0, 255));
+}
+
+FReply SPlaySliderBar::OnMouseButtonDown(const FGeometry& G, const FPointerEvent& MouseEvent) {
+  if (MouseEvent.GetEffectingButton() != EKeys::LeftMouseButton) return FReply::Unhandled();
+  bDragging = true;
+  SetFromMouse(G, MouseEvent);
+  return FReply::Handled().CaptureMouse(AsShared());
+}
+
+FReply SPlaySliderBar::OnMouseButtonUp(const FGeometry&, const FPointerEvent& MouseEvent) {
+  if (!bDragging || MouseEvent.GetEffectingButton() != EKeys::LeftMouseButton) return FReply::Unhandled();
+  bDragging = false;
+  return FReply::Handled().ReleaseMouseCapture();
+}
+
+FReply SPlaySliderBar::OnMouseMove(const FGeometry& G, const FPointerEvent& MouseEvent) {
+  if (!bDragging) return FReply::Unhandled();
+  SetFromMouse(G, MouseEvent);
+  return FReply::Handled();
+}
 
 void SPlayChannelSlider::Construct(const FArguments& InArgs) {
   Value = InArgs._Value;
@@ -196,17 +235,14 @@ void SPlayChannelSlider::Construct(const FArguments& InArgs) {
             SNew(SBox).WidthOverride(26)[
                 SNew(STextBlock)
                     .Text(Label)
-                    .Font(Font("Mono", 12))
+                    .Font(Font("Mono", 14))
                     .ColorAndOpacity_Lambda([this]() { return FSlateColor((HasKeyboardFocus() || IsHovered()) ? kChosen : kIdle); })]]
       + SHorizontalBox::Slot().FillWidth(1.f).VAlign(VAlign_Center)[
-            SNew(SBox).HeightOverride(18)[
-                SNew(SSlider)
-                    .IsFocusable(false)
-                    .Style(&SliderStyle())
-                    .SliderBarColor(FLinearColor(1, 1, 1, 0.55f))
-                    .SliderHandleColor(Tint)
-                    .Value_Lambda([this]() { return Value.Get() / 255.f; })
-                    .OnValueChanged_Lambda([this](float V) { Changed.ExecuteIfBound(FMath::Clamp(FMath::RoundToInt(V * 255.f), 0, 255)); })]]
+            SNew(SBox).HeightOverride(20)[
+                SNew(SPlaySliderBar)
+                    .Tint(Tint)
+                    .Value_Lambda([this]() { return Value.Get(); })
+                    .OnChanged_Lambda([this](int32 V) { Changed.ExecuteIfBound(V); })]]
       + SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(10, 0, 0, 0)[
             SNew(SBox).WidthOverride(34)[
                 SNew(STextBlock)

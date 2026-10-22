@@ -118,6 +118,34 @@ class SPlayMenuItem : public SCompoundWidget {
   FSimpleDelegate FocusedDelegate;
 };
 
+// A horizontal 0..255 track: a dim bar, the filled part in the tint colour, a square handle. The mouse drags it.
+class SPlaySliderBar : public SLeafWidget {
+ public:
+  SLATE_BEGIN_ARGS(SPlaySliderBar) {}
+  SLATE_ARGUMENT(FLinearColor, Tint)
+  SLATE_ATTRIBUTE(int32, Value)
+  SLATE_EVENT(TDelegate<void(int32)>, OnChanged)
+  SLATE_END_ARGS()
+
+  void Construct(const FArguments& InArgs);
+
+  FVector2D ComputeDesiredSize(float) const override { return FVector2D(200, 20); }
+  int32 OnPaint(const FPaintArgs& Args, const FGeometry& Geometry, const FSlateRect& Culling,
+                FSlateWindowElementList& Out, int32 LayerId, const FWidgetStyle& Style,
+                bool bParentEnabled) const override;
+  FReply OnMouseButtonDown(const FGeometry& Geometry, const FPointerEvent& MouseEvent) override;
+  FReply OnMouseButtonUp(const FGeometry& Geometry, const FPointerEvent& MouseEvent) override;
+  FReply OnMouseMove(const FGeometry& Geometry, const FPointerEvent& MouseEvent) override;
+
+ private:
+  void SetFromMouse(const FGeometry& Geometry, const FPointerEvent& MouseEvent);
+
+  FLinearColor Tint = FLinearColor::White;
+  TAttribute<int32> Value;
+  TDelegate<void(int32)> Changed;
+  bool bDragging = false;
+};
+
 // One colour channel of the LIGHTS panel: a label, a slider and the 0..255 value. Left/Right keys step the value
 // (Shift: one unit), the mouse drags the slider.
 class SPlayChannelSlider : public SCompoundWidget {
