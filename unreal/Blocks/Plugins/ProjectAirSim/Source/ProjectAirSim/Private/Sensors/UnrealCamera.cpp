@@ -20,6 +20,9 @@
 #include "Engine/TextureRenderTarget2D.h"
 #include "Engine/World.h"
 #include "RHIGPUReadback.h"
+#include "RHI.h"
+#include "Engine/Engine.h"
+#include "CameraTiming.h"
 #include "GameFramework/PlayerController.h"
 #include "HAL/IConsoleManager.h"
 #include "ImagePackingAsyncTask.h"
@@ -65,6 +68,31 @@ static TAutoConsoleVariable<int32> CVarSceneCameraReflectionMethod(
     TEXT("Reflections on scene cameras: -1 the project's r.ReflectionMethod (default), ")
     TEXT("0 none, 1 Lumen, 2 screen space."),
     ECVF_Default);
+
+// How many captures may be on their way from the GPU to the publisher at once. Each extra one is a frame of
+// latency once the GPU is the bottleneck (the queue stays full: latency is about depth x frame time). 1 renders the
+// next capture only after the previous one was published, so every image is the freshest state at its capture.
+static TAutoConsoleVariable<int32> CVarCameraMaxCapturesInFlight(
+    TEXT("projectairsim.Camera.MaxCapturesInFlight"), 3,
+    TEXT("Scene captures in flight between the game thread and the image publisher (>= 1). ")
+    TEXT("Default 3; 1 is the low-latency setting."),
+    ECVF_Default);
+
+// A finished GPU copy is noticed when the pipeline is polled. By default that happens once per game tick (and when a
+// capture finishes recording), so with a game tick of 60-300 ms (a heavy capture frame, a CPU-starved container) an image
+// can wait most of a tick after its pixels arrived. 1 adds a poller thread that asks the render thread to poll every
+// millisecond while a capture is in flight.
+static TAutoConsoleVariable<int32> CVarCameraFastReadbackPoll(
+    TEXT("projectairsim.Camera.FastReadbackPoll"), 0,
+    TEXT("Poll the capture readbacks every millisecond from a thread instead of once per game tick (read at BeginPlay). ")
+    TEXT("Default 0; 1 is the low-latency setting."),
+    ECVF_Default);
+
+// Development aid: print the GPU profile (ProfileGPU) of the frames in which captures are issued, starting at the Nth
+// capture of the run (0 = never), for three captures.
+static TAutoConsoleVariable<int32> CVarCameraProfileGpuAtCapture(
+    TEXT("projectairsim.Camera.ProfileGpuAtCapture"), 0,
+    TEXT("Dump the GPU profile at capture N, N+7 and N+14 (0 = off)."), ECVF_Default);
 
 // The thermal camera has no jitter of its own: temporal AA on it moves a hot needle against the cold sky
 // by a sub-pixel step every frame, which a still camera should not see. The optics' blur (the sensor
@@ -846,6 +874,9 @@ void UUnrealCamera::BeginPlay() {
 
   UnrealCameraRenderRequest::OnBeginPlay();
   ReadbackPipeline = MakeShared<FCaptureReadbackPipeline, ESPMode::ThreadSafe>();
+  if (CVarCameraFastReadbackPoll.GetValueOnGameThread() != 0) {
+    ReadbackPoller = MakeShared<FReadbackPoller, ESPMode::ThreadSafe>(ReadbackPipeline, SimCamera);
+  }
 
   auto& CameraSetting = SimCamera.GetCameraSettings();
   this->CaptureIntervalSec = CameraSetting.capture_interval;
@@ -901,10 +932,13 @@ class FCaptureReadbackPipeline {
     microsoft::projectairsim::Transform CapturedCameraTransform;
     std::vector<microsoft::projectairsim::Annotation> Annotations;
     std::vector<FItem> Items;
+    FCaptureTimes Times;
   };
 
   // Game thread: captures issued and not yet published.
   std::atomic<int32> InFlight{0};
+  // A poll command from the poller thread is waiting on the render thread (at most one is queued).
+  std::atomic<bool> bPollQueued{false};
 
   // Render thread: take a readback for an image type (reuses a finished one
   // of the same size and format, so no staging texture is created per frame).
@@ -932,6 +966,7 @@ class FCaptureReadbackPipeline {
         if (Item.Readback && !Item.Readback->IsReady()) bReady = false;
       }
       if (!bReady) return;
+      if (CameraTiming::Enabled()) Front.Times.ReadyNs = CameraTiming::WallNs();
 
       std::vector<std::pair<ImageRequest,
                             UnrealCameraRenderRequest::RenderResult>>
@@ -950,7 +985,7 @@ class FCaptureReadbackPipeline {
       }
       (new FAutoDeleteAsyncTask<FImagePackingAsyncTask>(
               std::move(CaptureResults), Front.CapturedCameraTransform,
-              SimCamera, std::move(Front.Annotations)))
+              SimCamera, std::move(Front.Annotations), Front.Times))
           ->StartBackgroundTask();
       Queue.pop_front();
       --InFlight;
@@ -1003,6 +1038,42 @@ class FCaptureReadbackPipeline {
   FPool Pools[32];
 };
 
+// Asks the render thread to poll the readback pipeline every millisecond while captures are in flight.
+class FReadbackPoller : public FRunnable {
+ public:
+  FReadbackPoller(TSharedPtr<FCaptureReadbackPipeline, ESPMode::ThreadSafe> InPipeline,
+                  microsoft::projectairsim::Camera InCamera)
+      : Pipeline(InPipeline), Camera(InCamera) {
+    Thread = FRunnableThread::Create(this, TEXT("ProjectAirSimReadbackPoller"), 0, TPri_AboveNormal);
+  }
+  ~FReadbackPoller() override {
+    bStop = true;
+    if (Thread) {
+      Thread->WaitForCompletion();
+      delete Thread;
+    }
+  }
+  uint32 Run() override {
+    while (!bStop) {
+      if (Pipeline->InFlight.load() > 0 && !Pipeline->bPollQueued.exchange(true)) {
+        ENQUEUE_RENDER_COMMAND(PollCameraReadbacksFast)
+        ([P = Pipeline, Cam = Camera](FRHICommandListImmediate&) {
+          P->bPollQueued = false;
+          P->Poll(Cam);
+        });
+      }
+      FPlatformProcess::SleepNoStats(0.001f);
+    }
+    return 0;
+  }
+
+ private:
+  TSharedPtr<FCaptureReadbackPipeline, ESPMode::ThreadSafe> Pipeline;
+  microsoft::projectairsim::Camera Camera;
+  FRunnableThread* Thread = nullptr;
+  std::atomic<bool> bStop{false};
+};
+
 // Whether a render target can be copied straight into the image buffer type
 // the request asks for; any other combination reads synchronously.
 static bool CanReadBackAsync(FRHITexture* Texture, bool bPixelsAsFloat) {
@@ -1051,15 +1122,39 @@ void UUnrealCamera::TickComponent(
   const TimeSec SimTimeElapsedSec = projectairsim::SimClock::Get()->NanosToSec(
       PoseUpdatedTimeStamp - CapturedTime);
 
+  FCaptureTimes Times;
+  const bool bTiming = CameraTiming::Enabled();
+  if (bTiming) {
+    Times.TickNs = CameraTiming::WallNs();
+    Times.TickDtMs = LastTickNs ? (Times.TickNs - LastTickNs) / 1.0e6f : 0.f;
+    LastTickNs = Times.TickNs;
+    ++TicksSinceCapture;
+  }
+
   PollReadbacks();
 
   // At most kMaxCapturesInFlight captures are on their way from the GPU; the
   // next one waits for the oldest to be published.
-  constexpr int32 kMaxCapturesInFlight = 3;
+  const int32 kMaxCapturesInFlight =
+      FMath::Max(1, CVarCameraMaxCapturesInFlight.GetValueOnGameThread());
   if (SimTimeElapsedSec > CaptureIntervalSec && bHasNewState &&
       SimCamera.IsUpdating() && !SimCamera.IsCaptureQueueFull() &&
       ReadbackPipeline->InFlight < kMaxCapturesInFlight) {
     bool bCaptureIsActive = false;
+    if (bTiming) {
+      Times.InFlightAtCapture = ReadbackPipeline->InFlight;
+      Times.TicksSinceCapture = TicksSinceCapture;
+      Times.SimNowAtCapture = projectairsim::SimClock::Get()->NowSimNanos();
+      Times.GpuFrameMs = FPlatformTime::ToMilliseconds(RHIGetGPUFrameCycles());
+      Times.CaptureBeginNs = CameraTiming::WallNs();
+    }
+    const int32 ProfileAt = CVarCameraProfileGpuAtCapture.GetValueOnGameThread();
+    if (ProfileAt > 0 && GEngine &&
+        (CaptureCount == ProfileAt || CaptureCount == ProfileAt + 7 ||
+         CaptureCount == ProfileAt + 14)) {
+      GEngine->Exec(UnrealWorld, TEXT("r.ProfileGPU.ShowUI 0"));
+      GEngine->Exec(UnrealWorld, TEXT("ProfileGPU"));
+    }
 
     for (int ImageTypeInt = 0; ImageTypeInt < ImageTypeCount();
          ++ImageTypeInt) {
@@ -1110,6 +1205,13 @@ void UUnrealCamera::TickComponent(
     }
 
     if (bCaptureIsActive) {
+      if (bTiming) {
+        Times.CaptureEndNs = CameraTiming::WallNs();
+        Times.CaptureIndex = CaptureCount;
+        Times.SimStamp = PoseUpdatedTimeStamp;
+        TicksSinceCapture = 0;
+      }
+      ++CaptureCount;
       CapturedTime = PoseUpdatedTimeStamp;
       ReadbackPipeline->InFlight++;
       bHasNewState = false;
@@ -1135,9 +1237,9 @@ void UUnrealCamera::TickComponent(
       // When this render command completes, UUnrealCamera::OnRendered() will be
       // triggered to process and publish the image data
       ENQUEUE_RENDER_COMMAND(SceneDrawCompletion)
-      ([this, CapturedCameraTransform, Annotations = std::move(Annotations)](
-           FRHICommandListImmediate& RHICmdList) {
-        this->OnRendered(CapturedCameraTransform, Annotations);
+      ([this, CapturedCameraTransform, Annotations = std::move(Annotations),
+        Times](FRHICommandListImmediate& RHICmdList) {
+        this->OnRendered(CapturedCameraTransform, Annotations, Times);
       });
     }
   }
@@ -1166,6 +1268,7 @@ void UUnrealCamera::EndPlay(const EEndPlayReason::Type EndPlayReason) {
     // other cases
   }
 
+  ReadbackPoller.Reset();
   Super::EndPlay(EndPlayReason);
   UnrealCameraRenderRequest::OnEndPlay();
 }
@@ -1261,8 +1364,10 @@ bool UUnrealCamera::IsReadyForFinishDestroy() {
 
 void UUnrealCamera::OnRendered(
     projectairsim::Transform CapturedCameraTransform,
-    std::vector<projectairsim::Annotation> Annotations) {
+    std::vector<projectairsim::Annotation> Annotations, FCaptureTimes Times) {
   FCaptureReadbackPipeline::FEntry Entry;
+  if (CameraTiming::Enabled()) Times.RenderedNs = CameraTiming::WallNs();
+  Entry.Times = Times;
   Entry.CapturedCameraTransform = CapturedCameraTransform;
   Entry.Annotations = std::move(Annotations);
 
