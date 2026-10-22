@@ -53,15 +53,28 @@ TArray<TPair<FString, FString>> ParseParams(const FString& Spec) {
 }  // namespace
 
 bool FPlayMoodDirector::ActorsStale() const {
-  if (Settings.MoodParamCollection.IsEmpty() == false && !ParamInstance.IsValid()) return true;
-  return !Sun.IsValid() || !Sky.IsValid() || !Fog.IsValid();
+  return (bHadParams && !ParamInstance.IsValid()) || (bHadSun && !Sun.IsValid()) || (bHadSky && !Sky.IsValid()) ||
+         (bHadFog && !Fog.IsValid());
+}
+
+void FPlayMoodDirector::WarnMissing() {
+  if (bWarned) return;
+  bWarned = true;
+  if (!bHadSun) UE_LOG(LogPlay, Warning, TEXT("Mood: the level has no DirectionalLight actor; sun fields are ignored"));
+  if (!bHadSky) UE_LOG(LogPlay, Warning, TEXT("Mood: the level has no SkyLight actor; sky fields are ignored"));
+  if (!bHadFog) UE_LOG(LogPlay, Warning, TEXT("Mood: the level has no ExponentialHeightFog actor; fog fields are ignored"));
 }
 
 bool FPlayMoodDirector::FindActors(UWorld& World) {
   bool bChanged = false;
+  bHadSun = bHadSun && Sun.IsValid();
+  bHadSky = bHadSky && Sky.IsValid();
+  bHadFog = bHadFog && Fog.IsValid();
+  bHadParams = bHadParams && ParamInstance.IsValid();
   if (!Sun.IsValid()) {
     if (ADirectionalLight* Found = PickSun(World)) {
       Sun = Found;
+      bHadSun = true;
       UDirectionalLightComponent* C = Cast<UDirectionalLightComponent>(Found->GetLightComponent());
       SunBase = {Found->GetActorRotation(), C->Intensity, C->GetLightColor(), C->bUseTemperature, C->Temperature,
                  C->LightSourceAngle};
@@ -75,6 +88,7 @@ bool FPlayMoodDirector::FindActors(UWorld& World) {
     for (TActorIterator<ASkyLight> It(&World); It; ++It) {
       if (It->IsActorBeingDestroyed()) continue;
       Sky = *It;
+      bHadSky = true;
       USkyLightComponent* C = It->GetLightComponent();
       SkyBase = {C->Intensity, C->GetLightColor()};
       UE_LOG(LogPlay, Log, TEXT("Mood: sky light %s base intensity %.2f"), *It->GetName(), SkyBase.Intensity);
@@ -86,6 +100,7 @@ bool FPlayMoodDirector::FindActors(UWorld& World) {
     for (TActorIterator<AExponentialHeightFog> It(&World); It; ++It) {
       if (It->IsActorBeingDestroyed()) continue;
       Fog = *It;
+      bHadFog = true;
       UExponentialHeightFogComponent* C = It->GetComponent();
       FogBase = {C->FogDensity, C->FogHeightFalloff, C->FogInscatteringLuminance, C->StartDistance};
       UE_LOG(LogPlay, Log, TEXT("Mood: height fog %s base density %.4f falloff %.3f max opacity %.2f start %.0f z %.0f volumetric %d"),
@@ -104,6 +119,7 @@ bool FPlayMoodDirector::FindActors(UWorld& World) {
     UMaterialParameterCollectionInstance* Instance = World.GetParameterCollectionInstance(Collection);
     if (Instance != ParamInstance.Get()) {
       ParamInstance = Instance;
+      bHadParams = true;
       ScalarBase.Reset();
       VectorBase.Reset();
       for (const FCollectionScalarParameter& P : Collection->ScalarParameters) {
@@ -127,6 +143,7 @@ bool FPlayMoodDirector::FindActors(UWorld& World) {
 void FPlayMoodDirector::Apply(UWorld& World, int32 Index) {
   check(Settings.Moods.IsValidIndex(Index));
   FindActors(World);
+  WarnMissing();
   CurrentIndex = Index;
   const FPlayMoodEntry& Mood = Settings.Moods[Index];
   ApplyToActors(World, Mood);

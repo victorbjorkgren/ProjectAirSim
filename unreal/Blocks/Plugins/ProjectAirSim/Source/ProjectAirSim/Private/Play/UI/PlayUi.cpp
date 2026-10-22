@@ -523,7 +523,7 @@ TSharedRef<SWidget> SPlayUi::BuildScreen(EPlayScreen Screen) {
       Add(TEXT("RESUME"), true, [A]() { if (A.Resume) A.Resume(); });
       Add(TEXT("RESTART"), true, [A]() { if (A.Restart) A.Restart(); });
       if (Model->MoodNames.Num() > 0) {
-        const FString MoodName = Model->MoodNames.IsValidIndex(Model->CurrentMood) ? Model->MoodNames[Model->CurrentMood] : FString();
+        const FString MoodName = Model->MoodNames.IsValidIndex(Model->CurrentMood) ? Model->MoodNames[Model->CurrentMood] : FString(TEXT("DEFAULT"));
         Add(FString::Printf(TEXT("MOOD: %s"), *MoodName), true, [A]() { if (A.OpenMood) A.OpenMood(); });
       }
       Add(TEXT("BACK TO TITLE"), true, [A]() { if (A.BackToTitle) A.BackToTitle(); });

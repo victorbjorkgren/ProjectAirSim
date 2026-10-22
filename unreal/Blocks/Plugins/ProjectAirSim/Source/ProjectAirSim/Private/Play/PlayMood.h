@@ -53,6 +53,7 @@ class FPlayMoodDirector {
 
   bool FindActors(UWorld& World);
   bool ActorsStale() const;
+  void WarnMissing();
   void ApplyToActors(UWorld& World, const FPlayMoodEntry& Mood);
   void ApplyGrade(UWorld& World, const FPlayMoodEntry& Mood);
   void ApplyParams(UWorld& World, const FPlayMoodEntry& Mood);
@@ -60,6 +61,9 @@ class FPlayMoodDirector {
   const UPlaySettings& Settings;
   TFunction<void(const FPostProcessSettings&)> GradeSink;
   int32 CurrentIndex = INDEX_NONE;
+  // What was found at the last search: a missing class (NPG has no light actors) is not stale, only a lost one is.
+  bool bHadSun = false, bHadSky = false, bHadFog = false, bHadParams = false;
+  bool bWarned = false;
   double NextCheck = 0.0;
 
   TWeakObjectPtr<ADirectionalLight> Sun;

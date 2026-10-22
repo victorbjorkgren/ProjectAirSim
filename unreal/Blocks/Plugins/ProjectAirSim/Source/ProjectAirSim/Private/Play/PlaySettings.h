@@ -64,8 +64,10 @@ struct FPlaySpawnEntry {
 // One mood: the look of the level (sun, sky, fog, grade). A field left at its
 // "unset" value keeps what the level shipped with, so a mood lists only what
 // it changes. The play mode finds the level's DirectionalLight, SkyLight and
-// ExponentialHeightFog by class and adds an unbound post process volume of its
-// own for the grade; no project actor is named here.
+// ExponentialHeightFog actors by class (a level whose sun and sky are
+// components of a blueprint has none: those fields are ignored with a warning,
+// and Commands can drive the project's own director) and grades the play
+// camera; no project actor is named here.
 USTRUCT()
 struct FPlayMoodEntry {
   GENERATED_BODY()
