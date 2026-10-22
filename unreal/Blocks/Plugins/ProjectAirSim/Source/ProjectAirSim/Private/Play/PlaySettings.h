@@ -110,8 +110,9 @@ struct FPlayMoodEntry {
   // Console commands run after the look is applied, separated by ';' (for
   // example a project's own weather director: "npg.Mood GoldenHour").
   UPROPERTY() FString Commands;
-  // Scale of the sun's visible disc in the atmosphere sky (1 = the level's own, 0 = no disc). The light still shines.
-  UPROPERTY() float SunDiscScale = kUnset;
+  // Hides every static mesh component with a material whose name contains this text while the mood is on (a level
+  // whose sun is a mesh of its own, driven by a material parameter, shows it as a dark disc when the parameter is 0).
+  UPROPERTY() FString HideMeshMaterial;
   // The drone's lights this mood starts with: -1 leaves them as the player set them, 0 off, 1 on.
   UPROPERTY() int32 Flashlight = -1;
   UPROPERTY() int32 NavLights = -1;

@@ -7,6 +7,8 @@
 #include "Components/DirectionalLightComponent.h"
 #include "Components/ExponentialHeightFogComponent.h"
 #include "Components/SkyLightComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Materials/MaterialInterface.h"
 #include "Engine/DirectionalLight.h"
 #include "Engine/Engine.h"
 #include "Engine/ExponentialHeightFog.h"
@@ -77,7 +79,7 @@ bool FPlayMoodDirector::FindActors(UWorld& World) {
       bHadSun = true;
       UDirectionalLightComponent* C = Cast<UDirectionalLightComponent>(Found->GetLightComponent());
       SunBase = {Found->GetActorRotation(), C->Intensity, C->GetLightColor(), C->bUseTemperature, C->Temperature,
-                 C->LightSourceAngle, C->AtmosphereSunDiskColorScale};
+                 C->LightSourceAngle};
       UE_LOG(LogPlay, Log, TEXT("Mood: sun %s base elevation %.1f yaw %.1f intensity %.1f temp %d/%.0f angle %.2f"),
              *Found->GetName(), -SunBase.Rotation.Pitch, SunBase.Rotation.Yaw, SunBase.Intensity,
              SunBase.bUseTemperature, SunBase.Temperature, SunBase.SourceAngle);
@@ -149,6 +151,7 @@ void FPlayMoodDirector::Apply(UWorld& World, int32 Index) {
   ApplyToActors(World, Mood);
   ApplyGrade(World, Mood);
   ApplyParams(World, Mood);
+  ApplyHidden(World, Mood);
   TArray<FString> Commands;
   Mood.Commands.ParseIntoArray(Commands, TEXT(";"), true);
   for (const FString& Command : Commands) {
@@ -182,7 +185,6 @@ void FPlayMoodDirector::ApplyToActors(UWorld&, const FPlayMoodEntry& M) {
     C->SetUseTemperature(IsSet(M.SunTemperatureK) ? true : SunBase.bUseTemperature);
     C->SetTemperature(IsSet(M.SunTemperatureK) ? M.SunTemperatureK : SunBase.Temperature);
     C->SetLightSourceAngle(IsSet(M.SunSourceAngleDeg) ? M.SunSourceAngleDeg : SunBase.SourceAngle);
-    C->SetAtmosphereSunDiskColorScale(IsSet(M.SunDiscScale) ? SunBase.DiscScale * M.SunDiscScale : SunBase.DiscScale);
   }
   if (ASkyLight* K = Sky.Get()) {
     USkyLightComponent* C = K->GetLightComponent();
@@ -226,6 +228,28 @@ void FPlayMoodDirector::ApplyGrade(UWorld&, const FPlayMoodEntry& M) {
     S.ColorGainHighlights = FVector4(M.HighlightTint.R, M.HighlightTint.G, M.HighlightTint.B, 1.f);
   }
   GradeSink(S);
+}
+
+void FPlayMoodDirector::ApplyHidden(UWorld& World, const FPlayMoodEntry& M) {
+  for (const TPair<TWeakObjectPtr<UPrimitiveComponent>, bool>& Entry : HiddenByMood) {
+    if (UPrimitiveComponent* C = Entry.Key.Get()) C->SetHiddenInGame(Entry.Value);
+  }
+  HiddenByMood.Reset();
+  if (M.HideMeshMaterial.IsEmpty()) return;
+  for (TObjectIterator<UStaticMeshComponent> It; It; ++It) {
+    UStaticMeshComponent* C = *It;
+    if (C->GetWorld() != &World) continue;
+    bool bMatch = false;
+    for (int32 I = 0; I < C->GetNumMaterials() && !bMatch; ++I) {
+      const UMaterialInterface* Material = C->GetMaterial(I);
+      bMatch = Material && Material->GetMaterial()->GetName().Contains(M.HideMeshMaterial);
+    }
+    if (!bMatch) continue;
+    HiddenByMood.Emplace(C, static_cast<bool>(C->bHiddenInGame));
+    C->SetHiddenInGame(true);
+    UE_LOG(LogPlay, Log, TEXT("Mood '%s': hid %s at %s"), *M.Name, *C->GetPathName(), *C->GetComponentLocation().ToString());
+  }
+  if (HiddenByMood.Num() == 0) UE_LOG(LogPlay, Warning, TEXT("Mood '%s': no mesh uses a material named '%s'"), *M.Name, *M.HideMeshMaterial);
 }
 
 void FPlayMoodDirector::ApplyParams(UWorld&, const FPlayMoodEntry& M) {
