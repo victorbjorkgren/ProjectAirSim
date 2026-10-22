@@ -17,6 +17,7 @@ struct FPlayTestHooks {
   TFunction<void()> TakeoffLand;
   TFunction<FString()> ScreenName;
   TFunction<FString()> HudText;
+  TFunction<void(const FVector2D&)> Cursor;
   TFunction<void()> Quit;
 };
 
@@ -27,10 +28,11 @@ struct FPlayTestHooks {
 //   wait <seconds>
 //   key <Name> [count]            presses 0.3 s apart, each held 0.12 s (Down, Enter, Escape, Tab, W ...)
 //   keydown <Name> / keyup <Name>
-//   expect <screen>               title|map|mode|spawn|vehicle|pause|loading|flying; a mismatch is fatal
+//   expect <screen>               title|map|mode|mood|spawn|vehicle|pause|loading|flying; a mismatch is fatal
 //   waitscreen <screen> <timeout> waits for a screen; a timeout is fatal
 //   shot <name>                   PNG with the UI to $PLAY_TEST_SHOT_DIR (default Saved/PlayShots)
 //   stick <vx> <vy> <vz> <yaw_rate> <seconds>   holds that stick state, then releases it
+//   cursor <x> <y>                moves the mouse pointer (screen pixels); a pointer resting over a menu item takes the keyboard focus
 //   takeoff                       the take-off/land press
 //   log <text...>                 writes the line and the HUD text to the log
 //   quit

@@ -419,6 +419,7 @@ FReply SPlayUi::OnKeyDown(const FGeometry&, const FKeyEvent& KeyEvent) {
   switch (Current) {
     case EPlayScreen::Map:
     case EPlayScreen::Mode:
+    case EPlayScreen::Mood:
     case EPlayScreen::Vehicle:
     case EPlayScreen::Spawn:
       if (Actions.Back) Actions.Back();
@@ -502,6 +503,15 @@ TSharedRef<SWidget> SPlayUi::BuildScreen(EPlayScreen Screen) {
       Add(TEXT("BACK"), true, [A]() { if (A.Back) A.Back(); });
       return MakePanel(TEXT("MODE"), Items);
     }
+    case EPlayScreen::Mood: {
+      for (int32 I = 0; I < Model->MoodNames.Num(); ++I) {
+        Add(Model->MoodNames[I], true, [A, I]() { if (A.PickMood) A.PickMood(I); });
+        // The current mood is where the keyboard starts.
+        if (I == Model->CurrentMood) FirstFocus = Items->GetChildren()->GetChildAt(Items->GetChildren()->Num() - 1);
+      }
+      Add(TEXT("BACK"), true, [A]() { if (A.Back) A.Back(); });
+      return MakePanel(TEXT("MOOD"), Items);
+    }
     case EPlayScreen::Vehicle: {
       for (int32 I = 0; I < Model->VehicleNames.Num(); ++I) {
         Add(Model->VehicleNames[I], true, [A, I]() { if (A.PickVehicle) A.PickVehicle(I); });
@@ -512,6 +522,10 @@ TSharedRef<SWidget> SPlayUi::BuildScreen(EPlayScreen Screen) {
     case EPlayScreen::Pause: {
       Add(TEXT("RESUME"), true, [A]() { if (A.Resume) A.Resume(); });
       Add(TEXT("RESTART"), true, [A]() { if (A.Restart) A.Restart(); });
+      if (Model->MoodNames.Num() > 0) {
+        const FString MoodName = Model->MoodNames.IsValidIndex(Model->CurrentMood) ? Model->MoodNames[Model->CurrentMood] : FString(TEXT("DEFAULT"));
+        Add(FString::Printf(TEXT("MOOD: %s"), *MoodName), true, [A]() { if (A.OpenMood) A.OpenMood(); });
+      }
       Add(TEXT("BACK TO TITLE"), true, [A]() { if (A.BackToTitle) A.BackToTitle(); });
       return MakePanel(TEXT("PAUSED"), Items);
     }

@@ -7,6 +7,7 @@
 #include "CoreMinimal.h"
 #include "Play/Audio/PlayAudio.h"
 #include "Play/PlayInputMap.h"
+#include "Play/PlayMood.h"
 #include "Play/PlayShared.h"
 #include "Play/PlayTestScript.h"
 #include "Play/UI/PlayUi.h"
@@ -41,6 +42,8 @@ class AProjectAirSimPlayGameMode : public AProjectAirSimGameMode {
   void GoTo(EPlayScreen Screen);
   void Launch(const FPlayRunRequest& Request);
   void StopRun();
+  void SelectMood(int32 Index);
+  void ContinueFromMode();
   void ApplyInputMode(bool bUi);
 
   AUnrealRobot* FindRobot();
@@ -58,6 +61,7 @@ class AProjectAirSimPlayGameMode : public AProjectAirSimGameMode {
   // The screen the player sees, and the choices made on the way to a launch.
   EPlayScreen Screen = EPlayScreen::Intro;
   int32 SelectedMode = 0;
+  bool bMoodFromPause = false;
   bool bHasSpawn = false;
   FVector3d SpawnNed = FVector3d::ZeroVector;
   FPlayRunRequest LastRequest;
@@ -73,6 +77,7 @@ class AProjectAirSimPlayGameMode : public AProjectAirSimGameMode {
   TSharedPtr<SPlayUi> Ui;
   TSharedPtr<FPlayShared, ESPMode::ThreadSafe> Shared;
   UPROPERTY() TObjectPtr<UPlayAudio> Audio;
+  TUniquePtr<FPlayMoodDirector> MoodDirector;
   FPlayInputMap InputMap;
   FPlayUiActions Actions;
   TUniquePtr<FPlayTestScript> TestScript;
