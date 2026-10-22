@@ -27,11 +27,13 @@ class FImagePackingAsyncTask : public FNonAbandonableTask {
           InCaptureResults,
       microsoft::projectairsim::Transform InCapturedCameraTransform,
       microsoft::projectairsim::Camera InCamera,
-      std::vector<microsoft::projectairsim::Annotation>&& InAnnotations)
+      std::vector<microsoft::projectairsim::Annotation>&& InAnnotations,
+      FCaptureTimes InTimes = FCaptureTimes())
       : CaptureResults(std::move(InCaptureResults)),
         CapturedCameraTransform(InCapturedCameraTransform),
         Camera(InCamera),
-        Annotations(InAnnotations) {}
+        Annotations(InAnnotations),
+        Times(InTimes) {}
 
   void DoWork();  // the method that will execute when thread is started
 
@@ -45,4 +47,5 @@ class FImagePackingAsyncTask : public FNonAbandonableTask {
   microsoft::projectairsim::Transform CapturedCameraTransform;
   microsoft::projectairsim::Camera Camera;
   std::vector<microsoft::projectairsim::Annotation> Annotations;
+  FCaptureTimes Times;
 };

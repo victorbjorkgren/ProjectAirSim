@@ -17,6 +17,7 @@
 #include "LensRemap.h"
 #include "Materials/Material.h"
 #include "UnrealSensor.h"
+#include "CameraTiming.h"
 #include "core_sim/clock.hpp"
 #include "core_sim/sensors/camera.hpp"
 
@@ -33,6 +34,7 @@
 
 class AUnrealScene;
 class FCaptureReadbackPipeline;
+class FReadbackPoller;
 class FThermalSensorModel;
 
 struct ImageRequest {
@@ -172,7 +174,8 @@ class UUnrealCamera : public UUnrealSensor {
 
   void OnRendered(
       microsoft::projectairsim::Transform CapturedCameraTransform,
-      std::vector<microsoft::projectairsim::Annotation> Annotations);
+      std::vector<microsoft::projectairsim::Annotation> Annotations,
+      FCaptureTimes Times);
 
   // For bounding box calculations
   void CalculateProjectionMatrix();
@@ -231,9 +234,16 @@ class UUnrealCamera : public UUnrealSensor {
   // Captures whose pixels are still on their way from the GPU. Created in
   // BeginPlay, used by the game thread (count) and the render thread (queue).
   TSharedPtr<FCaptureReadbackPipeline, ESPMode::ThreadSafe> ReadbackPipeline;
+  // Optional 1 ms poller of the readbacks (projectairsim.Camera.FastReadbackPoll).
+  TSharedPtr<FReadbackPoller, ESPMode::ThreadSafe> ReadbackPoller;
 
   // Timestamp stored to limit capture rate for enqueuing next capture
   TimeNano CapturedTime = 0;
+
+  // Latency instrumentation (see CameraTiming.h): game thread only.
+  int64 CaptureCount = 0;
+  int32 TicksSinceCapture = 0;
+  int64 LastTickNs = 0;
 
   FMatrix ProjectionMatrix;
 

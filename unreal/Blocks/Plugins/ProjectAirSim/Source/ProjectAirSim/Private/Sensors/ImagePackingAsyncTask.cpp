@@ -10,12 +10,15 @@
 #include "UnrealCamera.h"
 #include "ThermalSensorModel.h"
 #include "UnrealLogger.h"
+#include "core_sim/clock.hpp"
 #include "core_sim/message/image_message.hpp"
 #include "UnrealLogger.h"
 
 namespace projectairsim = microsoft::projectairsim;
 
 void FImagePackingAsyncTask::DoWork() {
+  const bool bTiming = CameraTiming::Enabled();
+  if (bTiming) Times.PackBeginNs = CameraTiming::WallNs();
   std::map<projectairsim::ImageType, projectairsim::ImageMessage> ImageMessages;
 
   for (auto& [ImageRequest, RenderResult] : CaptureResults) {
@@ -229,5 +232,10 @@ void FImagePackingAsyncTask::DoWork() {
   }
 
   // Publish the whole pack of image messages
+  if (bTiming) Times.PackEndNs = CameraTiming::WallNs();
   Camera.PublishImages(std::move(ImageMessages));
+  if (bTiming) {
+    CameraTiming::LogRow(Times, CameraTiming::WallNs(),
+                         projectairsim::SimClock::Get()->NowSimNanos());
+  }
 }
