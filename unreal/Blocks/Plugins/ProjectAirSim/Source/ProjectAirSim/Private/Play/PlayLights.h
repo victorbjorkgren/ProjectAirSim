@@ -70,15 +70,19 @@ class FPlayLights {
 
  private:
   struct FNavLight {
-    UPointLightComponent* Light = nullptr;
-    UProceduralMeshComponent* Glow = nullptr;
-    UMaterialInstanceDynamic* Material = nullptr;
+    // Weak: the robot actor owns the components and a scene unload frees them (and the glow's material instance)
+    // at the next garbage collection, so nothing here may be dereferenced without checking it is still alive.
+    TWeakObjectPtr<UPointLightComponent> Light;
+    TWeakObjectPtr<UProceduralMeshComponent> Glow;
+    TWeakObjectPtr<UMaterialInstanceDynamic> Material;
   };
 
   void Load();
   void Save() const;
   void Attach(UWorld& World, AActor& Robot);
   void Detach();
+  // Every component built for the attached robot is still alive.
+  bool Intact() const;
   FNavLight MakeNav(AActor& Robot, const TCHAR* Name, const FVector& Bounds, const FString& Socket, const FBox& Box);
   USceneComponent* SocketParent(AActor& Robot, const FString& Socket) const;
   FBox LocalBounds(AActor& Robot) const;
@@ -90,7 +94,7 @@ class FPlayLights {
   FString StorePath;
   TSharedRef<FPlayLightsState> StateRef;
   TWeakObjectPtr<AActor> Attached;
-  USpotLightComponent* Spot = nullptr;
+  TWeakObjectPtr<USpotLightComponent> Spot;
   FNavLight Nav[3];
   UMaterialInterface* GlowBase = nullptr;
   double NextForeignCheck = 0.0;

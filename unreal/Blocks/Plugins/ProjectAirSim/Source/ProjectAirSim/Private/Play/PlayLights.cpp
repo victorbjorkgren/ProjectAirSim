@@ -265,8 +265,9 @@ FPlayLights::FNavLight FPlayLights::MakeNav(AActor& Robot, const TCHAR* Name, co
   Out.Glow->SetCastShadow(false);
   Out.Glow->bUseAsyncCooking = false;
   BuildSphere(*Out.Glow);
-  Out.Material = UMaterialInstanceDynamic::Create(GlowBase, Out.Glow);
-  Out.Glow->SetMaterial(0, Out.Material);
+  UMaterialInstanceDynamic* Material = UMaterialInstanceDynamic::Create(GlowBase, Out.Glow.Get());
+  Out.Material = Material;
+  Out.Glow->SetMaterial(0, Material);
   Out.Glow->RegisterComponent();
   return Out;
 }
@@ -311,15 +312,23 @@ void FPlayLights::Attach(UWorld&, AActor& Robot) {
 void FPlayLights::Detach() {
   // A robot that is still alive (the play mode moved on to another) loses its lights; a destroyed one took them along.
   if (Attached.IsValid()) {
-    if (Spot) Spot->DestroyComponent();
+    if (USpotLightComponent* S = Spot.Get()) S->DestroyComponent();
     for (FNavLight& N : Nav) {
-      if (N.Light) N.Light->DestroyComponent();
-      if (N.Glow) N.Glow->DestroyComponent();
+      if (UPointLightComponent* L = N.Light.Get()) L->DestroyComponent();
+      if (UProceduralMeshComponent* G = N.Glow.Get()) G->DestroyComponent();
     }
   }
-  Spot = nullptr;
+  Spot.Reset();
   for (FNavLight& N : Nav) N = FNavLight();
   Attached.Reset();
+}
+
+bool FPlayLights::Intact() const {
+  if (!Attached.IsValid() || !Spot.IsValid()) return false;
+  for (const FNavLight& N : Nav) {
+    if (!N.Light.IsValid() || !N.Glow.IsValid() || !N.Material.IsValid()) return false;
+  }
+  return true;
 }
 
 bool FPlayLights::HasForeignSpot(AActor& Robot) const {
@@ -336,21 +345,27 @@ void FPlayLights::UpdateColours(double Seconds) {
   const FPlayLightsState& S = *StateRef;
   const FColor Colours[3] = {S.Left, S.Right, S.Tail};
   for (int32 Role = 0; Role < 3; ++Role) {
-    FNavLight& N = Nav[Role];
+    const FNavLight& N = Nav[Role];
+    UPointLightComponent* Light = N.Light.Get();
+    UProceduralMeshComponent* Glow = N.Glow.Get();
+    UMaterialInstanceDynamic* Material = N.Material.Get();
+    check(Light && Glow && Material);
     const bool bPresent = S.bNav && (Role != 2 || S.bTail);
     const float Factor = bPresent ? Pattern(S.Mode, Role, S.bTail, Seconds) : 0.f;
     const FLinearColor Colour = ToLinear(Colours[Role]);
-    N.Light->SetVisibility(Factor > 0.01f);
-    N.Light->SetLightColor(Colour);
-    N.Light->SetIntensity(Settings.NavLightLumens * Factor);
-    N.Glow->SetVisibility(Factor > 0.01f);
-    N.Material->SetVectorParameterValue(TEXT("Color"), Colour * (Settings.NavGlowBrightness * Factor));
+    Light->SetVisibility(Factor > 0.01f);
+    Light->SetLightColor(Colour);
+    Light->SetIntensity(Settings.NavLightLumens * Factor);
+    Glow->SetVisibility(Factor > 0.01f);
+    Material->SetVectorParameterValue(TEXT("Color"), Colour * (Settings.NavGlowBrightness * Factor));
   }
 }
 
 void FPlayLights::Tick(UWorld& World, AActor* Robot, double WallSeconds) {
   if (Attached.IsValid() && Attached.Get() != Robot) Detach();
   if (!Robot) return;
+  // A scene unload can free the components while the robot pointer still compares equal, or replace the robot.
+  if (Attached.IsValid() && !Intact()) Detach();
   if (!Attached.IsValid()) Attach(World, *Robot);
 
   FPlayLightsState& S = *StateRef;
@@ -360,6 +375,6 @@ void FPlayLights::Tick(UWorld& World, AActor* Robot, double WallSeconds) {
   }
   S.bFlashlightYielded = bForeignSpot;
   const bool bOn = S.bFlashlight && !bForeignSpot;
-  Spot->SetVisibility(bOn);
+  Spot.Get()->SetVisibility(bOn);
   UpdateColours(WallSeconds);
 }
