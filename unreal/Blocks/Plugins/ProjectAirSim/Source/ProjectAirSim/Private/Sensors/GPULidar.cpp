@@ -253,7 +253,7 @@ void UGPULidar::EndPlay(const EEndPlayReason::Type EndPlayReason) {
 }
 
 void UGPULidar::InitializePose() {
-  SetRelativeTransform(UnrealTransform::FromGlobalNed(Settings.origin));
+  SetRelativeTransformIgnoringParentScale(UnrealTransform::FromGlobalNed(Settings.origin));
 
   // Check that the initial pose was set correctly
   projectairsim::Transform InitializedPose = UnrealTransform::GetPoseNed(this);
