@@ -95,7 +95,7 @@ void UUnrealRadar::EndPlay(const EEndPlayReason::Type EndPlayReason) {
 }
 
 void UUnrealRadar::InitializePose(const projectairsim::Transform& PoseNed) {
-  SetRelativeTransform(UnrealTransform::FromGlobalNed(PoseNed));
+  SetRelativeTransformIgnoringParentScale(UnrealTransform::FromGlobalNed(PoseNed));
 
   // Check that the initial pose was set correctly
   projectairsim::Transform InitializedPose = UnrealTransform::GetPoseNed(this);

@@ -516,7 +516,7 @@ void UUnrealCamera::SetRelativePoseFromNed(
   // the spring arm attached at the parent link if gimbal rotation
   // stabilization is configured)
   FTransform DesiredPose = UnrealTransform::FromGlobalNed(PoseNed);
-  this->SetRelativeTransform(DesiredPose);
+  this->SetRelativeTransformIgnoringParentScale(DesiredPose);
 }
 
 void UUnrealCamera::UpdateCameraSettings() {

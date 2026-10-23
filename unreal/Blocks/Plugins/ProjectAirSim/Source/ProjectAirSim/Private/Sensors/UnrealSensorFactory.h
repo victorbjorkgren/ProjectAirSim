@@ -128,12 +128,14 @@ class PROJECTAIRSIM_API UnrealSensorFactory {
         lidar->Initialize(sim_lidar);
         lidar->AttachToComponent(
             Parent, FAttachmentTransformRules::KeepRelativeTransform);
+        lidar->CancelParentScale();
         Sensor = lidar;
       } else {
         auto lidar = NewObject<UUnrealLidar>(Parent, Id.c_str());
         lidar->Initialize(sim_lidar);
         lidar->AttachToComponent(
             Parent, FAttachmentTransformRules::KeepRelativeTransform);
+        lidar->CancelParentScale();
         Sensor = lidar;
       }
     } else if (SimSensor.GetType() ==
@@ -149,6 +151,7 @@ class PROJECTAIRSIM_API UnrealSensorFactory {
       distance_sensor->Initialize(sim_distance_sensor);
       distance_sensor->AttachToComponent(
           Parent, FAttachmentTransformRules::KeepRelativeTransform);
+      distance_sensor->CancelParentScale();
       Sensor = distance_sensor;
     } else if (SimSensor.GetType() ==
                microsoft::projectairsim::SensorType::kDistanceSensor) {
@@ -163,6 +166,7 @@ class PROJECTAIRSIM_API UnrealSensorFactory {
       distance_sensor->Initialize(sim_distance_sensor);
       distance_sensor->AttachToComponent(
           Parent, FAttachmentTransformRules::KeepRelativeTransform);
+      distance_sensor->CancelParentScale();
       Sensor = distance_sensor;
     } else if (SimSensor.GetType() ==
                microsoft::projectairsim::SensorType::kRadar) {
@@ -176,6 +180,7 @@ class PROJECTAIRSIM_API UnrealSensorFactory {
       radar->Initialize(sim_radar);
       radar->AttachToComponent(
           Parent, FAttachmentTransformRules::KeepRelativeTransform);
+      radar->CancelParentScale();
       Sensor = radar;
     } else if (SimSensor.GetType() ==
                microsoft::projectairsim::SensorType::kGps) {
