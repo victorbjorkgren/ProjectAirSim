@@ -78,7 +78,7 @@ bool FPlayMoodDirector::FindActors(UWorld& World) {
       Sun = Found;
       bHadSun = true;
       UDirectionalLightComponent* C = Cast<UDirectionalLightComponent>(Found->GetLightComponent());
-      SunBase = {Found->GetActorRotation(), C->Intensity, C->GetLightColor(), C->bUseTemperature, C->Temperature,
+      SunBase = {Found->GetActorRotation(), C->Intensity, C->GetLightColor(), C->bUseTemperature != 0, C->Temperature,
                  C->LightSourceAngle};
       UE_LOG(LogPlay, Log, TEXT("Mood: sun %s base elevation %.1f yaw %.1f intensity %.1f temp %d/%.0f angle %.2f"),
              *Found->GetName(), -SunBase.Rotation.Pitch, SunBase.Rotation.Yaw, SunBase.Intensity,
