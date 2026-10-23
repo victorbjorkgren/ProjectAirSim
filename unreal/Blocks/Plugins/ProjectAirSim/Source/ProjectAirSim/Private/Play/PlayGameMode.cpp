@@ -11,12 +11,14 @@
 #include "EngineUtils.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PlayerInput.h"
+#include "HAL/FileManager.h"
 #include "HAL/PlatformFileManager.h"
 #include "IImageWrapper.h"
 #include "IImageWrapperModule.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Misc/FileHelper.h"
+#include "Misc/PackageName.h"
 #include "Misc/Paths.h"
 #include "Modules/ModuleManager.h"
 #include "Play/PlayCameraActor.h"
@@ -25,6 +27,7 @@
 #include "Framework/Application/SlateApplication.h"
 #include "Misc/CoreDelegates.h"
 #include "Robot/UnrealRobot.h"
+#include "UnrealTransforms.h"
 #include "UnrealClient.h"
 #include "SpawnPoint.h"
 #include "Styling/SlateBrush.h"
@@ -536,6 +539,7 @@ void AProjectAirSimPlayGameMode::TickFlight(APlayerController& Controller, float
   if (In.Pressed(EPlayButton::NavLights)) Lights->ToggleNav();
   if (In.Pressed(EPlayButton::LightPreset)) Lights->CyclePreset();
   if (In.Pressed(EPlayButton::LightMode)) Lights->CycleMode();
+  if (In.Pressed(EPlayButton::Bookmark)) SaveBookmark();
   TiltDegrees = FMath::Clamp(TiltDegrees + In.Axis(EPlayAxis::CameraTilt) * kTiltRateDegPerSec * WallDelta,
                              kTiltMinDeg, kTiltMaxDeg);
 
@@ -579,6 +583,7 @@ void AProjectAirSimPlayGameMode::UpdateHud(float WallDelta) {
   Model->HudStats = FString::Printf(TEXT("ALT %6.1f m   SPD %5.1f m/s   PRESET %2.0f m/s   CAM %s"), AltitudeM,
                                     SpeedMs, kPresetSpeeds[PresetIndex], CameraIndex == 0 ? TEXT("CHASE") : TEXT("FPV"));
   Model->HudStats += TEXT("\n") + Lights->HudText();
+  if (FPlatformTime::Seconds() < BookmarkNoteUntil) Model->HudStats += TEXT("\n") + BookmarkNote;
   // No thrust is published to the plugin side; the measured speed stands in for throttle.
   if (Audio && Screen == EPlayScreen::Flying) {
     Audio->RotorLoop(FMath::Clamp(0.25f + SpeedMs / 25.f, 0.f, 1.f));
@@ -602,6 +607,39 @@ void AProjectAirSimPlayGameMode::UpdateLaunchSequence() {
     Model->CurtainAlpha = static_cast<float>(1.0 - Lifted);
     if (Lifted >= 1.0) CurtainLiftSeconds = -1.0;
   }
+}
+
+namespace {
+// One pose as a JSON object: position in metres and quaternion, global NED (what set_pose takes).
+FString PoseJson(const FTransform& Unreal) {
+  const auto Ned = UnrealTransform::ToGlobalNed(Unreal);
+  return FString::Printf(TEXT("{\"xyz\":[%.4f,%.4f,%.4f],\"wxyz\":[%.6f,%.6f,%.6f,%.6f]}"), Ned.translation_.x(),
+                         Ned.translation_.y(), Ned.translation_.z(), Ned.rotation_.w(), Ned.rotation_.x(),
+                         Ned.rotation_.y(), Ned.rotation_.z());
+}
+}  // namespace
+
+void AProjectAirSimPlayGameMode::SaveBookmark() {
+  AUnrealRobot* Drone = Robot.Get();
+  if (!Drone || !Camera) return;
+  FString Mood = TEXT("none");
+  if (MoodDirector && Settings && Settings->Moods.IsValidIndex(MoodDirector->Current())) {
+    Mood = Settings->Moods[MoodDirector->Current()].Name;
+  }
+  const FString Map = FPackageName::GetShortName(GetWorld()->GetMapName());
+  ++BookmarkCount;
+  // "view" is what the player sees (chase or FPV camera); "drone" is the vehicle. A replay puts a camera at "view".
+  const FString Line = FString::Printf(
+      TEXT("{\"n\":%d,\"utc\":\"%s\",\"map\":\"%s\",\"mood\":\"%s\",\"camera\":\"%s\",\"tilt_deg\":%.1f,"
+           "\"drone\":%s,\"view\":%s}\n"),
+      BookmarkCount, *FDateTime::UtcNow().ToIso8601(), *Map, *Mood, CameraIndex == 0 ? TEXT("chase") : TEXT("fpv"),
+      TiltDegrees, *PoseJson(Drone->GetActorTransform()), *PoseJson(Camera->GetActorTransform()));
+  const FString Path = FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("Bookmarks") / (Map + TEXT(".jsonl")));
+  FFileHelper::SaveStringToFile(Line, *Path, FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM, &IFileManager::Get(),
+                                FILEWRITE_Append);
+  UE_LOG(LogPlay, Log, TEXT("Bookmark %d (%s, %s) -> %s"), BookmarkCount, *Map, *Mood, *Path);
+  BookmarkNote = FString::Printf(TEXT("BOOKMARK %d SAVED  (%s)"), BookmarkCount, *Mood);
+  BookmarkNoteUntil = FPlatformTime::Seconds() + 3.0;
 }
 
 void AProjectAirSimPlayGameMode::UpdateFootnotes() {
