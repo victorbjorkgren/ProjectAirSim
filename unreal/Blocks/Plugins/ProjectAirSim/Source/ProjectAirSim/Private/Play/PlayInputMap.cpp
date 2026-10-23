@@ -26,6 +26,7 @@ FPlayInputMap::FPlayInputMap() {
       {EPlayButton::NavLights, EKeys::N},
       {EPlayButton::LightPreset, EKeys::B},
       {EPlayButton::LightMode, EKeys::V},
+      {EPlayButton::Bookmark, EKeys::G},
   };
 }
 

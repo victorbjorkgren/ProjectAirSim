@@ -53,6 +53,8 @@ class AProjectAirSimPlayGameMode : public AProjectAirSimGameMode {
   void TickFlight(APlayerController& Controller, float WallDelta);
   void UpdateHud(float WallDelta);
   void UpdateFootnotes();
+  // G: appends the drone and view pose (global NED), the mood and the map to Saved/Bookmarks/<map>.jsonl.
+  void SaveBookmark();
   void UpdateLaunchSequence();
   void MuteProjectSounds();
   void LogFrameRate();
@@ -96,6 +98,9 @@ class AProjectAirSimPlayGameMode : public AProjectAirSimGameMode {
   static constexpr int32 kPresetCount = 4;
   int32 PresetIndex = 1;
   int32 CameraIndex = 0;
+  FString BookmarkNote;
+  double BookmarkNoteUntil = 0.0;
+  int32 BookmarkCount = 0;
   float TiltDegrees = 0.f;
   FVector LastRobotLocation = FVector::ZeroVector;
   bool bHaveLastRobotLocation = false;

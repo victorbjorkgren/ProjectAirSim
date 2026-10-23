@@ -11,9 +11,9 @@ class APlayerController;
 
 enum class EPlayAxis : uint8 { Forward, Right, Climb, Yaw, CameraTilt };
 enum class EPlayButton : uint8 {
-  PresetDown, PresetUp, TakeoffLand, CycleCamera, Pause, Confirm, Restart, Flashlight, NavLights, LightPreset, LightMode
+  PresetDown, PresetUp, TakeoffLand, CycleCamera, Pause, Confirm, Restart, Flashlight, NavLights, LightPreset, LightMode, Bookmark
 };
-constexpr int32 kPlayButtonCount = 11;
+constexpr int32 kPlayButtonCount = 12;
 
 struct FPlayAxisBinding {
   EPlayAxis Axis;
