@@ -91,6 +91,10 @@ public class ProjectAirSim : ModuleRules
             // if (buildType == "Debug")
             //     liststrIncludes.Add(PluginDirectory + "/SimLibs/lvmon/include");
 
+            // Assimp is only disabled on macOS (AssimpToProcMesh.h is guarded by __APPLE__); Linux links libassimp.a below.
+            if (Target.Platform != UnrealTargetPlatform.Mac)
+                liststrIncludes.Add(PluginDirectory + "/SimLibs/assimp/include");
+
             PrivateIncludePaths.AddRange(liststrIncludes);
         }
 
